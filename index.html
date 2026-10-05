@@ -1,0 +1,967 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trindade Adventure — trilhas e passeios de barco em Trindade, Paraty</title>
+<meta name="description" content="Trilha guiada até a Piscina Natural do Cachadaço, Cachoeira da Pedra que Engole e passeio de barco pela costa da Trindade. Guia local credenciado, grupos de até 20 pessoas. Trindade, Paraty — RJ.">
+<link rel="canonical" href="https://trindade-adventure.pages.dev/">
+<meta name="theme-color" content="#0d6b38" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#08150e" media="(prefers-color-scheme: dark)">
+<meta name="author" content="Trindade Adventure">
+<meta name="robots" content="index,follow">
+
+<!-- Pré-visualização ao colar o link no WhatsApp, Instagram e Facebook.
+     É por aí que a maior parte dos clientes chega. -->
+<meta property="og:type" content="website">
+<meta property="og:locale" content="pt_BR">
+<meta property="og:site_name" content="Trindade Adventure">
+<meta property="og:title" content="Trindade Adventure — trilhas e barco em Trindade, Paraty">
+<meta property="og:description" content="Trilha guiada até a Piscina Natural do Cachadaço e passeio de barco pela costa da Trindade. Guia local, grupos de até 20 pessoas.">
+<meta property="og:url" content="https://trindade-adventure.pages.dev/">
+<meta property="og:image" content="https://trindade-adventure.pages.dev/assets/og-v2.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Enseada de Trindade vista do alto, com a Mata Atlântica descendo até a praia">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/og-v2.jpg">
+
+<!-- Antes do primeiro desenho: marca o JavaScript e a preferência de
+     movimento, para a abertura não piscar nem animar quem pediu para parar. -->
+<script>
+(function(){var r=document.documentElement,p=false;r.classList.add('js');
+try{p=localStorage.getItem('trindade.motion')==='paused';var t=localStorage.getItem('trindade.tema');if(t==='dark'||t==='light')r.setAttribute('data-theme',t);}catch(e){}
+r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').matches?'paused':'running');})();
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://api.open-meteo.com">
+<!-- A fonte chega sem bloquear o desenho: até ela carregar, o texto aparece
+     na fonte do sistema, com métricas parecidas. -->
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap"></noscript>
+<link rel="stylesheet" href="estilo.css?v=20260924-icones">
+<link rel="preload" as="image" href="assets/og-v2-800.webp" imagesrcset="assets/og-v2-480.webp 480w, assets/og-v2-800.webp 800w, assets/og-v2-1200.webp 1200w" imagesizes="(max-width: 720px) 100vw, 1240px" fetchpriority="high">
+
+<!-- Dados estruturados: é o que permite ao Google mostrar preço, avaliação e
+     localização direto no resultado da busca por "passeio Trindade Paraty". -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TravelAgency",
+  "name": "Trindade Adventure",
+  "description": "Trilhas guiadas e passeios de barco em Trindade, Paraty — RJ. Guia local credenciado, grupos de até 20 pessoas por horário.",
+  "url": "https://trindade-adventure.pages.dev/",
+  "image": "https://trindade-adventure.pages.dev/assets/og-v2.jpg",
+  "telephone": "+5524993337247",
+  "priceRange": "R$ 70 - R$ 500",
+  "currenciesAccepted": "BRL",
+  "address": {
+    "@type": "PostalAddress",
+    "addressLocality": "Trindade",
+    "addressRegion": "RJ",
+    "addressCountry": "BR",
+    "streetAddress": "Praia do Meio — placa das trilhas"
+  },
+  "geo": { "@type": "GeoCoordinates", "latitude": -23.369, "longitude": -44.702 },
+  "areaServed": { "@type": "Place", "name": "Trindade, Paraty — RJ" },
+  "sameAs": ["https://instagram.com/trindadeadventurerj"],
+  "openingHoursSpecification": {
+    "@type": "OpeningHoursSpecification",
+    "dayOfWeek": ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"],
+    "opens": "08:00", "closes": "15:00"
+  },
+  "makesOffer": [
+    { "@type": "Offer", "name": "Trindade Essencial",
+      "description": "Trilha guiada pela Mata Atlântica até a piscina natural do Cachadaço, com água mineral inclusa. Cerca de 3 horas.",
+      "price": "70", "priceCurrency": "BRL", "availability": "https://schema.org/InStock" },
+    { "@type": "Offer", "name": "Trindade Adventure",
+      "description": "Roteiro completo com mergulho de snorkel na piscina natural, retorno pela Pedra que Engole, água mineral inclusa e almoço no Restaurante Hymbé. Cerca de 6 horas.",
+      "price": "150", "priceCurrency": "BRL", "availability": "https://schema.org/InStock" },
+    { "@type": "Offer", "name": "Trindade Boat",
+      "description": "Trilha e passeio de barco por cinco paradas na costa da Trindade, com mergulho de snorkel na piscina natural, água mineral inclusa e almoço no Restaurante Hymbé. Cerca de 8 horas.",
+      "price": "400", "priceCurrency": "BRL", "availability": "https://schema.org/InStock" }
+  ]
+}
+</script>
+</head>
+<body>
+<a class="pular" href="#conteudo">Pular para o conteúdo</a>
+
+<!-- Ícones desenhados uma vez e reaproveitados em toda a página. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="i-check" viewBox="0 0 16 16"><path d="M3 8.5l3.2 3.2L13 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-menos" viewBox="0 0 16 16"><path d="M4 8h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-seta" viewBox="0 0 16 16"><path d="M3 8h10M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-externo" viewBox="0 0 16 16"><path d="M6 3h7v7M13 3 4 12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-prato" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="2.4" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-relogio" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.8V8l2.2 1.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-wa" viewBox="0 0 24 24"><path fill="currentColor" d="M12.04 2C6.6 2 2.2 6.4 2.2 11.84c0 1.86.5 3.6 1.36 5.1L2 22l5.2-1.5a9.8 9.8 0 0 0 4.84 1.26h.01c5.43 0 9.84-4.4 9.84-9.84C21.9 6.4 17.48 2 12.04 2m5.72 13.9c-.24.68-1.4 1.3-1.94 1.34-.5.05-.95.24-3.2-.67-2.7-1.06-4.4-3.8-4.53-3.98-.13-.18-1.08-1.44-1.08-2.74 0-1.3.68-1.94.92-2.2.24-.27.53-.34.7-.34l.5.01c.16 0 .38-.06.6.45.22.53.75 1.84.82 1.97.07.13.11.29.02.47-.09.18-.13.29-.26.44l-.4.46c-.13.13-.27.28-.11.55.15.26.68 1.12 1.46 1.82 1 .89 1.85 1.17 2.11 1.3.27.14.42.12.58-.07.15-.18.66-.77.84-1.04.18-.26.35-.22.6-.13.24.09 1.55.73 1.81.86.27.13.44.2.5.31.07.11.07.63-.17 1.31"/></symbol>
+  <symbol id="i-ondas" viewBox="0 0 120 60"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M0 14q10-7 20 0t20 0 20 0 20 0 20 0 20 0"/><path d="M0 26q10-7 20 0t20 0 20 0 20 0 20 0 20 0"/><path d="M0 38q10-7 20 0t20 0 20 0 20 0 20 0 20 0"/><path d="M0 50q10-7 20 0t20 0 20 0 20 0 20 0 20 0"/></g></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-6.2-6.5-11.2a6.5 6.5 0 0 1 13 0C18.5 14.8 12 21 12 21z"/><circle cx="12" cy="9.8" r="2.4"/></g></symbol>
+  <symbol id="i-trilha" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 19.5 9 8l4 6.5 2.5-3.5 6 8.5z"/><path d="M11 19.5c.6-1.6 2.4-2.2 1.6-3.8" stroke-dasharray="1.4 2"/></g></symbol>
+  <symbol id="i-praia" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 21c-.2-4.4.4-8.4 1.8-11.5"/><path d="M14.3 9.5c-1.7-2.7-4.8-3.4-7.6-2.1 2.6.2 4.6 1 7.6 2.1zM14.3 9.5c.3-3.1 2.6-5.2 5.6-5.3-1.8 1.4-3.3 3-5.6 5.3zM14.3 9.5c2.9-.6 5.4.6 6.4 3.1-2.1-1.1-3.9-1.8-6.4-3.1z"/><path d="M4 21h16"/></g></symbol>
+  <symbol id="i-onda" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5q2.25-2 4.5 0t4.5 0 4.5 0 4.5 0"/><path d="M3 15q2.25-2 4.5 0t4.5 0 4.5 0 4.5 0"/><path d="M3 19.5q2.25-2 4.5 0t4.5 0 4.5 0 4.5 0"/></g></symbol>
+  <symbol id="i-mergulho" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h12.5a1.5 1.5 0 0 1 1.5 1.5v2.2a3.3 3.3 0 0 1-3.3 3.3h-1.2l-1.6-2h-2.8l-1.6 2H6.3A3.3 3.3 0 0 1 3 13.2V10.5a1 1 0 0 1 1-1z"/><path d="M20.5 4v10.5a4.5 4.5 0 0 1-4.5 4.5h-2"/></g></symbol>
+  <symbol id="i-pedra" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19.5c.2-4.6 2.6-9 6.4-10.6 2.3-1 4.2-.4 5.8 1.2 2.6 2.6 5 5.3 5.8 9.4z"/><path d="M2 19.5h20"/></g></symbol>
+  <symbol id="i-almoco" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v7.5M4.8 3v4.8a2.2 2.2 0 0 0 4.4 0V3M7 10.5V21"/><path d="M17 21V3c-2.4 1.3-3.3 4.4-3.3 7.8H17"/></g></symbol>
+  <symbol id="i-volta" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12a7.5 7.5 0 1 0 2.3-5.4"/><path d="M4.5 4v4h4"/></g></symbol>
+</svg>
+
+<!-- Tempo e mar ao vivo, lidos da Open-Meteo: a primeira informação de quem
+     está decidindo se vale sair de casa hoje. -->
+<div id="climaBar" aria-label="Tempo e mar em Trindade" aria-live="polite"><div class="clima-skeleton" role="status"><span class="sr">Consultando tempo e mar de Trindade…</span><span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span></div></div>
+
+<header class="topbar">
+  <div class="topbar-in">
+    <a class="brand" href="#/inicio" aria-label="Trindade Adventure — início">
+      <svg class="wordmark" viewBox="0 0 1312 314" role="img" aria-label="Trindade Adventure">
+        <g transform="translate(50,44)">
+          <g transform="translate(0,32)">
+            <g fill="none" stroke="var(--logo-green)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 84 L38 22 L64 66"/><path d="M52 84 L80 40 L116 84"/>
+              <path d="M4 104 q14 -10 28 0 t28 0 t28 0 t28 0"/><path d="M18 126 q14 -10 28 0 t28 0 t28 0"/>
+            </g>
+          </g>
+          <g transform="translate(174,0)" fill="none" stroke="var(--logo-green)" stroke-width="8.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 16 H92 M50 16 V120"/>
+            <path d="M20 120 V14 H56 C86 14 86 68 56 68 H20 M54 68 L86 120" transform="translate(134,0)"/>
+            <path d="M50 14 V120" transform="translate(268,0)"/>
+            <path d="M18 120 V14 L82 120 V14" transform="translate(402,0)"/>
+            <path d="M20 14 V120 H48 C90 120 90 14 48 14 Z" transform="translate(536,0)"/>
+            <path d="M8 120 L50 14 L92 120 M26 76 H74" transform="translate(670,0)"/>
+            <path d="M20 14 V120 H48 C90 120 90 14 48 14 Z" transform="translate(804,0)"/>
+            <path d="M88 14 H20 V120 H88 M20 67 H72" transform="translate(938,0)"/>
+          </g>
+          <g transform="translate(174,164) scale(0.44)" fill="none" stroke="var(--logo-sand)" stroke-width="17" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 120 L50 14 L92 120 M26 76 H74"/>
+            <path d="M20 14 V120 H48 C90 120 90 14 48 14 Z" transform="translate(134,0)"/>
+            <path d="M10 14 L50 120 L90 14" transform="translate(268,0)"/>
+            <path d="M88 14 H20 V120 H88 M20 67 H72" transform="translate(402,0)"/>
+            <path d="M18 120 V14 L82 120 V14" transform="translate(536,0)"/>
+            <path d="M8 16 H92 M50 16 V120" transform="translate(670,0)"/>
+            <path d="M18 14 V82 C18 116 82 116 82 82 V14" transform="translate(804,0)"/>
+            <path d="M20 120 V14 H56 C86 14 86 68 56 68 H20 M54 68 L86 120" transform="translate(938,0)"/>
+            <path d="M88 14 H20 V120 H88 M20 67 H72" transform="translate(1072,0)"/>
+          </g>
+        </g>
+      </svg>
+    </a>
+
+    <nav class="nav" id="menuPrincipal" aria-label="Navegação principal">
+      <a class="so-menu" href="#/inicio" data-rota="inicio">Início</a>
+      <a href="#/passeios" data-rota="passeios">Passeios</a>
+      <a href="#/pousadas" data-rota="pousadas">Pousadas</a>
+      <a href="#/pescaria" data-rota="pescaria">Pescaria</a>
+      <a href="#/historia" data-rota="historia">História</a>
+      <a href="#/contato" data-rota="contato">Contato</a>
+      <a class="so-menu" href="#/cameras" data-rota="cameras">Câmeras</a>
+      <a class="nav-cta" href="#/reservar" data-rota="reservar">Reservar</a>
+    </nav>
+
+    <button class="icon-btn" id="btnTema" type="button" aria-label="Alternar tema claro e escuro" title="Alternar tema">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>
+    </button>
+    <button class="menu-toggle" id="btnMenu" type="button" aria-expanded="false" aria-controls="menuPrincipal">
+      <span class="menu-toggle-rotulo">Menu</span>
+      <span class="menu-toggle-icone" aria-hidden="true"><i></i><i></i></span>
+    </button>
+  </div>
+</header>
+<div class="menu-fundo" id="menuFundo" hidden></div>
+
+<main id="conteudo">
+
+<!-- ======================= INÍCIO ======================= -->
+<section class="secao" id="inicio" data-secao="inicio">
+  <div class="hero">
+    <figure class="hero-foto">
+      <img src="assets/og-v2-800.webp" srcset="assets/og-v2-480.webp 480w, assets/og-v2-800.webp 800w, assets/og-v2-1200.webp 1200w" sizes="(max-width: 720px) 100vw, 1240px" width="1200" height="630" alt="Enseada de Trindade vista do alto, com a Mata Atlântica descendo até a praia" fetchpriority="high" decoding="async">
+    </figure>
+    <div class="hero-texto">
+      <h1 class="hero-titulo" aria-label="Entre o mar e o extraordinário."><span class="hero-linha" aria-hidden="true"><span>Entre o mar</span></span><span class="hero-linha" aria-hidden="true"><span>e o <em>extraordinário.</em></span></span></h1>
+      <p class="hero-lede">Praias paradisíacas, natureza preservada, piscinas naturais e trilhas na Mata Atlântica. Viva Trindade com quem realmente conhece e ama esse lugar.</p>
+      <div class="hero-acoes">
+        <a class="btn btn-claro" href="#/inicio?catalogo" data-rolar="roteiros-inicio">Ver os 7 passeios</a>
+        <a class="btn btn-contorno-claro" href="https://wa.me/5524993337247" data-wa="Olá! Vim pelo site da Trindade Adventure e quero informações sobre os passeios." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Fale no WhatsApp</a>
+      </div>
+      <dl class="hero-fatos">
+        <div><dt>Passeios</dt><dd>7</dd></div>
+        <div><dt>Pessoas por horário</dt><dd>até 20</dd></div>
+        <div><dt>Saídas</dt><dd>8h às 15h</dd></div>
+        <div><dt>A partir de</dt><dd>R$ 70</dd></div>
+      </dl>
+    </div>
+  </div>
+
+  <section class="bloco bloco-catalogo" aria-labelledby="roteiros-inicio">
+    <header class="cabeca">
+      <h2 id="roteiros-inicio">Sete passeios saindo de Trindade</h2>
+      <p>Trilhas, barco e expedições pela costa de Paraty. Nos roteiros com agenda, grupos de até 20 pessoas por horário.</p>
+    </header>
+
+    <div class="tours tours-agenda" id="catalogoPasseios">
+      <article class="tour" data-revelar>
+        <div class="tour-media"><img src="assets/vista-trindade-1-720.webp" srcset="assets/vista-trindade-1-480.webp 480w, assets/vista-trindade-1-720.webp 720w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 400px" width="720" height="1301" alt="Vista da trilha por entre a mata, com a praia ao fundo" loading="lazy" decoding="async" style="object-position:50% 62%"><span class="tag">Iniciante</span></div>
+        <div class="tour-corpo">
+          <h3>Trindade Essencial</h3>
+          <p class="tour-desc">Trilha guiada pela Mata Atlântica até a piscina natural do Cachadaço, com água mineral inclusa.</p>
+          <p class="tour-meta"><svg class="ico" aria-hidden="true"><use href="#i-relogio"/></svg>≈ 3h · saídas das 8h às 15h</p>
+          <p class="tour-preco"><b>R$ 70</b><span>por pessoa</span></p>
+          <div class="tour-acoes"><a class="btn btn-primario" href="#/reservar?plano=essencial">Reservar</a><a class="btn btn-secundario" href="#/passeios?plano=essencial">Ver roteiro</a></div>
+        </div>
+      </article>
+
+      <article class="tour" data-revelar>
+        <div class="tour-media"><img src="assets/piscina-v2-800.webp" srcset="assets/piscina-v2-480.webp 480w, assets/piscina-v2-800.webp 800w, assets/piscina-v2-1155.webp 1155w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 400px" width="1155" height="768" alt="Piscina natural de água transparente entre pedras de granito" loading="lazy" decoding="async"><span class="tag">Mais vendido</span></div>
+        <div class="tour-corpo">
+          <h3>Trindade Adventure</h3>
+          <p class="tour-desc">Roteiro completo com snorkel na piscina natural, retorno pela Pedra que Engole e almoço no Restaurante Hymbé.</p>
+          <p class="tour-meta"><svg class="ico" aria-hidden="true"><use href="#i-relogio"/></svg>≈ 6h · saídas das 8h às 15h</p>
+          <p class="tour-preco"><b>R$ 150</b><span>por pessoa</span></p>
+          <p class="tour-nota"><svg class="ico" aria-hidden="true"><use href="#i-prato"/></svg>Voucher de R$ 60 no almoço, já incluso no valor</p>
+          <div class="tour-acoes"><a class="btn btn-primario" href="#/reservar?plano=adventure">Reservar</a><a class="btn btn-secundario" href="#/passeios?plano=adventure">Ver roteiro</a></div>
+        </div>
+      </article>
+
+      <article class="tour tour-destaque" data-revelar>
+        <div class="tour-media"><img src="assets/foto-costa-trindade-720.webp" srcset="assets/foto-costa-trindade-480.webp 480w, assets/foto-costa-trindade-720.webp 720w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 400px" width="720" height="756" alt="Costa de Trindade, com a mata descendo até o mar" loading="lazy" decoding="async"><span class="tag">Saída única · 8h30</span></div>
+        <div class="tour-corpo">
+          <h3>Trindade Boat</h3>
+          <p class="tour-desc">Trilha pela Trindade e passeio de barco por cinco paradas na costa, com snorkel na piscina natural e almoço no Restaurante Hymbé.</p>
+          <p class="tour-meta"><svg class="ico" aria-hidden="true"><use href="#i-relogio"/></svg>≈ 8h · saída única às 8h30</p>
+          <p class="tour-preco"><b>R$ 400</b><span>por pessoa</span></p>
+          <p class="tour-nota"><svg class="ico" aria-hidden="true"><use href="#i-prato"/></svg>Voucher de R$ 60 no almoço, já incluso no valor</p>
+          <div class="tour-acoes"><a class="btn btn-primario" href="#/reservar?plano=boat">Reservar</a><a class="btn btn-secundario" href="#/passeios?plano=boat">Ver roteiro</a></div>
+        </div>
+      </article>
+    </div>
+
+    <div class="tours-consulta-cabeca">
+      <h3>Sob consulta pelo WhatsApp</h3>
+      <p>Data e detalhes combinados direto com a equipe.</p>
+    </div>
+    <div class="tours tours-consulta">
+      <article class="tour tour-compacto" data-revelar>
+        <div class="tour-media tour-arte"><svg class="arte-ondas" aria-hidden="true"><use href="#i-ondas"/></svg><strong>Mamanguá</strong><span>Van, barco e trilha</span></div>
+        <div class="tour-corpo">
+          <h3>Mamanguá Adventure</h3>
+          <p class="tour-desc">Saída de Trindade para o Saco do Mamanguá e a trilha do Pico do Pão de Açúcar. Dia inteiro de aventura.</p>
+          <p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p>
+          <div class="tour-acoes"><a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Mamanguá Adventure da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar</a><a class="btn btn-secundario" href="#/passeios?passeio=mamangua">Detalhes</a></div>
+        </div>
+      </article>
+
+      <article class="tour tour-compacto" data-revelar>
+        <div class="tour-media tour-arte tour-arte-mar"><svg class="arte-ondas" aria-hidden="true"><use href="#i-ondas"/></svg><strong>Alto mar</strong><span>Pesca embarcada</span></div>
+        <div class="tour-corpo">
+          <h3>Fishing Experience</h3>
+          <p class="tour-desc">Saída de barco de Trindade para uma pescaria em alto mar, com acompanhamento de um guia experiente.</p>
+          <p class="tour-preco"><b>R$ 500</b><span>valor fixo</span></p>
+          <div class="tour-acoes"><a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Fishing Experience da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar</a><a class="btn btn-secundario" href="#/pescaria">Detalhes</a></div>
+        </div>
+      </article>
+
+      <article class="tour tour-compacto" data-revelar>
+        <div class="tour-media"><img src="assets/foto-saco-bravo-480.webp" srcset="assets/foto-saco-bravo-480.webp 480w, assets/foto-saco-bravo-960.webp 960w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 300px" width="1280" height="664" alt="Cachoeira do Saco Bravo encontrando o mar entre as pedras" loading="lazy" decoding="async"></div>
+        <div class="tour-corpo">
+          <h3>Saco Bravo Adventure</h3>
+          <p class="tour-desc">Barco pela Praia do Sono até Ponta Negra e trilha até a Cachoeira do Saco Bravo.</p>
+          <p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p>
+          <div class="tour-acoes"><a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Saco Bravo Adventure da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar</a><a class="btn btn-secundario" href="#/passeios?passeio=saco-bravo">Detalhes</a></div>
+        </div>
+      </article>
+
+      <article class="tour tour-compacto" data-revelar>
+        <div class="tour-media"><img src="assets/foto-praia-antigos-480.webp" srcset="assets/foto-praia-antigos-480.webp 480w, assets/foto-praia-antigos-960.webp 960w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 300px" width="1280" height="663" alt="Praia dos Antigos, com areia clara e pedras no canto" loading="lazy" decoding="async"></div>
+        <div class="tour-corpo">
+          <h3>Costa da Juatinga</h3>
+          <p class="tour-desc">Praia Brava, Galheta, mergulho na piscina natural, Praia dos Antigos e almoço na Praia do Sono.</p>
+          <p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p>
+          <div class="tour-acoes"><a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Costa da Juatinga da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar</a><a class="btn btn-secundario" href="#/passeios?passeio=juatinga">Detalhes</a></div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section class="bloco" aria-labelledby="titulo-dia">
+    <header class="cabeca cabeca-linha">
+      <div>
+        <h2 id="titulo-dia">Um dia no Trindade Adventure</h2>
+        <p>Da primeira trilha ao almoço na praia. O guia pode ajustar a ordem das paradas conforme a maré e as condições do dia.</p>
+      </div>
+      <a class="link-seta" href="#/reservar?plano=adventure">Reservar Adventure<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
+    </header>
+    <ol class="paradas" data-lenis-prevent>
+      <li class="parada" data-revelar>
+        <figure><img src="assets/foto-praia-meio-480.webp" srcset="assets/foto-praia-meio-480.webp 480w, assets/foto-praia-meio-960.webp 960w" sizes="(max-width: 720px) 72vw, 240px" width="960" height="980" alt="Praia do Meio, com as pedras e a mata ao fundo" loading="lazy" decoding="async"></figure>
+        <span class="parada-num">1</span>
+        <h3>Praia do Meio</h3>
+        <p>O encontro com o guia, a apresentação do roteiro e a preparação para a trilha.</p>
+      </li>
+      <li class="parada" data-revelar>
+        <figure><img src="assets/foto-cachadaco-480.webp" srcset="assets/foto-cachadaco-480.webp 480w, assets/foto-cachadaco-960.webp 960w" sizes="(max-width: 720px) 72vw, 240px" width="1280" height="676" alt="Praia do Cachadaço, com o mar aberto e a mata na encosta" loading="lazy" decoding="async"></figure>
+        <span class="parada-num">2</span>
+        <h3>Praia do Cachadaço</h3>
+        <p>O caminho segue pela sombra da Mata Atlântica. Vá no seu ritmo, com o guia.</p>
+      </li>
+      <li class="parada" data-revelar>
+        <figure><img src="assets/piscina-v2-480.webp" srcset="assets/piscina-v2-480.webp 480w, assets/piscina-v2-800.webp 800w" sizes="(max-width: 720px) 72vw, 240px" width="1155" height="768" alt="Piscina natural entre pedras de granito" loading="lazy" decoding="async"></figure>
+        <span class="parada-num">3</span>
+        <h3>Piscina Natural</h3>
+        <p>Pedras de granito protegem a piscina. Tempo para explorar a água com snorkel.</p>
+      </li>
+      <li class="parada" data-revelar>
+        <figure><img src="assets/trilha-v2-480.webp" srcset="assets/trilha-v2-480.webp 480w, assets/trilha-v2-800.webp 800w" sizes="(max-width: 720px) 72vw, 240px" width="1024" height="768" alt="Trecho de trilha dentro da mata; imagem ilustrativa do caminho" loading="lazy" decoding="async"><figcaption>Imagem ilustrativa</figcaption></figure>
+        <span class="parada-num">4</span>
+        <h3>Pedra que Engole</h3>
+        <p>O retorno passa pelo Rio dos Codós e pela cachoeira. O guia orienta a visita conforme o dia.</p>
+      </li>
+      <li class="parada" data-revelar>
+        <figure><img src="assets/restaurante-hymbe-2-480.webp" srcset="assets/restaurante-hymbe-2-480.webp 480w, assets/restaurante-hymbe-2-720.webp 720w" sizes="(max-width: 720px) 72vw, 240px" width="720" height="440" alt="Espreguiçadeiras do Restaurante Hymbé na areia da praia" loading="lazy" decoding="async"></figure>
+        <span class="parada-num">5</span>
+        <h3>Restaurante Hymbé</h3>
+        <p>Almoço na praia, com voucher de R$ 60 por pessoa já incluso no Adventure.</p>
+      </li>
+    </ol>
+  </section>
+
+  <dl class="fatos" data-revelar>
+    <div><dt>Ponto de encontro</dt><dd>Praia do Meio — placa das trilhas, Trindade/Paraty.</dd></div>
+    <div><dt>Saída</dt><dd>Concentração no horário cheio, saída 20 minutos depois — a reserva das 08:00 sai às 08:20.</dd></div>
+    <div><dt>Cancelamento</dt><dd>Gratuito até 12 h antes da saída. Em caso de mar grosso ou chuva forte, a operação remarca sem custo.</dd></div>
+  </dl>
+
+  <section class="bloco" aria-labelledby="titulo-lugares">
+    <header class="cabeca">
+      <h2 id="titulo-lugares">Cinco praias e três cachoeiras</h2>
+      <p>A vila fica entre a serra e o mar, dentro do Parque Nacional da Serra da Bocaina. Tudo abaixo se alcança a pé — as distâncias são de caminhada, não de carro.</p>
+    </header>
+    <div class="lugares-fotos" data-revelar>
+      <img src="assets/lugar-trilha-480.webp" srcset="assets/lugar-trilha-480.webp 480w, assets/lugar-trilha-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="1200" height="1600" alt="Trilha estreita dentro da Mata Atlântica" loading="lazy" decoding="async">
+      <img src="assets/lugar-praia-pedras-480.webp" srcset="assets/lugar-praia-pedras-480.webp 480w, assets/lugar-praia-pedras-960.webp 960w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="1155" height="768" alt="Praia de água transparente com pedras arredondadas e a mata ao fundo" loading="lazy" decoding="async">
+      <img src="assets/lugar-praia-areia-480.webp" srcset="assets/lugar-praia-areia-480.webp 480w, assets/lugar-praia-areia-960.webp 960w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="1155" height="768" alt="Praia de areia clara e mar aberto, com a montanha coberta de mata" loading="lazy" decoding="async">
+      <img src="assets/lugar-piscina-480.webp" srcset="assets/lugar-piscina-480.webp 480w, assets/lugar-piscina-960.webp 960w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="1155" height="768" alt="Piscina natural de água calma protegida por grandes pedras de granito" loading="lazy" decoding="async">
+    </div>
+    <ul class="lugares">
+      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia do Cepilho</h3><p>A praia do surf. Ondas grandes e formadas, logo na chegada da vila, com o acesso mais fácil de todas. Mar forte: não é praia de criança pequena.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3445124,-44.7145693" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
+      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia Brava</h3><p>Uma das mais preservadas da região, com faixa larga de areia e um rio no canto direito. Chega-se por trilha, o que a mantém vazia mesmo na alta temporada.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3384041,-44.7054969" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
+      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia do Meio</h3><p>A mais fotografada de Trindade: uma ponta de pedras divide a areia em duas. É daqui que saem os nossos passeios — o ponto de encontro fica na placa das trilhas.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3535628,-44.7264128" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
+      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia dos Ranchos</h3><p>A praia dos bares e restaurantes, de mar calmo. É onde a vila almoça e onde a maioria das famílias fica o dia inteiro.</p></li>
+      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia do Cachadaço</h3><p>Areia branca e mar aberto, no fim da trilha. Ao lado dela fica a Piscina Natural do Cachadaço, protegida por pedras de granito — o ponto alto dos nossos roteiros.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3568484,-44.7309172" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
+      <li class="lugar" data-revelar><span class="lugar-tipo lugar-tipo-agua">Cachoeira</span><h3>Cachoeira da Pedra que Engole</h3><p>A mais conhecida da vila. O rio passa por uma fresta entre duas rochas e o banhista escorrega para dentro dela, saindo do outro lado. Fica a 15–20 minutos de caminhada do fim da Praia do Meio.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3508269,-44.7306156" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
+      <li class="lugar" data-revelar><span class="lugar-tipo lugar-tipo-agua">Cachoeira</span><h3>Cachoeira dos Codós</h3><p>Também chamada de Chuveiro. É o primeiro atrativo da trilha: um bloco de rocha divide a queda em duas e forma um poço raso, de cerca de um metro.</p></li>
+      <li class="lugar" data-revelar><span class="lugar-tipo lugar-tipo-agua">Cachoeira</span><h3>Poço das Duas Paredes</h3><p>Poço de água doce clara e fria entre dois paredões de pedra, na mesma trilha. É a melhor parada para tirar o sal e o calor da caminhada.</p></li>
+    </ul>
+    <p class="nota-rodape">Praia dos Ranchos, Cachoeira dos Codós e Poço das Duas Paredes ainda não têm ponto cadastrado no mapa aberto — chegue por elas com o guia ou pergunte na vila.</p>
+  </section>
+
+  <section class="bloco" aria-labelledby="titulo-pousadas-inicio">
+    <header class="cabeca cabeca-linha">
+      <div>
+        <h2 id="titulo-pousadas-inicio">Onde dormir</h2>
+        <p><b>10% de desconto</b> nas pousadas parceiras para quem reserva passeio pelo site. Apresente o cupom <b class="num">TRINDADE10</b> ao fechar a diária.</p>
+      </div>
+      <a class="link-seta" href="#/pousadas">Ver pousadas<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
+    </header>
+    <div class="pousadas" id="pousadasInicio"></div>
+  </section>
+</section>
+
+<!-- ======================= PASSEIOS ======================= -->
+<section class="secao" id="passeios" data-secao="passeios">
+  <header class="pagina-cabeca">
+    <h1>Roteiros e preços</h1>
+    <p>O que acontece em cada passeio: paradas, o que está incluso e quanto custa.</p>
+  </header>
+
+  <div class="abas" role="tablist" aria-label="Roteiros com agenda">
+    <button class="aba" role="tab" id="aba-essencial" aria-controls="roteiro-essencial" aria-selected="true" data-aba="essencial"><span class="aba-pre">Trindade </span>Essencial <span class="aba-preco">R$ 70</span></button>
+    <button class="aba" role="tab" id="aba-adventure" aria-controls="roteiro-adventure" aria-selected="false" data-aba="adventure" tabindex="-1"><span class="aba-pre">Trindade </span>Adventure <span class="aba-preco">R$ 150</span></button>
+    <button class="aba" role="tab" id="aba-boat" aria-controls="roteiro-boat" aria-selected="false" data-aba="boat" tabindex="-1"><span class="aba-pre">Trindade </span>Boat <span class="aba-preco">R$ 400</span></button>
+  </div>
+
+  <div class="painel-roteiro" id="roteiro-essencial" role="tabpanel" aria-labelledby="aba-essencial" tabindex="0">
+    <div class="roteiro">
+      <div class="roteiro-resumo">
+        <div class="roteiro-foto"><img src="assets/piscina-v2-800.webp" srcset="assets/piscina-v2-480.webp 480w, assets/piscina-v2-800.webp 800w, assets/piscina-v2-1155.webp 1155w" sizes="(max-width: 860px) 92vw, 600px" width="1155" height="768" alt="Piscina natural do Cachadaço entre as pedras" loading="lazy" decoding="async"></div>
+        <div class="roteiro-info">
+          <div class="roteiro-titulo"><h2>Trindade Essencial</h2><p class="tour-preco"><b>R$ 70</b><span>por pessoa</span></p></div>
+          <p class="roteiro-meta">≈ 3h · saídas de 08:00 às 15:00</p>
+          <p>Trilha guiada pela Mata Atlântica até a piscina natural do Cachadaço.</p>
+          <div class="incluso">
+            <div><h3>Incluso</h3><ul class="lista-check">
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Guia local credenciado</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Trilha de 1,5 km</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Tempo livre na piscina</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Água mineral durante o passeio</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Seguro do passeio</li>
+            </ul></div>
+            <div><h3>Não incluso</h3><ul class="lista-check lista-nao">
+              <li><svg class="ico" aria-hidden="true"><use href="#i-menos"/></svg>Almoço</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-menos"/></svg>Transporte até Trindade</li>
+            </ul></div>
+          </div>
+          <a class="btn btn-primario btn-largo" href="#/reservar?plano=essencial">Reservar Trindade Essencial</a>
+        </div>
+      </div>
+      <div class="roteiro-dia">
+        <h3>Roteiro do dia · 5 paradas</h3>
+        <ol class="rota">
+          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-pin"/></svg></span><div><h4>1. Praia do Meio <span class="pill">Saída</span></h4><p>Ponto de encontro e briefing de segurança com o guia.</p></div></li>
+          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-trilha"/></svg></span><div><h4>2. Trilha do Cachadaço <span class="pill">≈ 40 min</span></h4><p>1,5 km de Mata Atlântica preservada, com escadas e corrimãos nos trechos íngremes.</p></div></li>
+          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-praia"/></svg></span><div><h4>3. Praia do Cachadaço <span class="pill">Parada</span></h4><p>Areia branca e mar aberto. Banho só onde o guia liberar — a praia tem correnteza.</p></div></li>
+          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-mergulho"/></svg></span><div><h4>4. Piscina Natural do Cachadaço <span class="pill">≈ 1h</span></h4><p>Água transparente entre as pedras de granito. Tempo livre para banho.</p></div></li>
+          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-volta"/></svg></span><div><h4>5. Retorno à Praia do Meio <span class="pill">Volta</span></h4><p>Mesma trilha, no seu ritmo.</p></div></li>
+        </ol>
+        <p class="nota">O guia pode inverter a ordem das paradas conforme a maré e a condição do mar no dia.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="painel-roteiro" id="roteiro-adventure" role="tabpanel" aria-labelledby="aba-adventure" tabindex="0" hidden>
+    <div class="roteiro">
+      <div class="roteiro-resumo">
+        <div class="roteiro-foto"><img src="assets/trilha-v2-800.webp" srcset="assets/trilha-v2-480.webp 480w, assets/trilha-v2-800.webp 800w, assets/trilha-v2-1024.webp 1024w" sizes="(max-width: 860px) 92vw, 600px" width="1024" height="768" alt="Trecho de trilha dentro da mata" loading="lazy" decoding="async"></div>
+        <div class="roteiro-info">
+          <div class="roteiro-titulo"><h2>Trindade Adventure</h2><p class="tour-preco"><b>R$ 150</b><span>por pessoa</span></p></div>
+          <p class="roteiro-meta">≈ 6h · saídas de 08:00 às 15:00</p>
+          <p>Roteiro completo com snorkel na piscina natural, retorno pela Pedra que Engole e almoço no Restaurante Hymbé.</p>
+          <p class="nota nota-ouro"><b>Voucher de R$ 60 por pessoa</b> para usar no Restaurante Hymbé, na praia — já incluso no valor.</p>
+          <div class="incluso">
+            <div><h3>Incluso</h3><ul class="lista-check">
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Guia local credenciado</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Roteiro de 4 paradas</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Mergulho de snorkel na piscina natural</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Cachoeira da Pedra que Engole</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Voucher de R$ 60 no almoço</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Água mineral durante o passeio</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Seguro do passeio</li>
+            </ul></div>
+            <div><h3>Não incluso</h3><ul class="lista-check lista-nao">
+              <li><svg class="ico" aria-hidden="true"><use href="#i-menos"/></svg>Bebidas alcoólicas</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-menos"/></svg>Transporte até Trindade</li>
+            </ul></div>
+          </div>
+          <a class="btn btn-primario btn-largo" href="#/reservar?plano=adventure">Reservar Trindade Adventure</a>
+        </div>
+      </div>
+      <div class="roteiro-dia">
+        <h3>Roteiro do dia · 5 paradas</h3>
+        <ol class="rota">
+          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-pin"/></svg></span><div><h4>1. Praia do Meio <span class="pill">Saída</span></h4><p>Ponto de encontro, briefing e entrega do equipamento de snorkel.</p></div></li>
+          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-praia"/></svg></span><div><h4>2. Praia do Cachadaço <span class="pill">≈ 40 min</span></h4><p>Primeira parada do roteiro, pela trilha da Mata Atlântica.</p></div></li>
+          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-mergulho"/></svg></span><div><h4>3. Piscina Natural do Cachadaço <span class="pill">≈ 1h30</span></h4><p>Snorkel na piscina de granito — o ponto alto do roteiro.</p></div></li>
+          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-pedra"/></svg></span><div><h4>4. Cachoeira da Pedra que Engole <span class="pill">≈ 40 min</span></h4><p>Retorno pelo Rio dos Codós até o escorrega natural entre as pedras.</p></div></li>
+          <li><span class="ponto ponto-ouro"><svg class="ico-parada" aria-hidden="true"><use href="#i-almoco"/></svg></span><div><h4>5. Restaurante Hymbé <span class="pill">Almoço</span></h4><p>Almoço na praia, com voucher de R$ 60 por pessoa já incluso no pacote.</p></div></li>
+        </ol>
+        <p class="nota">O guia pode inverter a ordem das paradas conforme a maré e a condição do mar no dia.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="painel-roteiro" id="roteiro-boat" role="tabpanel" aria-labelledby="aba-boat" tabindex="0" hidden>
+    <div class="roteiro">
+      <div class="roteiro-resumo">
+        <div class="roteiro-foto"><img src="assets/foto-costa-trindade-720.webp" srcset="assets/foto-costa-trindade-480.webp 480w, assets/foto-costa-trindade-720.webp 720w" sizes="(max-width: 860px) 92vw, 600px" width="720" height="756" alt="Costa de Trindade ao entardecer, com a mata descendo até o mar" loading="lazy" decoding="async"></div>
+        <div class="roteiro-info">
+          <div class="roteiro-titulo"><h2>Trindade Boat</h2><p class="tour-preco"><b>R$ 400</b><span>por pessoa</span></p></div>
+          <p class="roteiro-meta">≈ 8h · saída única às 08:30</p>
+          <p>Trilha pela Trindade e passeio de barco por cinco paradas na costa da Trindade, com almoço no Restaurante Hymbé.</p>
+          <p class="nota nota-ouro"><b>Voucher de R$ 60 por pessoa</b> para usar no Restaurante Hymbé, na praia — já incluso no valor.</p>
+          <div class="incluso">
+            <div><h3>Incluso</h3><ul class="lista-check">
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Guia local credenciado</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Trilha pela Trindade</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Barco — 5 paradas</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Mergulho de snorkel na piscina natural</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Voucher de R$ 60 no almoço</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Água mineral durante o passeio</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Colete salva-vidas e seguro</li>
+            </ul></div>
+            <div><h3>Não incluso</h3><ul class="lista-check lista-nao">
+              <li><svg class="ico" aria-hidden="true"><use href="#i-menos"/></svg>Bebidas a bordo</li>
+              <li><svg class="ico" aria-hidden="true"><use href="#i-menos"/></svg>Transporte até Trindade</li>
+            </ul></div>
+          </div>
+          <a class="btn btn-primario btn-largo" href="#/reservar?plano=boat">Reservar Trindade Boat</a>
+        </div>
+      </div>
+      <div class="roteiro-dia">
+        <h3>Roteiro do dia · 7 paradas</h3>
+        <ol class="rota">
+          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-pin"/></svg></span><div><h4>1. Praia do Meio <span class="pill">Saída</span></h4><p>Encontro às 8:30, briefing e trilha curta pela Trindade antes do embarque.</p></div></li>
+          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-onda"/></svg></span><div><h4>2. Praia das Galhetas <span class="pill">Parada 1</span></h4><p>Primeira parada do barco, na costa da Trindade.</p></div></li>
+          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-mergulho"/></svg></span><div><h4>3. Piscina natural das Galhetas <span class="pill">Parada 2</span></h4><p>Água calma e transparente — parada para snorkel.</p></div></li>
+          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-praia"/></svg></span><div><h4>4. Praia do Sono <span class="pill">Parada 3</span></h4><p>Comunidade caiçara e 1 km de areia. Parada mais longa do dia.</p></div></li>
+          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-onda"/></svg></span><div><h4>5. Praia dos Antigos <span class="pill">Parada 4</span></h4><p>400 m de areia e água esverdeada, dentro de área de proteção ambiental.</p></div></li>
+          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-praia"/></svg></span><div><h4>6. Praia dos Antiguinhos <span class="pill">Parada 5</span></h4><p>Praia de 60 m, a 700 m dos Antigos. A mais reservada do roteiro.</p></div></li>
+          <li><span class="ponto ponto-ouro"><svg class="ico-parada" aria-hidden="true"><use href="#i-almoco"/></svg></span><div><h4>7. Restaurante Hymbé <span class="pill">Almoço</span></h4><p>Almoço na praia, com voucher de R$ 60 por pessoa já incluso no pacote.</p></div></li>
+        </ol>
+        <p class="nota">O barco só sai com condição de mar favorável. Se o mar virar, a operação remarca sem custo.</p>
+      </div>
+    </div>
+  </div>
+
+  <section class="bloco" id="sob-consulta" aria-labelledby="titulo-consulta">
+    <header class="cabeca">
+      <h2 id="titulo-consulta">Passeios sob consulta</h2>
+      <p>Sem agenda aberta no site: data, detalhes e valores são combinados com a equipe pelo WhatsApp.</p>
+    </header>
+    <div class="consultas">
+      <article class="consulta" id="consulta-mamangua" data-revelar>
+        <div class="consulta-topo"><div><h3>Mamanguá Adventure</h3><p class="consulta-sub">Pico do Pão de Açúcar · van, barco e trilha</p></div><p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p></div>
+        <p>Uma experiência completa saindo de Trindade para conhecer um dos cenários mais impressionantes de Paraty.</p>
+        <ul class="lista-check">
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Traslado Trindade → Paraty-Mirim</li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Barco pelo Saco do Mamanguá</li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Trilha do Pico do Pão de Açúcar</li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Dia inteiro de aventura</li>
+        </ul>
+        <a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Mamanguá Adventure da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar no WhatsApp</a>
+      </article>
+
+      <article class="consulta" id="consulta-fishing" data-revelar>
+        <div class="consulta-topo"><div><h3>Fishing Experience</h3><p class="consulta-sub">Pescaria em alto mar · pesca embarcada</p></div><p class="tour-preco"><b>R$ 500</b><span>valor fixo</span></p></div>
+        <p>Saída de barco de Trindade para uma experiência de pescaria em alto mar, com acompanhamento de um guia experiente.</p>
+        <ul class="lista-check">
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Guia experiente</li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Valor fixo de R$ 500</li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Consulte os detalhes e a data com a equipe</li>
+        </ul>
+        <div class="consulta-acoes"><a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Fishing Experience da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar no WhatsApp</a><a class="btn btn-secundario" href="#/pescaria">Página da pescaria</a></div>
+      </article>
+
+      <article class="consulta" id="consulta-saco-bravo" data-revelar>
+        <div class="consulta-foto"><img src="assets/foto-saco-bravo-960.webp" srcset="assets/foto-saco-bravo-480.webp 480w, assets/foto-saco-bravo-960.webp 960w" sizes="(max-width: 860px) 92vw, 560px" width="1280" height="664" alt="Cachoeira do Saco Bravo encontrando o mar entre as pedras" loading="lazy" decoding="async"></div>
+        <div class="consulta-topo"><div><h3>Saco Bravo Adventure</h3><p class="consulta-sub">Natureza, aventura e paisagens incríveis</p></div><p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p></div>
+        <p>Saída de barco de Trindade, passagem pela Praia do Sono, chegada em Ponta Negra e trilha até a Cachoeira do Saco Bravo.</p>
+        <ul class="lista-check">
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Barco até Ponta Negra</li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Trilha em cenários preservados</li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Cachoeira do Saco Bravo</li>
+        </ul>
+        <a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Saco Bravo Adventure da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar no WhatsApp</a>
+      </article>
+
+      <article class="consulta" id="consulta-juatinga" data-revelar>
+        <div class="consulta-fotos">
+          <figure><img src="assets/foto-praia-antigos-480.webp" width="1280" height="663" alt="Praia dos Antigos" loading="lazy" decoding="async"><figcaption>Praia dos Antigos</figcaption></figure>
+          <figure><img src="assets/foto-praia-sono-480.webp" width="1280" height="799" alt="Praia do Sono vista do alto" loading="lazy" decoding="async"><figcaption>Praia do Sono</figcaption></figure>
+          <figure><img src="assets/foto-restaurante-sono-480.webp" width="1280" height="1100" alt="Mesa posta em restaurante na areia da Praia do Sono" loading="lazy" decoding="async"><figcaption>Restaurante no Sono</figcaption></figure>
+        </div>
+        <div class="consulta-topo"><div><h3>Costa da Juatinga</h3><p class="consulta-sub">As praias mais incríveis de Paraty em um só dia</p></div><p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p></div>
+        <p>Passagem pela Praia Brava, parada na Galheta, mergulho na piscina natural, Praia dos Antigos e almoço na Praia do Sono.</p>
+        <ul class="lista-check">
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Praia Brava e Galheta</li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Mergulho na piscina natural</li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Praia dos Antigos e Praia do Sono</li>
+          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Almoço na Praia do Sono</li>
+        </ul>
+        <a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Costa da Juatinga da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar no WhatsApp</a>
+      </article>
+    </div>
+  </section>
+
+  <section class="bloco" aria-labelledby="titulo-hymbe">
+    <div class="restaurante" data-revelar>
+      <div class="thumb media" id="fotoRestauranteHymbe"></div>
+      <div class="restaurante-texto">
+        <h2 id="titulo-hymbe">Restaurante Hymbé, na praia</h2>
+        <p>O voucher de R$ 60 por pessoa dos roteiros Adventure e Boat vale aqui: mesas na areia, guarda-sóis e deck com vista para o mar, à beira da praia em Trindade.</p>
+        <a class="link-seta" href="https://instagram.com/hymberestaurantepraia" target="_blank" rel="noopener">Instagram @hymberestaurantepraia<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="bloco" aria-labelledby="titulo-mapa">
+    <header class="cabeca">
+      <h2 id="titulo-mapa">Mapa dos roteiros</h2>
+      <p>Mapa de referência com os pontos por onde passam os passeios. Ele não mostra a posição dos grupos em tempo real.</p>
+    </header>
+    <div id="mapaWrap"></div>
+  </section>
+
+  <section class="bloco" aria-labelledby="titulo-mochila">
+    <header class="cabeca"><h2 id="titulo-mochila">Prepare a mochila</h2></header>
+    <dl class="fatos fatos-mochila">
+      <div><dt>Obrigatório</dt><dd>Calçado fechado com solado de borracha e protetor solar. A água mineral do passeio é por nossa conta.</dd></div>
+      <div><dt>Recomendado</dt><dd>Repelente, boné, roupa de banho por baixo, toalha leve e dinheiro para o quiosque da praia.</dd></div>
+      <div><dt>Deixe em casa</dt><dd>Mala, caixa de som, garrafa de vidro e qualquer descartável que você não queira carregar de volta.</dd></div>
+    </dl>
+  </section>
+</section>
+
+<!-- ======================= RESERVAR ======================= -->
+<section class="secao" id="reservar" data-secao="reservar">
+  <header class="pagina-cabeca">
+    <h1>Reservar horário</h1>
+    <p>Monte o pedido aqui e envie em um toque. A reserva é confirmada pela equipe no WhatsApp, com o guia do dia — sem cadastro e sem pagamento online.</p>
+  </header>
+
+  <!-- Sem JavaScript, o formulário não tem como montar a mensagem. Em vez de
+       mostrar campos que não fazem nada, oferecemos o caminho direto. -->
+  <noscript>
+    <div class="caixa">
+      <p>Para montar a reserva é preciso ativar o JavaScript. Você também pode falar direto com a operação:</p>
+      <a class="btn btn-primario" href="https://wa.me/5524993337247" target="_blank" rel="noopener">WhatsApp (24) 99333-7247</a>
+    </div>
+  </noscript>
+
+  <form id="formReserva" class="reserva" novalidate hidden>
+    <div class="reserva-passos">
+      <fieldset class="passo" id="passoPasseio">
+        <legend class="sr">Passeio</legend>
+        <h2 class="passo-titulo"><span>1</span>Escolha o passeio</h2>
+        <div class="planos-opcoes" id="escolhaPlano"></div>
+        <p class="passo-extra">Mamanguá Adventure, Saco Bravo Adventure, Costa da Juatinga e Fishing Experience são combinados pelo WhatsApp:
+          <a href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Mamanguá Adventure da Trindade Adventure." target="_blank" rel="noopener">Mamanguá</a>,
+          <a href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Saco Bravo Adventure da Trindade Adventure." target="_blank" rel="noopener">Saco Bravo</a>,
+          <a href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Costa da Juatinga da Trindade Adventure." target="_blank" rel="noopener">Juatinga</a> e
+          <a href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Fishing Experience da Trindade Adventure." target="_blank" rel="noopener">Fishing</a>.</p>
+      </fieldset>
+
+      <fieldset class="passo" id="passoData">
+        <legend class="sr">Data</legend>
+        <div class="passo-linha">
+          <h2 class="passo-titulo"><span>2</span>Data</h2>
+          <label class="outra-data"><span>Outra data</span><input type="date" id="dtPick"></label>
+        </div>
+        <div class="datas-rolagem"><div class="datas" id="listaDatas"></div></div>
+        <p class="err" id="errData" hidden></p>
+      </fieldset>
+
+      <fieldset class="passo" id="passoHorario">
+        <legend class="sr">Horário</legend>
+        <div class="passo-linha">
+          <h2 class="passo-titulo"><span>3</span>Horário <span class="passo-data" id="rotuloData"></span></h2>
+          <p class="passo-dica">saída 20 min após</p>
+        </div>
+        <div class="horarios" id="listaHorarios"></div>
+        <p class="passo-dica" id="avisoHorario"></p>
+        <p class="err" id="errHora" hidden></p>
+      </fieldset>
+
+      <fieldset class="passo">
+        <legend class="sr">Seus dados</legend>
+        <h2 class="passo-titulo"><span>4</span>Seus dados</h2>
+        <div class="campos">
+          <label class="field">Nome completo
+            <input id="fNome" name="nome" placeholder="Como no documento" autocomplete="name" required>
+            <span class="err" id="errNome" hidden></span>
+          </label>
+          <label class="field">WhatsApp
+            <input id="fTel" name="tel" placeholder="(24) 99999-0000" inputmode="tel" autocomplete="tel" required>
+            <span class="err" id="errTel" hidden></span>
+          </label>
+          <label class="field">E-mail <span class="hint">opcional</span>
+            <input id="fEmail" name="email" type="email" placeholder="voce@email.com" inputmode="email" autocomplete="email">
+            <span class="err" id="errEmail" hidden></span>
+          </label>
+          <label class="field">Pessoas
+            <select id="fPax" name="pax"></select>
+          </label>
+        </div>
+        <label class="field">Observações <span class="hint">restrição alimentar, criança, mobilidade</span>
+          <textarea id="fObs" name="obs" rows="2" placeholder="Opcional"></textarea>
+        </label>
+        <label class="check">
+          <input type="checkbox" id="fAceite">
+          <span>Li e aceito os termos do passeio e a política de cancelamento (gratuito até 12 h antes). Autorizo o contato por WhatsApp sobre esta reserva.</span>
+        </label>
+        <p class="err" id="errAceite" hidden></p>
+      </fieldset>
+
+      <fieldset class="passo">
+        <legend class="sr">Como conheceu e Instagram</legend>
+        <h2 class="passo-titulo"><span>5</span>Só mais duas coisas <span class="hint">opcional</span></h2>
+        <label class="field">Como você conheceu a Trindade Adventure?
+          <select id="fComoConheceu">
+            <option value="">Prefiro não dizer</option>
+            <option value="instagram">Instagram</option>
+            <option value="google">Busca no Google</option>
+            <option value="indicacao">Indicação de amigo</option>
+            <option value="ja_conhecia">Já conhecia / morador</option>
+            <option value="outro">Outro</option>
+          </select>
+        </label>
+        <p class="nota nota-ouro"><b>Siga @trindadeadventurerj e ganhe as fotos do seu dia de passeio</b> — mandamos pelo Direct depois.</p>
+        <div class="campos campos-instagram">
+          <label class="field">Seu @ no Instagram
+            <input id="fInstagram" placeholder="@seunome">
+          </label>
+          <a class="btn btn-secundario" href="https://instagram.com/trindadeadventurerj" target="_blank" rel="noopener">Seguir no Instagram</a>
+        </div>
+        <label class="check">
+          <input type="checkbox" id="fSeguiu">
+          <span>Já sigo ou acabei de seguir @trindadeadventurerj.</span>
+        </label>
+      </fieldset>
+    </div>
+
+    <aside class="resumo" aria-label="Resumo da reserva">
+      <h2 class="resumo-titulo">Resumo</h2>
+      <div class="linha"><span>Passeio</span><b id="rsPasseio">—</b></div>
+      <div class="linha"><span>Data</span><b class="num" id="rsData">—</b></div>
+      <div class="linha"><span>Horário</span><b class="num" id="rsHora">—</b></div>
+      <div class="linha"><span>Pessoas</span><b class="num" id="rsPax">—</b></div>
+      <div class="linha linha-sep"><span id="rsCalculo">—</span><b class="num" id="rsSubtotal">—</b></div>
+      <div class="linha linha-ouro" id="rsVoucherLinha" hidden><span>Voucher almoço incluso</span><b class="num" id="rsVoucher">—</b></div>
+      <div class="linha linha-total"><span>Total</span><b class="num" id="rsTotal">—</b></div>
+      <button class="btn btn-primario btn-largo" type="submit"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Enviar reserva no WhatsApp</button>
+      <p class="resumo-nota">Pagamento no local ou por Pix, combinado no WhatsApp. Grupos de até 20 pessoas por horário. A vaga só está garantida após a confirmação da operação.</p>
+    </aside>
+  </form>
+
+  <div id="reservaFeita" hidden></div>
+</section>
+
+<!-- ======================= POUSADAS ======================= -->
+<section class="secao" id="pousadas" data-secao="pousadas">
+  <header class="pagina-cabeca">
+    <h1>Pousadas parceiras</h1>
+    <p><b>10% de desconto</b> nas parceiras que já fecharam acordo, para quem reserva passeio pelo site. Apresente o cupom <b class="num">TRINDADE10</b> na hora de fechar a diária.</p>
+  </header>
+
+  <h2 class="sr">Parceiras com acordo</h2>
+  <div class="pousadas">
+    <article class="parceira">
+      <div class="thumb media" id="fotoHymbe"></div>
+      <div class="parceira-corpo">
+        <div class="parceira-tags"><span class="pill pill-ouro">−10% pelo site</span><span class="pill">Parceira</span></div>
+        <h3>Pousada Hymbé Trindade</h3>
+        <p class="parceira-local">Rua Dr. Pinto Sobral, 2299 — a poucos metros da praia · Pousada e restaurante</p>
+        <p>No centro da Vila de Trindade, a poucos metros da praia e ao lado de mercado, padaria e farmácia. Quartos com decoração caiçara, banheiro privativo e ducha quente. Hóspede tem desconto no Restaurante Hymbé Vila.</p>
+        <ul class="comodidades"><li>Café da manhã</li><li>Wi-Fi</li><li>Estacionamento</li><li>Ar-condicionado</li><li>Frigobar</li><li>Pet friendly</li></ul>
+        <div class="parceira-rodape">
+          <div><b>Diária sob consulta</b><span>Direto com a pousada · cupom <b class="num">TRINDADE10</b></span></div>
+          <div class="parceira-acoes">
+            <a class="btn btn-secundario btn-sm" href="https://instagram.com/pousadahymbetrindade" target="_blank" rel="noopener" aria-label="Instagram da Pousada Hymbé">Instagram</a>
+            <a class="btn btn-primario btn-sm" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre a Pousada Hymbé Trindade. Vim pelo site Trindade Adventure e quero usar o desconto de 10% (cupom TRINDADE10)." target="_blank" rel="noopener" aria-label="Falar com a Pousada Hymbé no WhatsApp"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Falar</a>
+          </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="parceira">
+      <div class="thumb media" id="fotoMadeira"></div>
+      <div class="parceira-corpo">
+        <div class="parceira-tags"><span class="pill">Parceira</span></div>
+        <h3>Casa de Madeira Trindade</h3>
+        <p class="parceira-local">Trindade · Paraty · RJ</p>
+        <p>Casa de madeira com varanda, rede e um quintal verde onde o café da manhã é servido pela manhã. Charme caiçara, perto das trilhas.</p>
+        <ul class="comodidades"><li>Café da manhã</li><li>Quintal</li><li>Rede</li></ul>
+        <div class="parceira-rodape">
+          <div><b>Diária sob consulta</b><span>Direto com a pousada</span></div>
+          <div class="parceira-acoes">
+            <a class="btn btn-secundario btn-sm" href="https://instagram.com/demadeiratrindade" target="_blank" rel="noopener" aria-label="Instagram da Casa de Madeira">Instagram</a>
+            <a class="btn btn-primario btn-sm" href="https://wa.me/5524987873576" data-wa="Olá! Quero informações sobre a Casa de Madeira Trindade. Vim pelo site Trindade Adventure." data-wa-numero="5524987873576" target="_blank" rel="noopener" aria-label="Falar com a Casa de Madeira no WhatsApp"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Falar</a>
+          </div>
+        </div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<!-- ======================= CÂMERAS ======================= -->
+<section class="secao" id="cameras" data-secao="cameras">
+  <header class="pagina-cabeca">
+    <h1>Câmeras da operação</h1>
+    <p>Em preparação. Ainda não há câmera instalada em Trindade: os quadros abaixo são ilustrações geradas pelo próprio site, não imagens reais das praias. Quando cada câmera existir, este mesmo quadro passa a exibir o vídeo ao vivo. A faixa de tempo e mar no topo da página é <b>informação real</b>, lida da Open-Meteo.</p>
+  </header>
+  <div class="cams" id="listaCams"></div>
+</section>
+
+<!-- ======================= CONTATO ======================= -->
+<section class="secao" id="contato" data-secao="contato">
+  <header class="pagina-cabeca">
+    <h1>Fale com a operação</h1>
+    <p>Dúvidas sobre roteiro, data ou grupo? A equipe responde pelo WhatsApp.</p>
+  </header>
+
+  <div class="contato">
+    <div class="caixa contato-canais">
+      <a class="btn btn-primario btn-largo" href="https://wa.me/5524993337247" data-wa="Olá! Vim pelo site da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>WhatsApp (24) 99333-7247</a>
+      <a class="btn btn-secundario btn-largo" href="https://instagram.com/trindadeadventurerj" target="_blank" rel="noopener">Instagram @trindadeadventurerj</a>
+      <dl class="dados">
+        <div><dt>Ponto de encontro</dt><dd>Praia do Meio — placa das trilhas, Trindade/Paraty</dd></div>
+        <div><dt>Saídas</dt><dd>08h às 15h, de hora em hora</dd></div>
+        <div><dt>Trindade Boat</dt><dd>saída única às 08:30</dd></div>
+        <div><dt>Grupo máximo</dt><dd>20 pessoas por horário</dd></div>
+      </dl>
+      <a class="link-seta" href="https://www.google.com/maps/search/?api=1&amp;query=-23.369,-44.702" target="_blank" rel="noopener">Abrir o ponto de encontro no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a>
+    </div>
+
+    <div class="faq">
+      <h2>Perguntas frequentes</h2>
+      <details><summary>Precisa de preparo físico?</summary><p>A trilha do Cachadaço tem 1,5 km com trechos íngremes, escadas e corrimãos. Quem caminha normalmente no dia a dia faz sem dificuldade, no próprio ritmo.</p></details>
+      <details><summary>Crianças podem ir?</summary><p>Sim, a partir de 6 anos na trilha, sempre acompanhadas de um responsável. Avise a idade nas observações da reserva.</p></details>
+      <details><summary>E se chover?</summary><p>Chuva fraca não cancela. Em chuva forte, mar grosso ou risco na trilha, a operação remarca sem custo.</p></details>
+      <details><summary>Como pago?</summary><p>No local, em dinheiro ou cartão, ou por Pix combinado antes pelo WhatsApp. Não há pagamento pelo site.</p></details>
+      <details><summary>Dá para estacionar?</summary><p>Sim. Há estacionamentos pagos na entrada da vila. Nos feriados, chegue cedo — a vila fecha para carros quando lota.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= PESCARIA ======================= -->
+<section class="secao" id="pescaria" data-secao="pescaria" aria-labelledby="titulo-pescaria">
+  <header class="pagina-cabeca pagina-cabeca-linha">
+    <div>
+      <h1 id="titulo-pescaria">Pescaria em Alto Mar</h1>
+      <p>Uma experiência no mar de Trindade, com o acompanhamento de um guia experiente.</p>
+    </div>
+    <a class="link-seta" href="#/passeios">Todos os passeios<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
+  </header>
+
+  <div class="pescaria-grid">
+    <div class="fishing-gallery" id="fishingGallery" role="region" aria-roledescription="carrossel" aria-label="Pesca artesanal em Trindade">
+      <div class="fg-stage" tabindex="0" aria-label="Galeria de fotos. Use as setas para navegar.">
+        <div class="fg-slide is-active" data-fg-slide="0" aria-hidden="false"><img class="fg-photo" src="assets/foto-pesca-peixe-560.webp" srcset="assets/foto-pesca-peixe-480.webp 480w, assets/foto-pesca-peixe-560.webp 560w" sizes="(max-width: 860px) 92vw, 600px" width="560" height="1000" alt="Peixe vermelho segurado sobre o mar" loading="lazy" decoding="async"></div>
+        <div class="fg-slide" data-fg-slide="1" aria-hidden="true"><img class="fg-photo" src="assets/foto-pesca-cavalas-560.webp" srcset="assets/foto-pesca-cavalas-480.webp 480w, assets/foto-pesca-cavalas-560.webp 560w" sizes="(max-width: 860px) 92vw, 600px" width="560" height="1000" alt="Cavalas enfileiradas, em fotografia em preto e branco" loading="lazy" decoding="async"></div>
+        <div class="fg-slide" data-fg-slide="2" aria-hidden="true"><img class="fg-photo" src="assets/foto-pesca-tainha-576.webp" srcset="assets/foto-pesca-tainha-480.webp 480w, assets/foto-pesca-tainha-576.webp 576w" sizes="(max-width: 860px) 92vw, 600px" width="576" height="570" alt="Rede de pesca da tainha no mar, com a vila de Trindade ao fundo" loading="lazy" decoding="async"></div>
+        <div class="fg-slide" data-fg-slide="3" aria-hidden="true"><img class="fg-photo" src="assets/foto-pesca-redes-560.webp" srcset="assets/foto-pesca-redes-480.webp 480w, assets/foto-pesca-redes-560.webp 560w" sizes="(max-width: 860px) 92vw, 600px" width="560" height="900" alt="Pescadores recolhendo a rede de um barco" loading="lazy" decoding="async"></div>
+        <span class="fg-counter" data-fg-count aria-hidden="true">1 / 4</span>
+        <button class="fg-expand" type="button" data-fg-open aria-label="Ampliar foto em tela cheia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6"/></svg><span>Ampliar</span></button>
+        <div class="fg-arrows"><button class="fg-arrow" type="button" data-fg-prev aria-label="Foto anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><button class="fg-arrow" type="button" data-fg-next aria-label="Próxima foto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button></div>
+      </div>
+      <div class="fg-caption" aria-live="polite" aria-atomic="true"><h2 data-fg-title>Peixe em destaque</h2><p data-fg-caption>Registro de peixe enviado pela equipe.</p></div>
+      <div class="fg-thumbs" aria-label="Escolher uma fotografia">
+        <button type="button" class="fg-thumb" data-fg-select="0" aria-label="Ver foto 1: Peixe em destaque" aria-pressed="true"><img src="assets/foto-pesca-peixe-480.webp" width="480" height="857" alt="" loading="lazy" decoding="async"></button>
+        <button type="button" class="fg-thumb" data-fg-select="1" aria-label="Ver foto 2: Cavalas" aria-pressed="false"><img src="assets/foto-pesca-cavalas-480.webp" width="480" height="857" alt="" loading="lazy" decoding="async"></button>
+        <button type="button" class="fg-thumb" data-fg-select="2" aria-label="Ver foto 3: Pesca da tainha" aria-pressed="false"><img src="assets/foto-pesca-tainha-480.webp" width="480" height="475" alt="" loading="lazy" decoding="async"></button>
+        <button type="button" class="fg-thumb" data-fg-select="3" aria-label="Ver foto 4: Pescadores e redes" aria-pressed="false"><img src="assets/foto-pesca-redes-480.webp" width="480" height="771" alt="" loading="lazy" decoding="async"></button>
+      </div>
+      <p class="fg-nota">Registros da pesca artesanal e da cultura caiçara de Trindade, enviados pela equipe. Não são fotos do passeio Fishing Experience.</p>
+    </div>
+
+    <div class="pescaria-info">
+      <h2>O horizonte espera por você.</h2>
+      <p>Viva uma experiência de pescaria em alto mar com o acompanhamento de um guia experiente, em Trindade.</p>
+      <div class="pescaria-preco"><span>Valor fixo</span><strong>R$ 500</strong></div>
+      <p class="pescaria-dica">Converse com a equipe para combinar a data e conhecer os detalhes do passeio.</p>
+      <a class="btn btn-primario btn-largo" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre a Pescaria em Alto Mar, com guia experiente e valor fixo de R$ 500." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar pescaria no WhatsApp</a>
+    </div>
+  </div>
+
+  <section class="bloco peixes-costa" aria-labelledby="titulo-peixes">
+    <header class="cabeca">
+      <h2 id="titulo-peixes">Peixes da costa de Trindade</h2>
+      <p>Águas abertas, praias e costões fazem parte do cenário da pesca local. Conheça seis peixes documentados em estudos sobre a comunidade de Trindade e a região de Paraty.</p>
+    </header>
+    <div class="peixes-grid">
+      <article class="peixe-card" data-revelar><span class="peixe-habitat">Mar aberto</span><h3>Cavala</h3><i class="peixe-cientifico">Scomberomorus cavalla</i><p>Peixe de águas abertas, citado entre os mais consumidos pelos pescadores de Trindade, Praia do Sono e Ponta Negra.</p><a href="#fonte-pesca-diagnostico" data-fish-source="fonte-pesca-diagnostico">Referência</a></article>
+      <article class="peixe-card" data-revelar><span class="peixe-habitat">Águas costeiras</span><h3>Sororoca</h3><i class="peixe-cientifico">Scomberomorus brasiliensis</i><p>Tem corpo alongado e manchas amareladas nos flancos. Vive junto a ilhas, costões e praias; aparece nos registros pesqueiros de Trindade.</p><a href="#fonte-pesca-panorama" data-fish-source="fonte-pesca-panorama">Referência</a></article>
+      <article class="peixe-card" data-revelar><span class="peixe-habitat">Corpo prateado</span><h3>Peixe-espada</h3><i class="peixe-cientifico">Trichiurus lepturus</i><p>O corpo comprido, achatado e brilhante lembra uma fita de prata. A espécie foi registrada nos desembarques da comunidade.</p><a href="#fonte-pesca-panorama" data-fish-source="fonte-pesca-panorama">Referência</a></article>
+      <article class="peixe-card" data-revelar><span class="peixe-habitat">Tradição caiçara</span><h3>Tainha</h3><i class="peixe-cientifico">Mugil spp.</i><p>Registrada na pesca local, faz parte da cultura pesqueira do litoral. A tainha Mugil liza utiliza estuários e lagoas costeiras durante seu crescimento.</p><a href="#fonte-pesca-tainha" data-fish-source="fonte-pesca-tainha">Referência</a></article>
+      <article class="peixe-card" data-revelar><span class="peixe-habitat">Registro local</span><h3>Anchova</h3><i class="peixe-cientifico">Pomatomus saltatrix</i><p>Também conhecida como enchova. Está entre os peixes identificados em desembarques de Trindade no estudo que comparou comunidades pesqueiras de Paraty.</p><a href="#fonte-pesca-estudo" data-fish-source="fonte-pesca-estudo">Referência</a></article>
+      <article class="peixe-card" data-revelar><span class="peixe-habitat">Registro local</span><h3>Bonito-pintado</h3><i class="peixe-cientifico">Euthynnus alletteratus</i><p>O bonito registrado no levantamento de Trindade pertence a esta espécie. Nomes populares podem designar peixes diferentes de uma região para outra.</p><a href="#fonte-pesca-estudo" data-fish-source="fonte-pesca-estudo">Referência</a></article>
+    </div>
+    <p class="nota-rodape">A presença varia com a época e as condições do mar; os registros não garantem captura em um passeio. As fotografias da galeria registram a pesca artesanal local.</p>
+    <details class="fontes"><summary>Fontes e pesquisa sobre a região</summary><ul>
+      <li id="fonte-pesca-estudo"><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3824866/" target="_blank" rel="noopener">Pesquisa sobre desembarques em Trindade, Praia Grande e Tarituba (2013), tabela 4</a> — ocorrência local das espécies.</li>
+      <li id="fonte-pesca-diagnostico"><a href="https://www.gov.br/icmbio/pt-br/assuntos/biodiversidade/unidade-de-conservacao/unidades-de-biomas/marinho/lista-de-ucs/esec-de-tamoios/arquivos/IBIO_2009_Sntese_do_Diagnstico_Socioambiental_das_Comunidades_de_Pescadores_Artesanais_da_BIG.pdf" target="_blank" rel="noopener">Diagnóstico socioambiental da pesca artesanal na Baía da Ilha Grande (2009), disponível no ICMBio</a> — cavala e comunidades de Paraty.</li>
+      <li id="fonte-pesca-panorama"><a href="https://www.gov.br/mpa/pt-br/assuntos/pesca-amadora-e-esportiva/PANORAMAPESCAAMADORAEESPORTIVA_site2_compressed.pdf" target="_blank" rel="noopener">Ministério da Pesca e Aquicultura — Panorama da Pesca Amadora e Esportiva no Brasil</a> — características do peixe-espada e da sororoca.</li>
+      <li id="fonte-pesca-tainha"><a href="https://www.pesca.sp.gov.br/blog/ip-na-midia-16/como-criar-tainha-ii-7779" target="_blank" rel="noopener">Instituto de Pesca de São Paulo — biologia da tainha</a> — uso de estuários e lagoas costeiras.</li>
+    </ul><p>Pesquisa consultada em 24/09/2026. Os estudos locais são registros históricos da pesca, não uma medição da abundância atual.</p></details>
+  </section>
+</section>
+
+<!-- ======================= HISTÓRIA ======================= -->
+<section class="secao" id="historia" data-secao="historia" aria-labelledby="titulo-historia">
+  <header class="pagina-cabeca historia-cabeca">
+    <h1 id="titulo-historia">História de Trindade</h1>
+    <p>Memória, cultura caiçara e pertencimento.</p>
+  </header>
+  <figure class="historia-capa"><a href="https://paraty.com.br/fotos-de-trindade-decada-de-70/" target="_blank" rel="noopener" aria-label="Ver álbum histórico de Trindade no Portal Paraty"><img src="assets/historia-trindade-16.jpg" alt="Fotografia em preto e branco da enseada e da ocupação da vila de Trindade" width="380" height="250" loading="lazy" decoding="async"></a><figcaption><p>A vila entre a mata e o mar. Registro apresentado no álbum de Trindade da década de 1970.</p><a class="credito" href="https://paraty.com.br/fotos-de-trindade-decada-de-70/" target="_blank" rel="noopener">Fonte: Portal Paraty · ver acervo</a></figcaption></figure>
+  <article class="historia-texto" aria-label="A história de Trindade em três parágrafos">
+    <p>Antes de ser destino de viagem, Trindade já era lugar de pertencimento. Entre a Mata Atlântica e o mar de Paraty, a vida caiçara se construía na pesca artesanal, nas roças e nos saberes passados de uma geração à outra. Pelo Caminho das Sete Voltas, os moradores levavam farinha de mandioca e peixe seco para trocar por produtos na cidade. A paisagem que hoje convida à descoberta guardava, antes de tudo, o cotidiano de uma comunidade ligada à terra e às águas.</p>
+    <p>Na década de 1970, a abertura da Rio-Santos aproximou a vila de novos visitantes e trouxe também a pressão imobiliária. A comunidade enfrentou tentativas de expulsão e se organizou para defender seu território e seu modo de viver. A resistência dos trindadeiros, fortalecida por parceiros, levou a um acordo em 1982 que garantiu a permanência em parte das terras tradicionais. Por trás de cada vista para o mar existe também essa história de união e luta pelo direito de ficar.</p>
+    <p>Hoje, caminhar por Trindade é encontrar paisagens e memórias que continuam vivas. As praias, as trilhas e a piscina natural do Cachadaço atraem quem procura contato com a natureza, enquanto a presença caiçara dá sentido humano a esse encontro. Ouvir os moradores, conhecer seus saberes e valorizar o trabalho local é uma forma de visitar com mais atenção. Porque a história de Trindade não termina no passado: ela segue sendo contada por quem chama este lugar de casa.</p>
+  </article>
+  <div class="historia-galeria">
+    <figure data-revelar><a href="https://paraty.com.br/fotos-de-trindade-decada-de-70/" target="_blank" rel="noopener" aria-label="Ver álbum histórico de Trindade no Portal Paraty"><img src="assets/historia-trindade-09.jpg" alt="Grupo de pessoas reunido à sombra das árvores em Trindade, em fotografia antiga" width="380" height="250" loading="lazy" decoding="async"></a><figcaption><p>Encontros à sombra das árvores. Trindade, década de 1970 segundo o álbum de origem; ocasião e pessoas não identificadas.</p><a class="credito" href="https://paraty.com.br/fotos-de-trindade-decada-de-70/" target="_blank" rel="noopener">Fonte: Portal Paraty · ver acervo</a></figcaption></figure>
+    <figure data-revelar><a href="https://paraty.com.br/fotos-de-trindade-decada-de-70/" target="_blank" rel="noopener" aria-label="Ver álbum histórico de Trindade no Portal Paraty"><img src="assets/historia-trindade-03.jpg" alt="Duas pessoas com um violão, em fotografia em preto e branco do álbum antigo de Trindade" width="380" height="250" loading="lazy" decoding="async"></a><figcaption><p>Música e convivência. Trindade, década de 1970 segundo o álbum de origem; pessoas não identificadas.</p><a class="credito" href="https://paraty.com.br/fotos-de-trindade-decada-de-70/" target="_blank" rel="noopener">Fonte: Portal Paraty · ver acervo</a></figcaption></figure>
+  </div>
+  <p class="nota-rodape historia-nota">Registros de época, preservados no enquadramento original. O álbum informa a década, mas não o ano exato nem a autoria de cada fotografia. As imagens não são apresentadas como registros do acordo de 1982.</p>
+  <aside class="fontes historia-fontes" aria-labelledby="titulo-fontes-historia"><h2 id="titulo-fontes-historia">Para conhecer essa história</h2><ul><li><a href="https://www.gov.br/icmbio/pt-br/assuntos/biodiversidade/unidade-de-conservacao/unidades-de-biomas/marinho/lista-de-ucs/apa-de-cairucu/povos-e-comunidades-tradicionais-2/trindade" target="_blank" rel="noopener">ICMBio — Comunidade de Trindade</a></li><li><a href="https://www.ppgcspa.uema.br/wp-content/uploads/2017/04/04-boletim-trindade_web.pdf" target="_blank" rel="noopener">Boletim da comunidade caiçara de Trindade — história e depoimentos</a></li></ul></aside>
+</section>
+
+</main>
+
+<footer class="rodape">
+  <div class="rodape-in">
+    <div>
+      <h2>Trindade Adventure</h2>
+      <ul>
+        <li>Trilhas e passeios de barco</li>
+        <li>Trindade, Paraty — RJ</li>
+        <li>Guia local credenciado</li>
+      </ul>
+    </div>
+    <div>
+      <h2>Roteiros</h2>
+      <ul>
+        <li><a href="#/passeios?plano=essencial">Trindade Essencial — R$ 70</a></li>
+        <li><a href="#/passeios?plano=adventure">Trindade Adventure — R$ 150</a></li>
+        <li><a href="#/passeios?plano=boat">Trindade Boat — R$ 400</a></li>
+        <li><a href="#/pescaria">Pescaria em Alto Mar — R$ 500</a></li>
+        <li><a href="#/passeios?passeio=mamangua">Passeios sob consulta</a></li>
+      </ul>
+    </div>
+    <div>
+      <h2>Trindade</h2>
+      <ul>
+        <li><a href="#/historia">História de Trindade</a></li>
+        <li><a href="#/pousadas">Pousadas parceiras</a></li>
+        <li><a href="#/cameras">Câmeras (em preparação)</a></li>
+      </ul>
+    </div>
+    <div>
+      <h2>Contato</h2>
+      <ul>
+        <li><a href="https://wa.me/5524993337247" data-wa="Olá! Vim pelo site da Trindade Adventure." target="_blank" rel="noopener">WhatsApp (24) 99333-7247</a></li>
+        <li><a href="https://instagram.com/trindadeadventurerj" target="_blank" rel="noopener">@trindadeadventurerj</a></li>
+        <li><a href="#/reservar">Reservar horário</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="rodape-base">
+    <p>© <span id="ano">2026</span> Trindade Adventure · Dados de tempo e mar por
+    <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0)</p>
+    <button class="btn btn-secundario btn-sm" id="btnMovimento" type="button" aria-pressed="false">Pausar animações</button>
+  </div>
+</footer>
+
+<nav class="tabbar" aria-label="Navegação rápida">
+  <a href="#/inicio" data-rota="inicio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5L12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/></svg>Início</a>
+  <a href="#/passeios" data-rota="passeios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>Passeios</a>
+  <a href="#/reservar" data-rota="reservar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Reservar</a>
+  <a href="#/pousadas" data-rota="pousadas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18v-8M3 14h18v4M21 18v-3.5a3 3 0 0 0-3-3h-7V18"/><circle cx="7" cy="11" r="2"/></svg>Pousadas</a>
+  <a href="#/contato" data-rota="contato"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v12H8l-4 4z"/></svg>Contato</a>
+</nav>
+
+<dialog class="fg-lightbox" id="fishingLightbox" aria-labelledby="fgLightTitle">
+  <div class="fg-light-inner">
+    <header class="fg-light-header"><h2 id="fgLightTitle">Peixe em destaque</h2><button class="fg-close" type="button" data-fg-close aria-label="Fechar galeria">Fechar <span aria-hidden="true">×</span></button></header>
+    <div class="fg-light-stage" tabindex="0" aria-label="Fotografia ampliada. Use as setas para navegar.">
+      <div class="fg-slide is-active" data-fg-slide="0" aria-hidden="false"><img class="fg-photo" src="assets/foto-pesca-peixe-560.webp" width="560" height="1000" alt="Peixe vermelho segurado sobre o mar" loading="lazy" decoding="async"></div>
+      <div class="fg-slide" data-fg-slide="1" aria-hidden="true"><img class="fg-photo" src="assets/foto-pesca-cavalas-560.webp" width="560" height="1000" alt="Cavalas enfileiradas, em fotografia em preto e branco" loading="lazy" decoding="async"></div>
+      <div class="fg-slide" data-fg-slide="2" aria-hidden="true"><img class="fg-photo" src="assets/foto-pesca-tainha-576.webp" width="576" height="570" alt="Rede de pesca da tainha no mar, com a vila de Trindade ao fundo" loading="lazy" decoding="async"></div>
+      <div class="fg-slide" data-fg-slide="3" aria-hidden="true"><img class="fg-photo" src="assets/foto-pesca-redes-560.webp" width="560" height="900" alt="Pescadores recolhendo a rede de um barco" loading="lazy" decoding="async"></div>
+      <div class="fg-arrows"><button class="fg-arrow" type="button" data-fg-prev aria-label="Foto anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><button class="fg-arrow" type="button" data-fg-next aria-label="Próxima foto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button></div>
+    </div>
+    <footer class="fg-light-footer"><p data-fg-light-caption>Registro de peixe enviado pela equipe.</p><span data-fg-count>1 / 4</span></footer>
+  </div>
+</dialog>
+
+<!-- Leaflet é servido pelo próprio site e só carrega quando o mapa se aproxima
+     da tela. Se ainda assim faltar, o app.js mostra a lista de pontos. -->
+<script src="app.js?v=20260924-revisao2" defer></script>
+<script src="vendor/lenis-1.3.11.min.js" defer></script>
+<script src="motion.js?v=20260924-revisao" defer></script>
+<script src="pescaria-galeria.js?v=20260924-revisao" defer></script>
+</body>
+</html>

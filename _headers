@@ -1,0 +1,34 @@
+# Cabeçalhos aplicados pelo Cloudflare Pages.
+#
+# Estratégia de cache: o HTML precisa estar sempre fresco (é onde os preços
+# vivem), enquanto imagens, CSS e JS podem ficar guardados por muito tempo.
+# Quando um desses arquivos mudar, troque o nome dele — assim o navegador
+# do visitante busca a versão nova sem esperar o cache expirar.
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: SAMEORIGIN
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(), camera=(), payment=()
+
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Biblioteca de terceiros com a versão no nome do arquivo: nunca muda em silêncio.
+/vendor/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/estilo.css
+  Cache-Control: public, max-age=86400
+
+/app.js
+  Cache-Control: public, max-age=86400
+
+/favicon.svg
+  Cache-Control: public, max-age=604800

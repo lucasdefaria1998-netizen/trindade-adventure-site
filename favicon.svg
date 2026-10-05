@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Trindade Adventure">
+  <rect width="512" height="512" rx="116" fill="#0d6b38"/>
+  <g transform="translate(136,150) scale(2.0)" fill="none" stroke="#f2ecdd" stroke-width="9"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 84 L38 22 L64 66"/>
+    <path d="M52 84 L80 40 L116 84"/>
+    <path d="M4 104 q14 -10 28 0 t28 0 t28 0 t28 0"/>
+    <path d="M18 126 q14 -10 28 0 t28 0 t28 0"/>
+  </g>
+</svg>

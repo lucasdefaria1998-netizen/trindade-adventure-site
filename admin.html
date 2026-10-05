@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Painel — Trindade Adventure</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Painel da operação. Página interna, atrás do Cloudflare Access (login por
+   e-mail). Não é indexada e não tem link a partir do site público. */
+:root{
+  --bg:#f4f0e6; --surface:#fbf9f3; --surface-2:#ece6d7; --line:#ddd5c0; --line-2:#c9bfa4;
+  --ink:#1c2a20; --ink-2:#41503f; --muted:#6b7768;
+  --accent:#0d6b38; --accent-ink:#fbf9f3;
+  --ok:#0d6b38; --ok-bg:#e2ede5; --warn:#8a6a1e; --warn-bg:#f3ead3;
+  --bad:#8f3524; --bad-bg:#f3e0da; --gold:#7a6a45;
+  --display:"Archivo",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#08150e; --surface:#0e1d14; --surface-2:#16291d; --line:#1d3122; --line-2:#2b4531;
+    --ink:#e9e3d4; --ink-2:#c2bca9; --muted:#93a08f;
+    --accent:#35b06a; --accent-ink:#05170d;
+    --ok:#4cbb7e; --ok-bg:#10281a; --warn:#d3ad63; --warn-bg:#251f12;
+    --bad:#dd8e78; --bad-bg:#2a1813; --gold:#c9b98f;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--display);font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased}
+h1,h2,h3{margin:0;font-weight:600;letter-spacing:-.02em}
+button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
+input,select{font:inherit;color:inherit}
+a{color:var(--accent)}
+.wrap{max-width:1060px;margin:0 auto;padding:20px}
+header.topo{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:18px}
+header.topo h1{font-size:19px}
+header.topo .quem{font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:auto}
+.abas{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:20px;overflow-x:auto}
+.abas button{padding:9px 14px;font-size:13px;font-weight:500;color:var(--muted);white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-1px}
+.abas button[aria-current="true"]{color:var(--ink);font-weight:600;border-bottom-color:var(--accent)}
+.painel[hidden]{display:none}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:22px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px}
+.kpi .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.kpi .v{font-family:var(--display);font-size:24px;font-weight:700;letter-spacing:-.03em;margin-top:6px;font-variant-numeric:tabular-nums}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;margin-bottom:16px}
+.card h3{font-size:14px;margin-bottom:12px}
+.dia-bloco{margin-bottom:14px}
+.dia-bloco .rot{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:6px}
+.slot{border:1px solid var(--line-2);border-radius:4px;padding:8px;text-align:center;background:var(--surface)}
+.slot b{display:block;font-size:14px;font-variant-numeric:tabular-nums}
+.slot .oc{font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums}
+.slot .barra{height:3px;background:var(--surface-2);margin-top:5px;border-radius:2px;overflow:hidden}
+.slot .barra i{display:block;height:100%;background:var(--accent)}
+.slot.cheio .barra i{background:var(--bad)}
+.slot.quase .barra i{background:var(--warn)}
+.slot.bloqueado{opacity:.5}
+.slot.bloqueado b{text-decoration:line-through}
+.slot button{font-size:10px;color:var(--muted);text-decoration:underline;margin-top:4px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th{text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:500;padding:8px 10px;border-bottom:1px solid var(--line-2);white-space:nowrap}
+td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:none}
+.scroll-x{overflow-x:auto}
+.pill{display:inline-block;padding:2px 7px;border-radius:2px;font-family:var(--mono);font-size:10px;letter-spacing:.03em;text-transform:uppercase;font-weight:500}
+.pill.pendente{background:var(--warn-bg);color:var(--warn)}
+.pill.confirmada{background:var(--ok-bg);color:var(--ok)}
+.pill.cancelada{background:var(--bad-bg);color:var(--bad)}
+.pill.nao_compareceu{background:var(--surface-2);color:var(--muted)}
+.acoes{display:flex;gap:4px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:4px;font-size:12.5px;font-weight:500;border:1px solid var(--line-2);background:var(--surface);white-space:nowrap}
+.btn:hover{border-color:var(--ink-2)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.sm{padding:4px 8px;font-size:11px}
+.btn.danger{color:var(--bad);border-color:var(--line-2)}
+.filtros{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;align-items:center}
+.filtros select,.filtros input{background:var(--surface);border:1px solid var(--line-2);border-radius:4px;padding:6px 9px;font-size:12.5px}
+.barras{display:flex;flex-direction:column;gap:8px}
+.barras .lin{display:grid;grid-template-columns:120px 1fr 90px;gap:10px;align-items:center;font-size:12px}
+.barras .trilho{height:14px;background:var(--surface-2);border-radius:3px;overflow:hidden}
+.barras .fill{height:100%;background:var(--accent)}
+.funil{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.funil .et{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px}
+.funil .et .n{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+.funil .et .l{font-size:11px;color:var(--muted)}
+.funil .et .pct{font-size:11px;color:var(--accent);font-weight:600}
+.msg{padding:14px;border-radius:6px;background:var(--surface);border:1px solid var(--line);font-size:13px;margin-bottom:16px}
+.msg.erro{border-color:var(--bad);color:var(--bad)}
+.vazio{padding:30px;text-align:center;color:var(--muted);font-size:13px}
+.grade-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.grade-form label{display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.grade-form input{background:var(--bg);border:1px solid var(--line-2);border-radius:4px;padding:8px;font-family:var(--display);font-size:14px;text-transform:none;letter-spacing:0;color:var(--ink)}
+dialog{border:1px solid var(--line-2);border-radius:8px;background:var(--surface);color:var(--ink);max-width:440px;width:92vw;padding:20px}
+dialog::backdrop{background:rgba(6,26,15,.5)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="topo">
+    <h1>Trindade Adventure — painel</h1>
+    <span class="quem" id="quem"></span>
+  </header>
+
+  <div id="aviso"></div>
+
+  <nav class="abas" role="tablist">
+    <button role="tab" data-aba="hoje" aria-current="true">Hoje &amp; agenda</button>
+    <button role="tab" data-aba="reservas" aria-current="false">Reservas</button>
+    <button role="tab" data-aba="origem" aria-current="false">Origem</button>
+    <button role="tab" data-aba="config" aria-current="false">Ajustes</button>
+  </nav>
+
+  <section class="painel" id="painel-hoje">
+    <div class="kpis" id="kpis"></div>
+    <div class="card">
+      <h3>Reservas de hoje</h3>
+      <div id="reservasHoje"></div>
+    </div>
+    <div class="card">
+      <h3>Próximos 7 dias — ocupação por horário</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Toque em "bloquear" para fechar um horário. Toque de novo para reabrir.</p>
+      <div id="agenda"></div>
+    </div>
+  </section>
+
+  <section class="painel" id="painel-reservas" hidden>
+    <div class="filtros">
+      <select id="fStatus">
+        <option value="todas">Todos os status</option>
+        <option value="pendente">Pendentes</option>
+        <option value="confirmada">Confirmadas</option>
+        <option value="cancelada">Canceladas</option>
+        <option value="nao_compareceu">Não compareceu</option>
+      </select>
+      <label style="font-size:12px;color:var(--muted)">de <input type="date" id="fDe"></label>
+      <label style="font-size:12px;color:var(--muted)">até <input type="date" id="fAte"></label>
+      <button class="btn sm" id="fAplicar">Filtrar</button>
+      <button class="btn sm" id="novaReserva" style="margin-left:auto">+ Reserva manual</button>
+    </div>
+    <div class="card" style="padding:0">
+      <div class="scroll-x"><table id="tabelaReservas"></table></div>
+    </div>
+  </section>
+
+  <section class="painel" id="painel-origem" hidden>
+    <div class="filtros">
+      <select id="oDias">
+        <option value="7">Últimos 7 dias</option>
+        <option value="30" selected>Últimos 30 dias</option>
+        <option value="90">Últimos 90 dias</option>
+      </select>
+    </div>
+    <div class="card">
+      <h3>Funil — visita até reserva</h3>
+      <div class="funil" id="funil"></div>
+    </div>
+    <div class="card">
+      <h3>De onde vieram as reservas</h3>
+      <div class="barras" id="barrasOrigem"></div>
+    </div>
+    <div class="card">
+      <h3>Instagram dos clientes</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Quem marcou que segue. Confira o @ na sua lista de seguidores antes de entregar as fotos.</p>
+      <div class="scroll-x"><table id="tabelaInstagram"></table></div>
+    </div>
+  </section>
+
+  <section class="painel" id="painel-config" hidden>
+    <div class="card">
+      <h3>Ajustes da operação</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Valem no mesmo instante — o site lê estes números a cada reserva.</p>
+      <div class="grade-form" id="formConfig"></div>
+      <button class="btn primary" id="salvarConfig" style="margin-top:16px">Salvar ajustes</button>
+    </div>
+  </section>
+</div>
+
+<dialog id="dlgReserva">
+  <h3 style="font-size:15px;margin-bottom:12px">Reserva manual (balcão / telefone)</h3>
+  <div class="grade-form">
+    <label>Passeio
+      <select id="mPlano"><option value="essencial">Essencial — R$ 60</option><option value="adventure">Adventure — R$ 150</option><option value="boat">Boat — R$ 350</option></select>
+    </label>
+    <label>Data <input type="date" id="mData"></label>
+    <label>Horário <input id="mHora" placeholder="8, 9, 8.5..." inputmode="decimal"></label>
+    <label>Pessoas <input type="number" id="mPax" value="2" min="1"></label>
+    <label>Nome <input id="mNome" placeholder="Nome do cliente"></label>
+    <label>Telefone <input id="mTel" placeholder="(24) 9...."></label>
+  </div>
+  <div class="acoes" style="margin-top:16px;justify-content:flex-end">
+    <button class="btn sm" id="mCancelar">Cancelar</button>
+    <button class="btn primary sm" id="mSalvar">Lançar reserva</button>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+const API = "/api/admin";
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const money = n => "R$ " + Number(n || 0).toLocaleString("pt-BR");
+const d2 = n => String(n).padStart(2, "0");
+const hLabel = h => d2(Math.floor(h)) + ":" + d2(Math.round((h % 1) * 60));
+const dataBR = iso => iso ? iso.split("-").reverse().join("/") : "";
+const diaSemana = iso => ["dom","seg","ter","qua","qui","sex","sáb"][new Date(iso + "T12:00:00").getDay()];
+
+async function api(caminho, opts) {
+  const r = await fetch(API + caminho, Object.assign({ headers: { "content-type": "application/json" } }, opts || {}));
+  if (r.status === 401) {
+    document.body.innerHTML = '<div class="wrap"><div class="msg erro">Sessão expirada ou acesso não autorizado. <a href="/admin">Entrar de novo</a>.</div></div>';
+    throw new Error("401");
+  }
+  const j = await r.json().catch(() => ({ ok: false, erro: "Resposta inválida" }));
+  if (!j.ok && j.erro) throw new Error(j.erro);
+  return j;
+}
+
+function aviso(txt, erro) {
+  $("#aviso").innerHTML = txt ? '<div class="msg' + (erro ? " erro" : "") + '">' + txt + "</div>" : "";
+  if (txt && !erro) setTimeout(() => { $("#aviso").innerHTML = ""; }, 4000);
+}
+
+/* ------- abas ------- */
+$$(".abas button").forEach(b => b.addEventListener("click", () => {
+  $$(".abas button").forEach(x => x.setAttribute("aria-current", x === b ? "true" : "false"));
+  $$(".painel").forEach(p => { p.hidden = p.id !== "painel-" + b.dataset.aba; });
+  if (b.dataset.aba === "reservas") carregarReservas();
+  if (b.dataset.aba === "origem") carregarOrigem();
+  if (b.dataset.aba === "config") carregarConfig();
+}));
+
+/* ------- HOJE + AGENDA ------- */
+async function carregarHoje() {
+  let d;
+  try { d = await api("/resumo"); } catch (e) { return aviso("Não consegui carregar: " + e.message, true); }
+
+  const k = d.kpis;
+  $("#kpis").innerHTML = [
+    ["reservas hoje", k.reservasHoje],
+    ["pessoas hoje", k.paxHoje],
+    ["receita hoje", money(k.receitaHoje)],
+    ["pendentes", k.pendentes]
+  ].map(([l, v]) => '<div class="kpi"><div class="k">' + l + '</div><div class="v">' + v + "</div></div>").join("");
+
+  if (!d.reservasHoje.length) {
+    $("#reservasHoje").innerHTML = '<div class="vazio">Nenhuma reserva para hoje.</div>';
+  } else {
+    $("#reservasHoje").innerHTML =
+      '<div class="scroll-x"><table><thead><tr><th>Hora</th><th>Código</th><th>Cliente</th><th>Telefone</th><th>Pessoas</th><th>Status</th></tr></thead><tbody>' +
+      d.reservasHoje.map(r =>
+        "<tr><td>" + hLabel(r.hora) + "</td><td>" + r.codigo + "</td><td>" + esc(r.nome) +
+        "</td><td>" + esc(r.telefone || "—") + "</td><td>" + r.pax +
+        '</td><td><span class="pill ' + r.status + '">' + rotStatus(r.status) + "</span></td></tr>"
+      ).join("") + "</tbody></table></div>";
+  }
+
+  const dias = Object.keys(d.agenda).sort();
+  $("#agenda").innerHTML = dias.map(dia => {
+    const horas = Object.keys(d.agenda[dia]).map(Number).sort((a, b) => a - b);
+    return '<div class="dia-bloco"><div class="rot">' + diaSemana(dia) + " · " + dataBR(dia) + '</div><div class="slots">' +
+      horas.map(h => {
+        const s = d.agenda[dia][String(h)];
+        const pct = Math.round((s.usado / s.capacidade) * 100);
+        const cls = s.bloqueado ? "bloqueado" : pct >= 100 ? "cheio" : pct >= 70 ? "quase" : "";
+        return '<div class="slot ' + cls + '"><b>' + hLabel(h) + '</b><span class="oc">' +
+          (s.bloqueado ? "bloqueado" : s.usado + "/" + s.capacidade) +
+          '</span><span class="barra"><i style="width:' + (s.bloqueado ? 100 : pct) + '%"></i></span>' +
+          '<button data-bloq="' + dia + "|" + h + '">' + (s.bloqueado ? "reabrir" : "bloquear") + "</button></div>";
+      }).join("") + "</div></div>";
+  }).join("");
+
+  $$("#agenda [data-bloq]").forEach(btn => btn.addEventListener("click", () => alternarBloqueio(btn.dataset.bloq, d.bloqueios)));
+}
+
+async function alternarBloqueio(chave, bloqueios) {
+  const [dia, hora] = chave.split("|");
+  const existente = bloqueios.find(b => b.data === dia && String(b.hora) === hora);
+  try {
+    if (existente) {
+      await api("/bloqueios/" + existente.id, { method: "DELETE" });
+      aviso("Horário reaberto.");
+    } else {
+      await api("/bloqueios", { method: "POST", body: JSON.stringify({ data: dia, hora: Number(hora) }) });
+      aviso("Horário bloqueado.");
+    }
+    carregarHoje();
+  } catch (e) { aviso("Falhou: " + e.message, true); }
+}
+
+/* ------- RESERVAS ------- */
+async function carregarReservas() {
+  const qs = new URLSearchParams();
+  const st = $("#fStatus").value; if (st) qs.set("status", st);
+  if ($("#fDe").value) qs.set("de", $("#fDe").value);
+  if ($("#fAte").value) qs.set("ate", $("#fAte").value);
+
+  let d;
+  try { d = await api("/reservas?" + qs.toString()); } catch (e) { return aviso("Erro: " + e.message, true); }
+
+  const t = $("#tabelaReservas");
+  if (!d.reservas.length) { t.innerHTML = '<tbody><tr><td class="vazio">Nada encontrado.</td></tr></tbody>'; return; }
+
+  t.innerHTML =
+    "<thead><tr><th>Data</th><th>Hora</th><th>Código</th><th>Cliente</th><th>Contato</th><th>Passeio</th><th>Pax</th><th>Total</th><th>Origem</th><th>Status</th><th></th></tr></thead><tbody>" +
+    d.reservas.map(r => {
+      const orig = r.origem === "outro" && r.como_conheceu ? r.como_conheceu : (r.origem || "—");
+      const ig = r.instagram_cliente ? '<br><span style="color:var(--gold)">@' + esc(r.instagram_cliente) + (r.seguiu_instagram ? " ✓" : "") + "</span>" : "";
+      return "<tr><td>" + dataBR(r.data) + "</td><td>" + hLabel(r.hora) + "</td><td>" + r.codigo +
+        "</td><td>" + esc(r.nome) + ig + "</td><td>" + esc(r.telefone || "—") +
+        (r.email ? "<br>" + esc(r.email) : "") + "</td><td>" + esc(nomePlano(r.plano)) +
+        "</td><td>" + r.pax + "</td><td>" + money(r.total) + "</td><td>" + esc(orig) +
+        '</td><td><span class="pill ' + r.status + '">' + rotStatus(r.status) + "</span></td><td>" +
+        acoesReserva(r) + "</td></tr>" +
+        (r.obs ? '<tr><td colspan="11" style="color:var(--muted);font-size:11px;padding-top:0">obs: ' + esc(r.obs) + "</td></tr>" : "");
+    }).join("") + "</tbody>";
+
+  $$("#tabelaReservas [data-acao]").forEach(btn => btn.addEventListener("click", async () => {
+    try {
+      await api("/reservas/" + btn.dataset.id, { method: "PATCH", body: JSON.stringify({ status: btn.dataset.acao }) });
+      aviso("Reserva atualizada.");
+      carregarReservas();
+    } catch (e) { aviso("Falhou: " + e.message, true); }
+  }));
+}
+
+function acoesReserva(r) {
+  const b = [];
+  if (r.status !== "confirmada") b.push('<button class="btn sm" data-acao="confirmada" data-id="' + r.id + '">confirmar</button>');
+  if (r.status !== "nao_compareceu" && r.status !== "cancelada") b.push('<button class="btn sm" data-acao="nao_compareceu" data-id="' + r.id + '">faltou</button>');
+  if (r.status !== "cancelada") b.push('<button class="btn sm danger" data-acao="cancelada" data-id="' + r.id + '">cancelar</button>');
+  return '<div class="acoes">' + b.join("") + "</div>";
+}
+
+$("#fAplicar").addEventListener("click", carregarReservas);
+$("#fStatus").addEventListener("change", carregarReservas);
+
+/* ------- reserva manual ------- */
+const dlg = $("#dlgReserva");
+$("#novaReserva").addEventListener("click", () => { $("#mData").value = new Date().toISOString().slice(0, 10); dlg.showModal(); });
+$("#mCancelar").addEventListener("click", () => dlg.close());
+$("#mSalvar").addEventListener("click", async () => {
+  const body = {
+    plano: $("#mPlano").value, data: $("#mData").value, hora: Number($("#mHora").value),
+    pax: Number($("#mPax").value), nome: $("#mNome").value, telefone: $("#mTel").value
+  };
+  try {
+    await api("/reservas", { method: "POST", body: JSON.stringify(body) });
+    dlg.close();
+    aviso("Reserva manual lançada.");
+    carregarReservas();
+  } catch (e) { aviso("Falhou: " + e.message, true); }
+});
+
+/* ------- ORIGEM ------- */
+async function carregarOrigem() {
+  let d;
+  try { d = await api("/origem?dias=" + $("#oDias").value); } catch (e) { return aviso("Erro: " + e.message, true); }
+
+  const ev = {};
+  d.funil.forEach(f => { ev[f.tipo] = f.sessoes; });
+  const visitas = ev.visita || 0;
+  const inicio = ev.inicio_reserva || 0;
+  const envio = ev.envio_whatsapp || 0;
+  const etapas = [
+    ["Visitas", visitas, ""],
+    ["Abriram reserva", inicio, visitas ? Math.round(inicio / visitas * 100) + "%" : ""],
+    ["Enviaram pedido", envio, inicio ? Math.round(envio / inicio * 100) + "%" : ""],
+    ["Confirmadas", d.confirmadas, envio ? Math.round(d.confirmadas / envio * 100) + "%" : ""]
+  ];
+  $("#funil").innerHTML = etapas.map(([l, n, pct]) =>
+    '<div class="et"><div class="n">' + n + '</div><div class="l">' + l + '</div>' +
+    (pct ? '<div class="pct">' + pct + " do passo anterior</div>" : "") + "</div>"
+  ).join("");
+
+  const total = d.porOrigem.reduce((s, o) => s + Number(o.n), 0) || 1;
+  $("#barrasOrigem").innerHTML = d.porOrigem.length ? d.porOrigem.map(o => {
+    const pct = Math.round(Number(o.n) / total * 100);
+    return '<div class="lin"><span>' + esc(o.origem || "—") + '</span><span class="trilho"><span class="fill" style="width:' + pct + '%"></span></span>' +
+      '<span style="text-align:right">' + o.n + " res · " + money(o.receita) + "</span></div>";
+  }).join("") : '<div class="vazio">Sem reservas no período.</div>';
+
+  const ti = $("#tabelaInstagram");
+  ti.innerHTML = d.instagram.length ?
+    "<thead><tr><th>Data</th><th>Código</th><th>Cliente</th><th>@ Instagram</th><th>Marcou seguir</th><th>Status</th></tr></thead><tbody>" +
+    d.instagram.map(r => "<tr><td>" + dataBR(r.data) + "</td><td>" + r.codigo + "</td><td>" + esc(r.nome) +
+      '</td><td style="color:var(--gold)">@' + esc(r.instagram_cliente) + "</td><td>" + (r.seguiu_instagram ? "sim" : "não") +
+      '</td><td><span class="pill ' + r.status + '">' + rotStatus(r.status) + "</span></td></tr>").join("") + "</tbody>"
+    : '<tbody><tr><td class="vazio">Ninguém informou o Instagram ainda.</td></tr></tbody>';
+}
+$("#oDias").addEventListener("change", carregarOrigem);
+
+/* ------- CONFIG ------- */
+const CAMPOS_CFG = [
+  ["capacidade", "Vagas por horário"],
+  ["slot_inicio", "Primeira saída (hora)"],
+  ["slot_fim", "Última saída (hora)"],
+  ["saida_apos", "Sai X min depois"],
+  ["cancelamento_h", "Cancela grátis até (h)"],
+  ["whatsapp", "WhatsApp (55 + DDD + número)"],
+  ["instagram", "@ do Instagram (sem @)"],
+  ["cupom", "Cupom das pousadas"],
+  ["beneficio_instagram", "Texto do benefício de seguir"]
+];
+async function carregarConfig() {
+  let d;
+  try { d = await api("/config"); } catch (e) { return aviso("Erro: " + e.message, true); }
+  $("#formConfig").innerHTML = CAMPOS_CFG.map(([k, l]) =>
+    "<label>" + l + '<input id="cfg_' + k + '" value="' + esc(d.config[k] || "") + '"></label>'
+  ).join("");
+}
+$("#salvarConfig").addEventListener("click", async () => {
+  const body = {};
+  CAMPOS_CFG.forEach(([k]) => { body[k] = $("#cfg_" + k).value; });
+  try {
+    await api("/config", { method: "POST", body: JSON.stringify(body) });
+    aviso("Ajustes salvos.");
+  } catch (e) { aviso("Falhou: " + e.message, true); }
+});
+
+/* ------- utilidades ------- */
+function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function rotStatus(s) { return { pendente: "pendente", confirmada: "confirmada", cancelada: "cancelada", nao_compareceu: "faltou" }[s] || s; }
+function nomePlano(id) { return { essencial: "Trindade Essencial", adventure: "Trindade Adventure", boat: "Trindade Boat" }[id] || id; }
+
+/* quem está logado (Cloudflare Access injeta no header; o Worker não devolve,
+   mas o e-mail aparece no cabeçalho do Access — deixamos genérico) */
+$("#quem").textContent = "acesso por login verificado";
+
+carregarHoje();
+</script>
+</body>
+</html>
