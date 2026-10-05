@@ -1,9 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Só páginas públicas que existem e que podem ser indexadas: as mesmas da
+     tabela site-config do index.html, menos /cameras (indexar:false, ainda
+     sem câmera real). Ao criar ou remover uma página lá, atualize aqui. -->
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://trindade-adventure.pages.dev/</loc>
-    <lastmod>2026-09-08</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>1.0</priority>
-  </url>
+  <url><loc>https://trindade-adventure.pages.dev/</loc><lastmod>2026-10-05</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://trindade-adventure.pages.dev/passeios</loc><lastmod>2026-10-05</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://trindade-adventure.pages.dev/passeios/essencial</loc><lastmod>2026-10-05</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://trindade-adventure.pages.dev/passeios/adventure</loc><lastmod>2026-10-05</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://trindade-adventure.pages.dev/passeios/boat</loc><lastmod>2026-10-05</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://trindade-adventure.pages.dev/passeios/mamangua</loc><lastmod>2026-10-05</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://trindade-adventure.pages.dev/passeios/fishing</loc><lastmod>2026-10-05</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://trindade-adventure.pages.dev/passeios/saco-bravo</loc><lastmod>2026-10-05</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://trindade-adventure.pages.dev/passeios/juatinga</loc><lastmod>2026-10-05</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://trindade-adventure.pages.dev/reservar</loc><lastmod>2026-10-05</lastmod><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://trindade-adventure.pages.dev/pousadas</loc><lastmod>2026-10-05</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://trindade-adventure.pages.dev/pescaria</loc><lastmod>2026-10-05</lastmod><changefreq>monthly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://trindade-adventure.pages.dev/historia</loc><lastmod>2026-10-05</lastmod><changefreq>yearly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://trindade-adventure.pages.dev/contato</loc><lastmod>2026-10-05</lastmod><changefreq>monthly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://trindade-adventure.pages.dev/termos-do-passeio</loc><lastmod>2026-10-05</lastmod><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://trindade-adventure.pages.dev/politica-de-privacidade</loc><lastmod>2026-10-05</lastmod><changefreq>yearly</changefreq><priority>0.3</priority></url>
 </urlset>

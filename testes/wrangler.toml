@@ -1,0 +1,10 @@
+# Só para testes locais: "wrangler pages dev" a partir desta pasta, com um
+# banco D1 local (.wrangler/). Nada aqui é publicado nem toca a produção.
+name = "trindade-adventure-local"
+pages_build_output_dir = "../site"
+compatibility_date = "2025-09-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "trindade-local"
+database_id = "00000000-0000-0000-0000-000000000000"

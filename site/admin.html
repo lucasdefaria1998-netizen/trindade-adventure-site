@@ -399,6 +399,7 @@ const CAMPOS_CFG = [
   ["slot_inicio", "Primeira saída (hora)"],
   ["slot_fim", "Última saída (hora)"],
   ["saida_apos", "Sai X min depois"],
+  ["retorno_limite", "Retorno até (HH:MM) — corta saídas que terminariam depois"],
   ["cancelamento_h", "Cancela grátis até (h)"],
   ["whatsapp", "WhatsApp (55 + DDD + número)"],
   ["instagram", "@ do Instagram (sem @)"],
@@ -409,7 +410,8 @@ async function carregarConfig() {
   let d;
   try { d = await api("/config"); } catch (e) { return aviso("Erro: " + e.message, true); }
   $("#formConfig").innerHTML = CAMPOS_CFG.map(([k, l]) =>
-    "<label>" + l + '<input id="cfg_' + k + '" value="' + esc(d.config[k] || "") + '"></label>'
+    "<label>" + l + '<input id="cfg_' + k + '" value="' + esc(d.config[k] || "") + '"' +
+    (k === "retorno_limite" ? ' placeholder="18:20 (padrão)"' : "") + "></label>"
   ).join("");
 }
 $("#salvarConfig").addEventListener("click", async () => {

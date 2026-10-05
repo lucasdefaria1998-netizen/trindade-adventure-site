@@ -6,14 +6,18 @@ que grava as reservas de verdade e um painel para a operação acompanhar. Não
 precisa de Node, npm nem build: publicar continua sendo arrastar a pasta no
 Cloudflare Pages.
 
-## Arquivos
+**Estrutura desta pasta (desde 05/10/2026):** só o conteúdo de `site/` vai
+para o Cloudflare. `testes/` e este LEIA-ME ficam fora do deploy.
+
+## Arquivos (dentro de `site/`)
 
 | Arquivo | O que é |
 |---|---|
-| `index.html` | Todo o conteúdo do site: roteiros, preços, textos, perguntas frequentes. É aqui que se muda o que aparece. |
+| `index.html` | Todo o conteúdo do site: roteiros, preços, textos, perguntas frequentes, Termos do Passeio e Política de Privacidade. No `<head>`, a tabela `site-config` lista cada página (endereço, título, descrição, imagem de pré-visualização) e os dados da empresa. |
+| `404.html` | Página de erro de reserva. A existência dela é o que impede o Cloudflare de responder a página inicial para endereço que não existe — não apague. |
 | `estilo.css` | Cores, tipografia e layout. |
 | `app.js` | Comportamento do site público: navegação, tempo e mar ao vivo, montador de reserva, mapa, envio para a API. |
-| `_worker.js` | O backend. Um arquivo só, porque o deploy por arraste-e-solta do Cloudflare não compila a pasta `/functions` — só aceita `_worker.js`. Responde `/api/*` (reservas, disponibilidade, painel) e entrega o resto do site sem mexer em nada. |
+| `_worker.js` | O backend. Um arquivo só, porque o deploy por arraste-e-solta do Cloudflare não compila a pasta `/functions` — só aceita `_worker.js`. Responde `/api/*` (reservas, disponibilidade, painel), entrega cada página com título e metadados próprios e responde 404 de verdade para endereço ou arquivo que não existe. |
 | `admin.html` | O painel da operação (agenda, reservas, origem dos clientes, ajustes). Só abre para quem faz login — ver seção "Painel da operação" abaixo. |
 | `assets/` | Fotos. `og-v2.jpg` é a imagem que aparece quando alguém cola o link no WhatsApp. |
 | `vendor/` | Leaflet 1.9.4, a biblioteca do mapa, servida pelo próprio site. Não editar. |
@@ -90,17 +94,72 @@ de repetir o número.
 `5524993337247` (55 + DDD + número, só dígitos). Troque também o texto visível
 em `index.html` (busque por `99333-7247`) e o `telephone` do bloco JSON-LD.
 
-**Horários de saída** — `app.js`, em `CFG.slotInicio` e `CFG.slotFim`. Para um
-passeio com saída própria, use o campo `horarios` do plano: `[8.5]` é 08:30.
+**Horários de saída** — `app.js`, em `CFG.slotInicio` e `CFG.slotFim` (e no
+painel, Ajustes). Para um passeio com saída própria, use o campo `horarios` do
+plano: `[8.5]` é 08:30.
+
+**Duração e última saída de cada passeio** — cada plano tem `duracaoMin` em
+`PLANOS` (no `_worker.js`, que vale, e no `app.js`). Um horário só é
+oferecido se o passeio terminar até o **horário-limite de retorno**:
+
+    concentração + saída (20 min) + duração ≤ retorno_limite
+
+O padrão é 18:20 — o retorno da saída mais tarde que o Essencial (≈ 3h) já
+tinha às 15:00. Com isso o Adventure (≈ 6h) vai até 12:00 e o Boat segue às
+08:30. Para mudar sem publicar: painel → Ajustes → "Retorno até". Não é o pôr
+do sol (que muda o ano todo); é um horário fixo da operação. Um plano também
+pode ter `ultimaSaida` para cortar a grade num horário específico.
+
+**Texto de uma página no Google/WhatsApp** — tabela `site-config` no
+`<head>` do `index.html`: `titulo`, `descricao`, `imagem` (JPG). Algumas
+descrições citam preço (Essencial, Adventure, Boat, Pescaria): ao mudar um
+preço, mude também ali. Página nova = entrada nova na tabela + seção com
+`data-secao` no HTML + linha no `sitemap.xml`.
+
+**CNPJ, razão social, Cadastur** — `negocio` na mesma tabela `site-config`.
+Campo vazio não aparece no rodapé. O CNPJ também está no JSON-LD (`taxID`).
 
 **Cupom das pousadas** — `CFG.cupom` em `app.js` e o texto em `index.html`.
 
 Depois de qualquer alteração, publique de novo (seção abaixo).
 
+## Endereços do site, 404 e cache
+
+Até 05/10/2026 o site navegava por `#/` (`/#/passeios?plano=adventure`).
+Agora cada página tem endereço próprio: `/passeios`, `/passeios/adventure`,
+`/passeios/juatinga`, `/reservar`, `/pousadas`, `/pescaria`, `/historia`,
+`/contato`, `/cameras`, `/termos-do-passeio`, `/politica-de-privacidade`.
+Links antigos com `#/` continuam funcionando — o `app.js` converte na hora,
+mantendo `?fonte=` do rastreamento.
+
+- Endereço fora da tabela `site-config` → página "não encontrada", **status 404**.
+- Arquivo inexistente (`/assets/x.webp`, `/x.js`…) → **404** em texto, com
+  `Cache-Control: no-cache`. Nunca mais o HTML da página inicial com cache de
+  um ano.
+- `/cameras` sai com `noindex` e fora do sitemap enquanto não houver câmera real.
+
+## Testar antes de publicar
+
+Com Node instalado, a partir da pasta `testes/` (banco D1 **local**, nada vai
+para a produção):
+
+    npx wrangler d1 execute trindade-local --local --file schema-local.sql
+    npx wrangler pages dev --port 8788
+
+e, em outro terminal, na pasta do projeto:
+
+    node testes/testar-http.mjs http://127.0.0.1:8788
+
+São ~150 verificações: 404, cache, título/descrição/canonical/OG de cada
+página, sitemap, e a regra de horários (inclusive reservas de teste no banco
+local). Contra o site no ar (`node testes/testar-http.mjs https://trindade-adventure.pages.dev`)
+os testes que gravam reserva são pulados automaticamente.
+
 ## Publicar uma nova versão
 
 Cloudflare Pages → projeto `trindade-adventure` → **Create deployment** →
-arraste a pasta inteira (ou o `.zip`, incluindo `_worker.js` e `admin.html`).
+arraste a pasta **`site`** (ou um `.zip` do conteúdo dela, incluindo
+`_worker.js`, `404.html` e `admin.html`).
 A publicação leva menos de um minuto e a versão anterior fica guardada, então
 dá para voltar atrás com um clique.
 
@@ -148,8 +207,10 @@ site. Só mexa neles de novo se for trocar de banco ou de política de acesso.
    O pacote `trindade-adventure-site-DOMINIO-PROPRIO.zip`, na pasta Downloads,
    já está com essa troca feita. Depois que a zona ficar ativa, é só publicá-lo
    no lugar do outro.
-4. **CNPJ e Cadastur.** Não estão no site. Assim que existirem, valem uma linha
-   no rodapé: é o que dá confiança a quem está pesquisando passeio de fora.
+4. **CNPJ e Cadastur.** O CNPJ 64.565.826/0001-80 está no rodapé e no JSON-LD
+   desde 05/10/2026. Faltam o número do **Cadastur** (é um registro próprio do
+   Ministério do Turismo, diferente do CNPJ) e, se quiser, a razão social:
+   preencha em `negocio`, na tabela `site-config`.
 
 ## Parceiros reais no site
 

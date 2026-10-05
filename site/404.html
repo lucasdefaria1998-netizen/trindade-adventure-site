@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Página não encontrada | Trindade Adventure</title>
+<meta name="description" content="Não conseguimos encontrar o endereço que você tentou acessar.">
+<meta name="robots" content="noindex,follow">
+<meta name="theme-color" content="#0d6b38" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#08150e" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="/estilo.css?v=20261005-rotas">
+<script>try{var t=localStorage.getItem('trindade.tema');if(t==='dark'||t==='light')document.documentElement.setAttribute('data-theme',t);}catch(e){}</script>
+<!--
+  Esta página existe por dois motivos:
+  1. Sem um 404.html na raiz, o Cloudflare Pages trata o site como SPA e
+     responde o index.html com status 200 para QUALQUER endereço — inclusive
+     arquivo que não existe em /assets. Com ele, endereço inexistente vira 404.
+  2. É a página de erro de reserva: normalmente quem responde "página não
+     encontrada" é o _worker.js, com a seção completa do index.html (menu,
+     rodapé). Se o worker falhar, o Pages entrega esta aqui.
+-->
+</head>
+<body>
+<main id="conteudo" class="secao secao-404">
+  <header class="pagina-cabeca">
+    <p class="selo-404" aria-hidden="true">404</p>
+    <h1>Página não encontrada</h1>
+    <p>Não conseguimos encontrar o endereço que você tentou acessar. Ele pode ter mudado ou ter sido digitado com algum erro.</p>
+  </header>
+  <div class="acoes-404">
+    <a class="btn btn-primario" href="/">Voltar para o início</a>
+    <a class="btn btn-secundario" href="/passeios">Ver os passeios</a>
+    <a class="btn btn-secundario" href="/reservar">Reservar horário</a>
+    <a class="btn btn-secundario" href="/contato">Falar com a equipe</a>
+  </div>
+</main>
+</body>
+</html>

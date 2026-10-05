@@ -2,8 +2,16 @@
 #
 # Estratégia de cache: o HTML precisa estar sempre fresco (é onde os preços
 # vivem), enquanto imagens, CSS e JS podem ficar guardados por muito tempo.
-# Quando um desses arquivos mudar, troque o nome dele — assim o navegador
-# do visitante busca a versão nova sem esperar o cache expirar.
+# Quando um desses arquivos mudar, troque o nome dele (fotos) ou o ?v= no
+# index.html (CSS e JS) — assim o navegador busca a versão nova sem esperar
+# o cache expirar.
+#
+# O cache longo de /assets/* e /vendor/* só vale para arquivo que EXISTE:
+# para arquivo inexistente, o _worker.js devolve 404 com "no-cache" (antes,
+# o Pages respondia o index.html com 200 e este "immutable" fazia o navegador
+# guardar a página inicial no lugar da foto por um ano). As páginas do site
+# (/passeios, /reservar…) saem do _worker.js com o cabeçalho de "/" abaixo;
+# a página 404 sai com "no-cache".
 
 /*
   X-Content-Type-Options: nosniff
@@ -16,6 +24,9 @@
 
 /index.html
   Cache-Control: public, max-age=0, must-revalidate
+
+/404.html
+  Cache-Control: no-cache
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
@@ -30,5 +41,18 @@
 /app.js
   Cache-Control: public, max-age=86400
 
+# Também versionados por ?v= no index.html, como o app.js.
+/motion.js
+  Cache-Control: public, max-age=86400
+
+/pescaria-galeria.js
+  Cache-Control: public, max-age=86400
+
 /favicon.svg
   Cache-Control: public, max-age=604800
+
+/robots.txt
+  Cache-Control: public, max-age=3600
+
+/sitemap.xml
+  Cache-Control: public, max-age=3600

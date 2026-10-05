@@ -5,15 +5,22 @@
    do Cloudflare, mas aceita este _worker.js. Ele:
 
    1. responde /api/*   — reservas, disponibilidade, eventos de funil e painel
-   2. entrega o site    — qualquer outra rota cai em env.ASSETS.fetch()
+   2. entrega as páginas — cada endereço do site (/passeios, /reservar,
+      /passeios/adventure…) recebe o index.html com título, descrição,
+      canonical e Open Graph próprios, lidos da tabela de páginas que fica
+      no próprio index.html (<script id="site-config">). Endereço que não
+      está na tabela recebe a página "não encontrada" com status 404.
+   3. entrega os arquivos — fotos, CSS e JS saem de env.ASSETS. Arquivo que
+      não existe responde 404 de verdade, sem cache longo, e nunca o HTML
+      da página inicial.
 
    Ligações (Settings > Bindings no painel do projeto Pages):
      DB       — banco D1 "trindade-adventure"
      (Cloudflare Access protege /admin e /api/admin/* por login de e-mail)
 
    Regra de ouro: se qualquer coisa falhar aqui, o site estático ainda tem que
-   sair. Todo caminho que não seja /api termina em env.ASSETS.fetch(request),
-   e erros na API viram JSON de erro, nunca página quebrada.
+   sair. Erro ao montar uma página cai em env.ASSETS.fetch(request), e erros
+   na API viram JSON de erro, nunca página quebrada.
    =========================================================================== */
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
@@ -28,7 +35,11 @@ export default {
     const url = new URL(request.url);
 
     if (!url.pathname.startsWith("/api/")) {
-      return env.ASSETS.fetch(request);
+      try {
+        return await servirSite(request, env, url);
+      } catch (e) {
+        return env.ASSETS.fetch(request);
+      }
     }
 
     if (!env.DB) {
@@ -44,6 +55,148 @@ export default {
     }
   }
 };
+
+/* ------------------------------ páginas e arquivos ------------------------------
+
+   O Cloudflare Pages, sem um 404.html na raiz, trata o projeto como SPA e
+   devolve o index.html com status 200 para QUALQUER caminho — inclusive
+   /assets/foto-que-nao-existe.webp, que ainda herdava do _headers o cache de
+   um ano (immutable). O navegador guardava o HTML da página inicial no lugar
+   da foto. Daqui para baixo, três regras:
+
+   - Caminho com extensão, ou dentro de /assets e /vendor, é ARQUIVO: sai do
+     env.ASSETS como está; se não existir, 404 em texto, com "no-cache".
+   - Caminho que está na tabela de páginas é PÁGINA: index.html com os
+     metadados daquela página, status 200.
+   - Qualquer outro caminho é página inexistente: index.html mostrando a seção
+     "não encontrada", status 404, "noindex" e "no-cache".
+   ----------------------------------------------------------------------------- */
+
+const EXTENSAO = /\.[a-z0-9]{1,8}$/i;
+const SEM_CACHE = "no-cache";
+
+async function servirSite(request, env, url) {
+  const p = url.pathname;
+  const metodo = request.method;
+  if (metodo !== "GET" && metodo !== "HEAD") return env.ASSETS.fetch(request);
+
+  // O painel tem página e login próprios (Cloudflare Access); passa direto.
+  if (p === "/admin" || p.startsWith("/admin/") || p === "/admin.html") return env.ASSETS.fetch(request);
+
+  if (EXTENSAO.test(p) || p.startsWith("/assets/") || p.startsWith("/vendor/")) {
+    return servirArquivo(request, env, p);
+  }
+
+  // /passeios/ e /passeios são o mesmo endereço: fica um só, sem barra no fim.
+  if (p.length > 1 && p.endsWith("/")) {
+    return Response.redirect(url.origin + p.replace(/\/+$/, "") + url.search, 301);
+  }
+
+  return servirPagina(request, env, url);
+}
+
+async function servirArquivo(request, env, p) {
+  const r = await env.ASSETS.fetch(request);
+  const tipo = r.headers.get("content-type") || "";
+  const pediuHTML = /\.html?$/i.test(p);
+  // Segunda trava: mesmo que um deploy saia sem o 404.html e o Pages volte a
+  // responder o index.html no lugar de um arquivo, isso não chega ao visitante.
+  const ehFallbackDaSPA = r.status === 200 && !pediuHTML && tipo.includes("text/html");
+  if (r.status === 404 || ehFallbackDaSPA) return arquivoNaoEncontrado(r);
+  return r;
+}
+
+function arquivoNaoEncontrado(base) {
+  const h = new Headers();
+  for (const nome of ["x-content-type-options", "referrer-policy", "permissions-policy"]) {
+    const v = base.headers.get(nome);
+    if (v) h.set(nome, v);
+  }
+  h.set("content-type", "text/plain; charset=utf-8");
+  h.set("cache-control", SEM_CACHE);
+  return new Response("404 — arquivo não encontrado.\n", { status: 404, headers: h });
+}
+
+/* A tabela de páginas mora no index.html, num bloco JSON. O app.js lê o mesmo
+   bloco para trocar título e metadados quando o visitante navega sem recarregar
+   — assim o texto de cada página existe em um lugar só. */
+function lerConfigDoSite(html) {
+  const m = html.match(/<script type="application\/json" id="site-config">([\s\S]*?)<\/script>/);
+  return m ? JSON.parse(m[1]) : null;
+}
+
+async function servirPagina(request, env, url) {
+  // Pede o index.html sem os cabeçalhos condicionais do navegador: um 304
+  // viria sem corpo, e o corpo é o que precisa ser reescrito.
+  const base = await env.ASSETS.fetch(new Request(url.origin + "/", { method: "GET" }));
+  if (base.status !== 200) return env.ASSETS.fetch(request);
+
+  const html = await base.text();
+  const site = lerConfigDoSite(html);
+  if (!site) return env.ASSETS.fetch(request);
+
+  const pagina = site.paginas[url.pathname];
+  const meta = metadadosDaPagina(site, url.pathname, pagina);
+
+  const h = new Headers(base.headers);
+  h.delete("etag"); h.delete("content-length"); h.delete("last-modified");
+  h.set("content-type", "text/html; charset=utf-8");
+  if (!pagina) h.set("cache-control", SEM_CACHE);
+
+  const resposta = new Response(html, { status: pagina ? 200 : 404, headers: h });
+  return aplicarMetadados(resposta, meta, !pagina);
+}
+
+/* Mesma regra do app.js (função metadadosDaPagina lá): imagem e canonical
+   absolutos, "noindex" para páginas marcadas com indexar:false e para o 404. */
+function metadadosDaPagina(site, caminho, pagina) {
+  const p = pagina || site.naoEncontrada;
+  const indexar = !!pagina && p.indexar !== false;
+  const imagem = site.origem + (p.imagem || site.imagemPadrao);
+  return {
+    titulo: p.titulo,
+    descricao: p.descricao,
+    canonical: pagina ? site.origem + caminho : null,
+    robots: indexar ? "index,follow" : "noindex,follow",
+    imagem,
+    imagemAlt: p.imagemAlt || site.imagemAltPadrao,
+    tipo: p.tipoOg || "website"
+  };
+}
+
+function aplicarMetadados(resposta, m, naoEncontrada) {
+  const attr = (nome, valor) => ({ element(el) { el.setAttribute(nome, valor); } });
+  let rw = new HTMLRewriter()
+    .on("title", { element(el) { el.setInnerContent(m.titulo); } })
+    .on('meta[name="description"]', attr("content", m.descricao))
+    .on('meta[name="robots"]', attr("content", m.robots))
+    .on('meta[property="og:type"]', attr("content", m.tipo))
+    .on('meta[property="og:title"]', attr("content", m.titulo))
+    .on('meta[property="og:description"]', attr("content", m.descricao))
+    .on('meta[property="og:image"]', attr("content", m.imagem))
+    .on('meta[property="og:image:alt"]', attr("content", m.imagemAlt))
+    .on('meta[name="twitter:title"]', attr("content", m.titulo))
+    .on('meta[name="twitter:description"]', attr("content", m.descricao))
+    .on('meta[name="twitter:image"]', attr("content", m.imagem));
+
+  if (m.canonical) {
+    rw = rw
+      .on('link[rel="canonical"]', attr("href", m.canonical))
+      .on('meta[property="og:url"]', attr("content", m.canonical));
+  } else {
+    // Página inexistente não tem endereço canônico.
+    rw = rw
+      .on('link[rel="canonical"]', { element(el) { el.remove(); } })
+      .on('meta[property="og:url"]', { element(el) { el.remove(); } });
+  }
+
+  // Sem JavaScript, a seção "não encontrada" fica escondida em todas as
+  // páginas; numa resposta 404 ela precisa aparecer.
+  if (naoEncontrada) {
+    rw = rw.on('[data-secao="nao-encontrada"]', { element(el) { el.removeAttribute("hidden"); } });
+  }
+  return rw.transform(resposta);
+}
 
 /* ------------------------------ roteador ------------------------------ */
 
@@ -111,6 +264,7 @@ async function lerConfig(env) {
     slotFim: Number(c.slot_fim || 15),
     saidaApos: Number(c.saida_apos || 20),
     cancelamentoH: Number(c.cancelamento_h || 12),
+    retornoLimiteMin: minutosDe(c.retorno_limite || RETORNO_LIMITE_PADRAO),
     whatsapp: c.whatsapp || "5524993337247",
     instagram: c.instagram || "trindadeadventurerj",
     cupom: c.cupom || "TRINDADE10",
@@ -118,24 +272,71 @@ async function lerConfig(env) {
   };
 }
 
-/* Preço e horário de cada roteiro. Fonte única do backend — o front tem a sua
-   cópia para desenhar os cartões, mas o valor que vale é este. */
+/* Preço, duração e horário de cada roteiro. Fonte única do backend — o front
+   tem a sua cópia (PLANOS em app.js) para desenhar os cartões, mas o valor que
+   vale é este. Os preços acompanham o que o site anuncia (cartões e JSON-LD).
+
+   Campos de horário de cada plano:
+     duracaoMin   duração aproximada do passeio, em minutos, contada da saída;
+     horarios     lista fixa de concentrações (8.5 = 08:30). null = usa a grade
+                  geral, de hora em hora, de slot_inicio a slot_fim;
+     ultimaSaida  opcional: corta a grade num horário menor que slot_fim.
+
+   E a regra que vale para todos: o passeio precisa terminar até o horário-
+   limite de retorno (config "retorno_limite", padrão abaixo). Ou seja, a
+   última concentração possível é
+
+       retorno_limite − duração − saida_apos
+
+   Não é o pôr do sol do dia — que muda o ano todo —, é um horário fixo de
+   encerramento da operação, ajustável sem publicar o site:
+     INSERT OR REPLACE INTO config (chave, valor) VALUES ('retorno_limite', '18:00');
+
+   O padrão 18:20 não é inventado: é o retorno da saída mais tarde que o site
+   já oferecia (Essencial, ≈ 3h, concentração 15:00, saída 15:20). Com ele, a
+   grade do Essencial fica como sempre foi e a do Adventure (≈ 6h) passa a ir
+   até 12:00 — antes ia até 15:00, com retorno perto das 21h20. */
+const RETORNO_LIMITE_PADRAO = "18:20";
+
 const PLANOS = {
-  essencial: { nome: "Trindade Essencial", preco: 60, voucher: 0, horarios: null },
-  adventure: { nome: "Trindade Adventure", preco: 150, voucher: 60, horarios: null },
-  boat: { nome: "Trindade Boat", preco: 350, voucher: 60, horarios: [8.5] }
+  essencial: { nome: "Trindade Essencial", preco: 70, voucher: 0, duracaoMin: 180, horarios: null },
+  adventure: { nome: "Trindade Adventure", preco: 150, voucher: 60, duracaoMin: 360, horarios: null },
+  boat: { nome: "Trindade Boat", preco: 400, voucher: 60, duracaoMin: 480, horarios: [8.5] }
 };
 
 const doisDig = n => String(n).padStart(2, "0");
 const horaLabel = h => doisDig(Math.floor(h)) + ":" + doisDig(Math.round((h % 1) * 60));
 const ehISO = s => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
+function minutosDe(hhmm) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(String(hhmm).trim());
+  return m ? Number(m[1]) * 60 + Number(m[2]) : minutosDe(RETORNO_LIMITE_PADRAO);
+}
 
 function horariosDoPlano(planoId, cfg) {
   const pl = PLANOS[planoId];
-  if (pl && pl.horarios) return pl.horarios.slice();
-  const out = [];
-  for (let h = cfg.slotInicio; h <= cfg.slotFim; h++) out.push(h);
-  return out;
+  let base;
+  if (pl && pl.horarios) base = pl.horarios.slice();
+  else {
+    base = [];
+    for (let h = cfg.slotInicio; h <= cfg.slotFim; h++) base.push(h);
+  }
+  if (!pl) return base;
+  return base.filter(h =>
+    (pl.ultimaSaida == null || h <= pl.ultimaSaida) &&
+    Math.round(h * 60) + cfg.saidaApos + pl.duracaoMin <= cfg.retornoLimiteMin
+  );
+}
+
+// Data e minuto de agora no fuso da operação, não no do servidor (UTC).
+function agoraEmTrindade() {
+  const partes = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", hourCycle: "h23"
+  }).formatToParts(new Date()).map(p => [p.type, p.value]));
+  return {
+    data: `${partes.year}-${partes.month}-${partes.day}`,
+    minuto: Number(partes.hour) * 60 + Number(partes.minute)
+  };
 }
 
 function saidaLabel(h, cfg) {
@@ -186,7 +387,12 @@ async function disponibilidade(env, url) {
     };
   }
 
-  return ok({ ok: true, data, capacidade: cfg.capacidade, grade });
+  // Quais horários cada passeio aceita, já com a regra de duração aplicada.
+  // O site desenha a grade a partir daqui quando a API responde.
+  const horariosPorPlano = {};
+  for (const planoId of Object.keys(PLANOS)) horariosPorPlano[planoId] = horariosDoPlano(planoId, cfg);
+
+  return ok({ ok: true, data, capacidade: cfg.capacidade, grade, horariosPorPlano });
 }
 
 /* ------------------------------ criar reserva ------------------------------ */
@@ -200,15 +406,14 @@ async function criarReserva(request, env) {
   const e = {};
 
   if (!plano) e.plano = "Escolha um passeio.";
+  const emTrindade = agoraEmTrindade();
   if (!ehISO(b.data)) e.data = "Data inválida.";
-  else {
-    const hoje = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
-    if (b.data < hoje) e.data = "A data já passou.";
-  }
+  else if (b.data < emTrindade.data) e.data = "A data já passou.";
 
   const hora = Number(b.hora);
   const horasOk = plano ? horariosDoPlano(b.plano, cfg) : [];
   if (!horasOk.includes(hora)) e.hora = "Horário indisponível para este passeio.";
+  else if (b.data === emTrindade.data && Math.round(hora * 60) <= emTrindade.minuto) e.hora = "Esse horário já passou.";
 
   const pax = Math.floor(Number(b.pax));
   if (!(pax >= 1 && pax <= cfg.capacidade)) e.pax = "Número de pessoas inválido.";
@@ -586,12 +791,16 @@ async function adminGravarConfig(request, env) {
   let b;
   try { b = await request.json(); } catch { return erro("Corpo inválido."); }
   const permitidas = new Set([
-    "capacidade", "slot_inicio", "slot_fim", "saida_apos", "cancelamento_h",
+    "capacidade", "slot_inicio", "slot_fim", "saida_apos", "cancelamento_h", "retorno_limite",
     "whatsapp", "instagram", "cupom", "beneficio_instagram"
   ]);
   const stmts = [];
   for (const [k, v] of Object.entries(b || {})) {
     if (!permitidas.has(k)) continue;
+    // Vazio é permitido: lerConfig() volta ao padrão (RETORNO_LIMITE_PADRAO).
+    if (k === "retorno_limite" && String(v).trim() && !/^\d{1,2}:\d{2}$/.test(String(v).trim())) {
+      return erro("Retorno até: use o formato HH:MM, por exemplo 18:20.");
+    }
     stmts.push(
       env.DB.prepare("INSERT INTO config (chave, valor) VALUES (?,?) ON CONFLICT(chave) DO UPDATE SET valor = ?")
         .bind(k, String(v), String(v))

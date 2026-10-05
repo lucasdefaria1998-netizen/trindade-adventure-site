@@ -47,12 +47,13 @@
     inicio = null;
    }, { passive: true });
   });
-  addEventListener('hashchange', () => { if (dialog.open) dialog.close(); });
+  // Trocar de página (link, voltar do celular) fecha a galeria ampliada.
+  addEventListener('trindade:before-route', () => { if (dialog.open) dialog.close(); });
   show(0);
  }
 
  /* Links "Referência" dos peixes: abrem a lista de fontes e levam até ela sem
-    trocar a rota (o endereço do site usa o # para as páginas). */
+    trocar de página. */
  document.addEventListener('click', e => {
   const link = e.target.closest('a[href^="#fonte-"]');
   if (!link) return;

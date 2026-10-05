@@ -681,6 +681,22 @@ html[data-motion="running"] .rec{animation:pisca 1.8s infinite}
   .historia-galeria{grid-template-columns:minmax(0,1fr)}
 }
 
+/* ---------- textos legais (privacidade, termos) e página 404 ---------- */
+.texto-legal{max-width:72ch;font-size:16.5px;line-height:1.75;color:var(--ink-2)}
+.texto-legal h2{margin:36px 0 10px;font-size:clamp(19px,1.8vw,22px);letter-spacing:-.02em;line-height:1.25;color:var(--ink)}
+.texto-legal h2:first-child{margin-top:0}
+.texto-legal p+p{margin-top:12px}
+.texto-legal ul{display:grid;gap:10px;margin:10px 0 0;padding-left:22px}
+.texto-legal b{color:var(--ink);font-weight:600}
+.texto-legal-links{margin-top:36px;padding-top:20px;border-top:1px solid var(--line)}
+.link-texto{font-weight:500;text-decoration:underline}
+.check .link-texto{position:relative;z-index:1}
+.nota-aceite{margin-top:6px;padding-left:30px}
+.pagina-cabeca .selo-404{margin:0 0 8px;font-size:15px;font-weight:600;letter-spacing:.14em;color:var(--accent)}
+.acoes-404{display:flex;flex-wrap:wrap;gap:10px;max-width:780px}
+@media(max-width:520px){.acoes-404 .btn{flex:1 1 100%}}
+.rodape-legal{flex-basis:100%;order:3}
+
 /* ---------- rodapé ---------- */
 .rodape{margin-top:clamp(88px,10vw,136px);background:var(--surface);border-top:1px solid var(--line)}
 .rodape-in{max-width:var(--wrap);margin:0 auto;padding:48px var(--gutter) 40px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:32px}

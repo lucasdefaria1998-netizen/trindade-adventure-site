@@ -26,6 +26,12 @@ const CFG = {
   slotInicio: 8,      // primeira saída da grade
   slotFim: 15,        // última saída da grade
   saidaApos: 20,      // minutos entre a concentração e a saída efetiva
+  // Horário-limite de retorno: um passeio só aparece num horário se terminar
+  // até aqui (concentração + saidaApos + duração do plano). É a mesma regra do
+  // _worker.js (RETORNO_LIMITE_PADRAO), que é quem vale; quando a API responde,
+  // a grade usa os horários que ela devolve. Ver a explicação completa lá.
+  retornoLimite: "18:20",
+  fuso: "America/Sao_Paulo",
   capacidade: 20,     // tamanho máximo do grupo por horário
   cancelamentoH: 12,
   cupom: "TRINDADE10",
@@ -39,12 +45,16 @@ const CFG = {
   }
 };
 
+/* duracaoMin: duração aproximada, contada da saída — entra na regra do
+   horário-limite de retorno e no fim do evento do calendário (.ics).
+   horarios: saídas fixas (8.5 = 08:30); null = grade geral de hora em hora.
+   ultimaSaida (opcional): corta a grade num horário anterior a slotFim. */
 const PLANOS = [
-  { id:"essencial", nome:"Trindade Essencial", preco:70,  voucher:0,  dur:"≈ 3h", horarios:null,
+  { id:"essencial", nome:"Trindade Essencial", preco:70,  voucher:0,  dur:"≈ 3h", duracaoMin:180, horarios:null,
     resumo:"Trilha guiada pela Mata Atlântica até a piscina natural do Cachadaço, com água mineral." },
-  { id:"adventure", nome:"Trindade Adventure", preco:150, voucher:60, dur:"≈ 6h", horarios:null,
+  { id:"adventure", nome:"Trindade Adventure", preco:150, voucher:60, dur:"≈ 6h", duracaoMin:360, horarios:null,
     resumo:"Mergulho de snorkel na piscina natural, Pedra que Engole, água mineral e almoço." },
-  { id:"boat",      nome:"Trindade Boat",      preco:400, voucher:60, dur:"≈ 8h", horarios:[8.5],
+  { id:"boat",      nome:"Trindade Boat",      preco:400, voucher:60, dur:"≈ 8h", duracaoMin:480, horarios:[8.5],
     resumo:"Barco por cinco paradas na costa da Trindade, snorkel na piscina natural e almoço." }
 ];
 
@@ -57,12 +67,25 @@ const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
 
 const BRL = n => "R$ " + Number(n).toLocaleString("pt-BR", { minimumFractionDigits: 0 });
 const doisDig = n => String(n).padStart(2, "0");
-const hojeISO = () => {
-  // Data local, não UTC: em Paraty (UTC−3) o toISOString() vira o dia seguinte
-  // depois das 21h e a grade abriria com a data errada.
-  const d = new Date();
-  return `${d.getFullYear()}-${doisDig(d.getMonth() + 1)}-${doisDig(d.getDate())}`;
-};
+/* Data e hora de agora em Trindade, não no relógio do aparelho: um visitante
+   em Manaus, em Lisboa ou com o celular em outro fuso veria a grade de
+   "já saiu" e o "hoje" errados. Nem UTC: em Paraty (UTC−3) o toISOString()
+   vira o dia seguinte depois das 21h. */
+function agoraEmTrindade() {
+  try {
+    const p = {};
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone: CFG.fuso, year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hourCycle: "h23"
+    }).formatToParts(new Date()).forEach(x => { p[x.type] = x.value; });
+    return { data: `${p.year}-${p.month}-${p.day}`, hora: Number(p.hour) + Number(p.minute) / 60 };
+  } catch (e) {
+    const d = new Date();
+    return { data: `${d.getFullYear()}-${doisDig(d.getMonth() + 1)}-${doisDig(d.getDate())}`,
+      hora: d.getHours() + d.getMinutes() / 60 };
+  }
+}
+const hojeISO = () => agoraEmTrindade().data;
 const somaDias = (iso, n) => {
   const d = new Date(iso + "T12:00:00");
   d.setDate(d.getDate() + n);
@@ -77,9 +100,49 @@ const saidaLabel = h => {
   const t = Math.round(h * 60) + CFG.saidaApos;
   return doisDig(Math.floor(t / 60) % 24) + ":" + doisDig(t % 60);
 };
-const horariosDoPlano = p => p.horarios
-  ? p.horarios.slice().sort((a, b) => a - b)
-  : Array.from({ length: CFG.slotFim - CFG.slotInicio + 1 }, (_, i) => CFG.slotInicio + i);
+const minutosDe = hhmm => { const [h, m] = String(hhmm).split(":").map(Number); return h * 60 + (m || 0); };
+
+// Horários que cada plano aceita, como o servidor devolveu na última consulta
+// de vagas (fonte que vale). Fica null enquanto a API não respondeu.
+let horariosDoServidor = null;
+
+/* Saídas possíveis de um plano: a lista fixa dele (ou a grade geral) menos as
+   que terminariam depois do horário-limite de retorno. Mesma regra do
+   _worker.js; nada é escrito à mão por passeio. */
+function horariosDoPlano(p) {
+  if (horariosDoServidor && Array.isArray(horariosDoServidor[p.id])) {
+    return horariosDoServidor[p.id].slice().sort((a, b) => a - b);
+  }
+  const base = p.horarios
+    ? p.horarios.slice()
+    : Array.from({ length: CFG.slotFim - CFG.slotInicio + 1 }, (_, i) => CFG.slotInicio + i);
+  const limite = minutosDe(CFG.retornoLimite);
+  return base
+    .filter(h => (p.ultimaSaida == null || h <= p.ultimaSaida) &&
+      Math.round(h * 60) + CFG.saidaApos + p.duracaoMin <= limite)
+    .sort((a, b) => a - b);
+}
+
+/* Faixa de saídas escrita por extenso, nos formatos que o site já usa:
+   "h" → "das 8h às 12h", "hhmm" → "de 08:00 às 12:00", "ultima" → "às 12:00". */
+function faixaDeHorarios(p, formato) {
+  const horas = horariosDoPlano(p);
+  if (!horas.length) return "sem saída disponível";
+  const curto = h => Math.floor(h) + "h" + (h % 1 ? doisDig(Math.round((h % 1) * 60)) : "");
+  const ini = horas[0], fim = horas[horas.length - 1];
+  if (formato === "ultima") return "às " + horaLabel(fim);
+  if (horas.length === 1) return formato === "h" ? "às " + curto(ini) : "às " + horaLabel(ini);
+  return formato === "h"
+    ? `das ${curto(ini)} às ${curto(fim)}`
+    : `de ${horaLabel(ini)} às ${horaLabel(fim)}`;
+}
+
+function pintarFaixasDeHorarios() {
+  $$("[data-faixa-horarios]").forEach(el => {
+    const p = PLANOS.find(x => x.id === el.dataset.faixaHorarios);
+    if (p) el.textContent = faixaDeHorarios(p, el.dataset.formato);
+  });
+}
 
 const linkWA = texto => `https://wa.me/${CFG.whatsapp}?text=${encodeURIComponent(texto)}`;
 
@@ -225,31 +288,97 @@ const CHAVE_TEMA = "trindade.tema";
 })();
 
 /* ------------------------------ rotas ------------------------------ */
-/* Cada seção é um endereço próprio (#/passeios, #/reservar?plano=boat).
-   O visitante pode mandar o link exato de um roteiro pelo WhatsApp, e o botão
-   "voltar" do celular funciona como ele espera. */
+/* Cada seção é um endereço próprio (/passeios, /passeios/adventure,
+   /reservar?plano=boat). O visitante pode mandar o link exato de um roteiro
+   pelo WhatsApp, o Google enxerga cada página separada, e o botão "voltar" do
+   celular funciona como ele espera.
 
-const ROTAS = ["inicio", "passeios", "reservar", "pousadas", "pescaria", "historia", "cameras", "contato"];
-const TITULOS = {
-  inicio:   "Trindade Adventure — trilhas e passeios de barco em Trindade, Paraty",
-  passeios: "Roteiros e preços — Trindade Adventure",
-  reservar: "Reservar horário — Trindade Adventure",
-  pousadas: "Pousadas parceiras — Trindade Adventure",
-  pescaria: "Pescaria em Alto Mar — Trindade Adventure",
-  historia: "História de Trindade — Trindade Adventure",
-  cameras:  "Câmeras da operação — Trindade Adventure",
-  contato:  "Contato e perguntas frequentes — Trindade Adventure"
-};
+   Quais endereços existem, e o título, a descrição e a imagem de cada um, vêm
+   da tabela "site-config" no <head> do index.html — a mesma que o _worker.js
+   usa para entregar a página já com os metadados certos. Aqui só se troca de
+   seção sem recarregar e se atualizam as mesmas tags.
+
+   Endereços antigos com "#/" (até setembro de 2026 o site navegava por hash)
+   continuam funcionando: são convertidos para o endereço novo na hora,
+   sem recarregar. */
+
+const SITE = (() => {
+  try { return JSON.parse($("#site-config").textContent); }
+  catch (e) { return { origem: location.origin, paginas: { "/": { secao: "inicio" } }, naoEncontrada: { secao: "nao-encontrada" } }; }
+})();
+
+const normalizarCaminho = c => (c.length > 1 ? c.replace(/\/+$/, "") : c) || "/";
+const ehPaginaDoSite = c => Object.prototype.hasOwnProperty.call(SITE.paginas, normalizarCaminho(c));
+
+/* "#/passeios?plano=boat" → "/passeios/boat". Devolve true se trocou o endereço. */
+function migrarEnderecoAntigo() {
+  const h = location.hash;
+  if (!h.startsWith("#/")) return false;
+  const [nome, q] = h.slice(2).split("?");
+  const params = new URLSearchParams(location.search);
+  new URLSearchParams(q || "").forEach((v, k) => params.set(k, v));
+
+  let destino;
+  if (!nome || nome === "inicio") destino = "/";
+  else if (nome === "passeios" && (params.get("plano") || params.get("passeio"))) {
+    destino = "/passeios/" + (params.get("plano") || params.get("passeio"));
+    params.delete("plano"); params.delete("passeio");
+  } else destino = "/" + nome;
+
+  const resto = params.toString().replace(/=(&|$)/g, "$1");
+  history.replaceState(null, "", destino + (resto ? "?" + resto : ""));
+  return true;
+}
 
 function lerRota() {
-  const bruto = (location.hash || "").replace(/^#\/?/, "");
-  const [caminho, query] = bruto.split("?");
-  const nome = ROTAS.includes(caminho) ? caminho : "inicio";
-  return { nome, params: new URLSearchParams(query || "") };
+  const caminho = normalizarCaminho(location.pathname);
+  const params = new URLSearchParams(location.search);
+  const pagina = SITE.paginas[caminho];
+  if (!pagina) return { nome: SITE.naoEncontrada.secao, params, pagina: SITE.naoEncontrada, caminho, existe: false };
+  const foco = pagina.foco || {};
+  if (foco.plano) params.set("plano", foco.plano);
+  if (foco.passeio) params.set("passeio", foco.passeio);
+  return { nome: pagina.secao, params, pagina, caminho, existe: true };
+}
+
+/* Mesma regra do _worker.js (metadadosDaPagina): canonical e imagem
+   absolutos; "noindex" para indexar:false e para página inexistente. */
+function aplicarMetadados(rota) {
+  const p = rota.pagina;
+  const indexar = rota.existe && p.indexar !== false;
+  const imagem = SITE.origem + (p.imagem || SITE.imagemPadrao);
+  const canonical = rota.existe ? SITE.origem + rota.caminho : null;
+  const meta = (seletor, valor) => { const el = $(seletor); if (el && valor != null) el.setAttribute("content", valor); };
+
+  if (p.titulo) document.title = p.titulo;
+  meta('meta[name="description"]', p.descricao);
+  meta('meta[name="robots"]', indexar ? "index,follow" : "noindex,follow");
+  meta('meta[property="og:type"]', p.tipoOg || "website");
+  meta('meta[property="og:title"]', p.titulo);
+  meta('meta[property="og:description"]', p.descricao);
+  meta('meta[property="og:image"]', imagem);
+  meta('meta[property="og:image:alt"]', p.imagemAlt || SITE.imagemAltPadrao);
+  meta('meta[name="twitter:title"]', p.titulo);
+  meta('meta[name="twitter:description"]', p.descricao);
+  meta('meta[name="twitter:image"]', imagem);
+
+  // Página inexistente não tem canonical nem og:url (o servidor também os tira).
+  let link = $('link[rel="canonical"]');
+  let ogUrl = $('meta[property="og:url"]');
+  if (canonical) {
+    if (!link) { link = document.createElement("link"); link.rel = "canonical"; document.head.appendChild(link); }
+    if (!ogUrl) { ogUrl = document.createElement("meta"); ogUrl.setAttribute("property", "og:url"); document.head.appendChild(ogUrl); }
+    link.href = canonical;
+    ogUrl.setAttribute("content", canonical);
+  } else {
+    link?.remove();
+    ogUrl?.remove();
+  }
 }
 
 function aplicarRota(rolarTopo) {
-  const { nome, params } = lerRota();
+  const rota = lerRota();
+  const { nome, params } = rota;
   window.dispatchEvent(new Event("trindade:before-route"));
 
   $$("[data-secao]").forEach(s => { s.hidden = s.dataset.secao !== nome; });
@@ -257,7 +386,7 @@ function aplicarRota(rolarTopo) {
     if (a.dataset.rota === nome) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");
   });
-  document.title = TITULOS[nome] || TITULOS.inicio;
+  aplicarMetadados(rota);
   fecharMenu();
 
   const plano = params.get("plano");
@@ -293,6 +422,15 @@ function aplicarRota(rolarTopo) {
   });
 }
 
+/* Troca de página sem recarregar. Mesmo endereço = reaplica a rota (volta ao
+   topo), como antes acontecia ao clicar no link da página em que já se está. */
+function navegar(destino, substituir) {
+  if (destino !== location.pathname + location.search) {
+    history[substituir ? "replaceState" : "pushState"](null, "", destino);
+  }
+  aplicarRota(true);
+}
+
 /* Rolagem pedida pelo site. Usa o motion.js quando ele estiver ligado (rolagem
    suave coordenada); sem ele, a rolagem nativa do navegador. */
 function rolarAte(el) {
@@ -301,7 +439,8 @@ function rolarAte(el) {
   else el.scrollIntoView({ block: "start", behavior: "smooth" });
 }
 
-window.addEventListener("hashchange", () => aplicarRota(true));
+window.addEventListener("popstate", () => aplicarRota(true));
+window.addEventListener("hashchange", () => { if (migrarEnderecoAntigo()) aplicarRota(true); });
 document.addEventListener("click", e => {
   // Botão que leva a um ponto da mesma página (ex.: "Ver os 7 passeios").
   const atalho = e.target.closest("[data-rolar]");
@@ -310,12 +449,18 @@ document.addEventListener("click", e => {
     rolarAte(document.getElementById(atalho.dataset.rolar));
     return;
   }
-  // Clicar num link para o endereço em que já se está reaplica a rota.
-  const link = e.target.closest('a[href^="#/"]');
-  if (link && link.getAttribute("href") === location.hash) {
-    e.preventDefault();
-    aplicarRota(true);
-  }
+
+  // Link para outra página do site: troca de seção sem recarregar. Clique com
+  // Ctrl/Cmd/Shift ou botão do meio continua abrindo nova aba, como o
+  // visitante espera; links externos e de âncora (#conteudo) seguem normais.
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const link = e.target.closest("a[href]");
+  if (!link || (link.target && link.target !== "_self") || link.hasAttribute("download")) return;
+  const url = new URL(link.href, location.href);
+  if (url.origin !== location.origin || !ehPaginaDoSite(url.pathname)) return;
+  if (url.hash && url.pathname === location.pathname && url.search === location.search) return;
+  e.preventDefault();
+  navegar(normalizarCaminho(url.pathname) + url.search);
 });
 
 /* Menu no celular e no tablet: painel sob o topo, com fundo que fecha ao
@@ -369,7 +514,9 @@ function mostrarRoteiro(id) {
 $$("[data-aba]").forEach(b => {
   b.addEventListener("click", () => {
     mostrarRoteiro(b.dataset.aba);
-    history.replaceState(null, "", "#/passeios?plano=" + b.dataset.aba);
+    // Endereço e metadados do roteiro escolhido, sem empilhar no histórico.
+    const destino = "/passeios/" + b.dataset.aba;
+    if (location.pathname !== destino) { history.replaceState(null, "", destino); aplicarMetadados(lerRota()); }
   });
   // Setas do teclado trocam de aba, como o padrão de abas do WAI-ARIA.
   b.addEventListener("keydown", e => {
@@ -602,7 +749,7 @@ function desenharPlanos() {
     return `<button type="button" class="plano-opcao" data-plano="${p.id}" aria-pressed="${sel}">
       <span class="plano-nome">${p.nome}</span>
       <span class="plano-preco"><b>${BRL(p.preco)}</b> <span>por pessoa</span></span>
-      <span class="plano-info">${p.horarios ? "Saída única às " + horariosDoPlano(p).map(horaLabel).join(" e ") : "Saídas das 08:00 às 15:00"} · ${p.dur}</span>
+      <span class="plano-info">${p.horarios ? "Saída única às " + horariosDoPlano(p).map(horaLabel).join(" e ") : "Saídas " + faixaDeHorarios(p, "hhmm").replace(/^de /, "das ")} · ${p.dur}</span>
       ${p.voucher ? `<span class="plano-info">Inclui voucher de ${BRL(p.voucher)} no almoço</span>` : ""}
     </button>`;
   }).join("");
@@ -637,9 +784,9 @@ function pintarHorarios() {
   const horas = horariosDoPlano(p);
 
   // Uma saída que já passou hoje não pode ser escolhida hoje.
-  const agora = new Date();
-  const ehHoje = reserva.data === hojeISO();
-  const horaAtual = agora.getHours() + agora.getMinutes() / 60;
+  const agora = agoraEmTrindade();
+  const ehHoje = reserva.data === agora.data;
+  const horaAtual = agora.hora;
 
   const grade = (dispoCache && dispoCache.data === reserva.data) ? dispoCache.grade : null;
 
@@ -666,9 +813,13 @@ function pintarHorarios() {
 
   const aviso = $("#avisoHorario");
   if (aviso) {
+    // Última saída da grade geral (a do servidor, quando ele respondeu).
+    const ultimaGeral = grade ? Math.max(...Object.keys(grade).map(Number)) : CFG.slotFim;
+    const cortado = !p.horarios && horas.length && horas[horas.length - 1] < ultimaGeral;
     aviso.textContent = p.horarios
       ? `${p.nome} tem saída única às ${horas.map(horaLabel).join(" e ")}.`
-      : `Saídas de hora em hora, das ${horaLabel(CFG.slotInicio)} às ${horaLabel(CFG.slotFim)}.`;
+      : `Saídas de hora em hora, ${faixaDeHorarios(p, "hhmm").replace(/^de /, "das ")}.` +
+        (cortado ? ` O roteiro dura ${p.dur.replace("≈ ", "cerca de ")}, por isso não há saída mais tarde.` : "");
   }
   $("#rotuloData").textContent = "— " + dataBR(reserva.data);
   window.dispatchEvent(new Event("trindade:slots"));
@@ -685,6 +836,17 @@ async function atualizarDisponibilidade() {
   dispoCache = (r.status === 200 && r.corpo && r.corpo.ok)
     ? { data: dataAlvo, grade: r.corpo.grade, capacidade: r.corpo.capacidade }
     : null;
+  if (dispoCache && r.corpo.horariosPorPlano) {
+    horariosDoServidor = r.corpo.horariosPorPlano;
+    // O servidor pode ter um limite de retorno diferente do padrão: um horário
+    // escolhido antes pode não valer mais para este passeio.
+    if (reserva.hora !== null && !horariosDoPlano(planoPor(reserva.plano)).includes(reserva.hora)) {
+      reserva.hora = null;
+      desenharResumo();
+    }
+    desenharPlanos();
+    pintarFaixasDeHorarios();
+  }
   pintarHorarios();
 
   // O horário que a pessoa já tinha escolhido pode ter lotado agora mesmo
@@ -759,21 +921,30 @@ function validar() {
   falha("#fEmail", "#fEmail", "#errEmail",
     email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? "E-mail inválido." : "");
 
-  const semData = reserva.data < hojeISO();
+  const agora = agoraEmTrindade();
+  const semData = reserva.data < agora.data;
   const erroData = $("#errData");
   erroData.textContent = semData ? "A data já passou." : "";
   erroData.hidden = !semData;
   if (semData && !primeiro) primeiro = erroData;
 
+  // O horário pode ter sido escolhido há um tempo e já ter passado, ou não
+  // valer para o passeio (duração além do horário-limite de retorno).
   const semHora = reserva.hora === null;
+  const horaInvalida = !semHora && !horariosDoPlano(planoPor(reserva.plano)).includes(reserva.hora);
+  const horaPassou = !semHora && reserva.data === agora.data && reserva.hora <= agora.hora;
   const erroHora = $("#errHora");
-  erroHora.textContent = semHora ? "Escolha o horário da saída." : "";
-  erroHora.hidden = !semHora;
-  if (semHora && !primeiro) primeiro = $("#listaHorarios");
+  erroHora.textContent = semHora ? "Escolha o horário da saída."
+    : horaInvalida ? "Esse horário não está disponível para este passeio. Escolha outro."
+    : horaPassou ? "Esse horário já passou. Escolha outro."
+    : "";
+  erroHora.hidden = !erroHora.textContent;
+  if (erroHora.textContent && !primeiro) primeiro = $("#listaHorarios");
+  if (horaPassou || horaInvalida) { reserva.hora = null; pintarHorarios(); desenharResumo(); }
 
   const semAceite = !$("#fAceite").checked;
   const erroAceite = $("#errAceite");
-  erroAceite.textContent = semAceite ? "É preciso aceitar os termos para continuar." : "";
+  erroAceite.textContent = semAceite ? "Para enviar, é preciso concordar com os Termos do Passeio e a Política de Privacidade." : "";
   erroAceite.hidden = !semAceite;
   if (semAceite && !primeiro) primeiro = $("#fAceite");
 
@@ -821,8 +992,9 @@ function baixarICS(dados) {
   const horas = Math.floor(reserva.hora);
   const min = Math.round((reserva.hora % 1) * 60);
   const inicio = `${reserva.data.replace(/-/g, "")}T${doisDig(horas)}${doisDig(min)}00`;
-  const fimH = Math.min(23, horas + 4);
-  const fim = `${reserva.data.replace(/-/g, "")}T${doisDig(fimH)}${doisDig(min)}00`;
+  // Fim = concentração + saída + duração do passeio (antes era sempre 4 h).
+  const fimMin = Math.min(23 * 60 + 59, Math.round(reserva.hora * 60) + CFG.saidaApos + p.duracaoMin);
+  const fim = `${reserva.data.replace(/-/g, "")}T${doisDig(Math.floor(fimMin / 60))}${doisDig(fimMin % 60)}00`;
   const esc = s => String(s).replace(/([,;\\])/g, "\\$1").replace(/\n/g, "\\n");
 
   const ics = [
@@ -915,7 +1087,7 @@ function ligarReserva() {
 
   // Depois da última saída do dia, a agenda abre no dia seguinte: não faz
   // sentido mostrar primeiro uma grade inteira de horários que já passaram.
-  if (new Date().getHours() >= CFG.slotFim) reserva.data = somaDias(hojeISO(), 1);
+  if (agoraEmTrindade().hora >= CFG.slotFim) reserva.data = somaDias(hojeISO(), 1);
 
   form.addEventListener("click", ev => {
     // Escolhido o passeio, a próxima decisão é a data: leva a pessoa até ela.
@@ -1112,10 +1284,10 @@ function prepararMapa() {
     // O estilo do Leaflet vem junto com o mapa, não no carregamento da página.
     const css = document.createElement("link");
     css.rel = "stylesheet";
-    css.href = "vendor/leaflet-1.9.4.min.css";
+    css.href = "/vendor/leaflet-1.9.4.min.css";
     document.head.append(css);
     const script = document.createElement("script");
-    script.src = "vendor/leaflet-1.9.4.min.js";
+    script.src = "/vendor/leaflet-1.9.4.min.js";
     script.onload = desenharMapa;
     script.onerror = desenharMapa;
     document.head.append(script);
@@ -1186,7 +1358,7 @@ function desenharMapa() {
   };
 
   if (window.ResizeObserver) new ResizeObserver(ajustar).observe(caixa);
-  window.addEventListener("hashchange", () => setTimeout(ajustar, 60));
+  window.addEventListener("trindade:route", () => setTimeout(ajustar, 60));
   setTimeout(ajustar, 300);
 }
 
@@ -1234,7 +1406,7 @@ function cenaCamera(tipo) {
    relativa e recorte (a classe .media do site já dá isso) — por isso o HTML
    daqui não traz wrapper próprio, só as imagens e os controles.
    ========================================================================== */
-const FOTOS_RESPONSIVAS = {"assets/costa-trindade.jpg":{"src":"assets/costa-trindade-720.webp","srcset":"assets/costa-trindade-480.webp 480w, assets/costa-trindade-720.webp 720w","width":720,"height":896},"assets/og-v2.jpg":{"src":"assets/og-v2-1200.webp","srcset":"assets/og-v2-480.webp 480w, assets/og-v2-800.webp 800w, assets/og-v2-1200.webp 1200w","width":1200,"height":630},"assets/piscina-v2.jpg":{"src":"assets/piscina-v2-1155.webp","srcset":"assets/piscina-v2-480.webp 480w, assets/piscina-v2-800.webp 800w, assets/piscina-v2-1155.webp 1155w","width":1155,"height":768},"assets/pousada-hymbe-1.jpg":{"src":"assets/pousada-hymbe-1-720.webp","srcset":"assets/pousada-hymbe-1-480.webp 480w, assets/pousada-hymbe-1-720.webp 720w","width":720,"height":912},"assets/pousada-hymbe-2.jpg":{"src":"assets/pousada-hymbe-2-720.webp","srcset":"assets/pousada-hymbe-2-480.webp 480w, assets/pousada-hymbe-2-720.webp 720w","width":720,"height":864},"assets/pousada-hymbe-3.jpg":{"src":"assets/pousada-hymbe-3-720.webp","srcset":"assets/pousada-hymbe-3-480.webp 480w, assets/pousada-hymbe-3-720.webp 720w","width":720,"height":928},"assets/pousada-hymbe-4.jpg":{"src":"assets/pousada-hymbe-4-720.webp","srcset":"assets/pousada-hymbe-4-480.webp 480w, assets/pousada-hymbe-4-720.webp 720w","width":720,"height":896},"assets/pousada-hymbe-5.jpg":{"src":"assets/pousada-hymbe-5-720.webp","srcset":"assets/pousada-hymbe-5-480.webp 480w, assets/pousada-hymbe-5-720.webp 720w","width":720,"height":896},"assets/pousada-hymbe-6.jpg":{"src":"assets/pousada-hymbe-6-720.webp","srcset":"assets/pousada-hymbe-6-480.webp 480w, assets/pousada-hymbe-6-720.webp 720w","width":720,"height":896},"assets/pousada-madeira-1.jpg":{"src":"assets/pousada-madeira-1-720.webp","srcset":"assets/pousada-madeira-1-480.webp 480w, assets/pousada-madeira-1-720.webp 720w","width":720,"height":704},"assets/pousada-madeira-2.jpg":{"src":"assets/pousada-madeira-2-720.webp","srcset":"assets/pousada-madeira-2-480.webp 480w, assets/pousada-madeira-2-720.webp 720w","width":720,"height":880},"assets/pousada-madeira-3.jpg":{"src":"assets/pousada-madeira-3-720.webp","srcset":"assets/pousada-madeira-3-480.webp 480w, assets/pousada-madeira-3-720.webp 720w","width":720,"height":529},"assets/pousada-madeira-4.jpg":{"src":"assets/pousada-madeira-4-720.webp","srcset":"assets/pousada-madeira-4-480.webp 480w, assets/pousada-madeira-4-720.webp 720w","width":720,"height":918},"assets/praia-v2.jpg":{"src":"assets/praia-v2-712.webp","srcset":"assets/praia-v2-480.webp 480w, assets/praia-v2-712.webp 712w","width":712,"height":473},"assets/restaurante-hymbe-1.jpg":{"src":"assets/restaurante-hymbe-1-720.webp","srcset":"assets/restaurante-hymbe-1-480.webp 480w, assets/restaurante-hymbe-1-720.webp 720w","width":720,"height":1192},"assets/restaurante-hymbe-2.jpg":{"src":"assets/restaurante-hymbe-2-720.webp","srcset":"assets/restaurante-hymbe-2-480.webp 480w, assets/restaurante-hymbe-2-720.webp 720w","width":720,"height":440},"assets/restaurante-hymbe-3.jpg":{"src":"assets/restaurante-hymbe-3-720.webp","srcset":"assets/restaurante-hymbe-3-480.webp 480w, assets/restaurante-hymbe-3-720.webp 720w","width":720,"height":968},"assets/restaurante-hymbe-4.jpg":{"src":"assets/restaurante-hymbe-4-720.webp","srcset":"assets/restaurante-hymbe-4-480.webp 480w, assets/restaurante-hymbe-4-720.webp 720w","width":720,"height":512},"assets/restaurante-hymbe-5.jpg":{"src":"assets/restaurante-hymbe-5-720.webp","srcset":"assets/restaurante-hymbe-5-480.webp 480w, assets/restaurante-hymbe-5-720.webp 720w","width":720,"height":472},"assets/trilha-v2.jpg":{"src":"assets/trilha-v2-1024.webp","srcset":"assets/trilha-v2-480.webp 480w, assets/trilha-v2-800.webp 800w, assets/trilha-v2-1024.webp 1024w","width":1024,"height":768},"assets/vista-trindade-1.jpg":{"src":"assets/vista-trindade-1-720.webp","srcset":"assets/vista-trindade-1-480.webp 480w, assets/vista-trindade-1-720.webp 720w","width":720,"height":1301},"assets/vista-trindade-2.jpg":{"src":"assets/vista-trindade-2-720.webp","srcset":"assets/vista-trindade-2-480.webp 480w, assets/vista-trindade-2-720.webp 720w","width":720,"height":1072},"assets/vista-trindade-3.jpg":{"src":"assets/vista-trindade-3-720.webp","srcset":"assets/vista-trindade-3-480.webp 480w, assets/vista-trindade-3-720.webp 720w","width":720,"height":1253},"assets/vista-trindade-4.jpg":{"src":"assets/vista-trindade-4-720.webp","srcset":"assets/vista-trindade-4-480.webp 480w, assets/vista-trindade-4-720.webp 720w","width":720,"height":1256}};
+const FOTOS_RESPONSIVAS = {"/assets/costa-trindade.jpg":{"src":"/assets/costa-trindade-720.webp","srcset":"/assets/costa-trindade-480.webp 480w, /assets/costa-trindade-720.webp 720w","width":720,"height":896},"/assets/og-v2.jpg":{"src":"/assets/og-v2-1200.webp","srcset":"/assets/og-v2-480.webp 480w, /assets/og-v2-800.webp 800w, /assets/og-v2-1200.webp 1200w","width":1200,"height":630},"/assets/piscina-v2.jpg":{"src":"/assets/piscina-v2-1155.webp","srcset":"/assets/piscina-v2-480.webp 480w, /assets/piscina-v2-800.webp 800w, /assets/piscina-v2-1155.webp 1155w","width":1155,"height":768},"/assets/pousada-hymbe-1.jpg":{"src":"/assets/pousada-hymbe-1-720.webp","srcset":"/assets/pousada-hymbe-1-480.webp 480w, /assets/pousada-hymbe-1-720.webp 720w","width":720,"height":912},"/assets/pousada-hymbe-2.jpg":{"src":"/assets/pousada-hymbe-2-720.webp","srcset":"/assets/pousada-hymbe-2-480.webp 480w, /assets/pousada-hymbe-2-720.webp 720w","width":720,"height":864},"/assets/pousada-hymbe-3.jpg":{"src":"/assets/pousada-hymbe-3-720.webp","srcset":"/assets/pousada-hymbe-3-480.webp 480w, /assets/pousada-hymbe-3-720.webp 720w","width":720,"height":928},"/assets/pousada-hymbe-4.jpg":{"src":"/assets/pousada-hymbe-4-720.webp","srcset":"/assets/pousada-hymbe-4-480.webp 480w, /assets/pousada-hymbe-4-720.webp 720w","width":720,"height":896},"/assets/pousada-hymbe-5.jpg":{"src":"/assets/pousada-hymbe-5-720.webp","srcset":"/assets/pousada-hymbe-5-480.webp 480w, /assets/pousada-hymbe-5-720.webp 720w","width":720,"height":896},"/assets/pousada-hymbe-6.jpg":{"src":"/assets/pousada-hymbe-6-720.webp","srcset":"/assets/pousada-hymbe-6-480.webp 480w, /assets/pousada-hymbe-6-720.webp 720w","width":720,"height":896},"/assets/pousada-madeira-1.jpg":{"src":"/assets/pousada-madeira-1-720.webp","srcset":"/assets/pousada-madeira-1-480.webp 480w, /assets/pousada-madeira-1-720.webp 720w","width":720,"height":704},"/assets/pousada-madeira-2.jpg":{"src":"/assets/pousada-madeira-2-720.webp","srcset":"/assets/pousada-madeira-2-480.webp 480w, /assets/pousada-madeira-2-720.webp 720w","width":720,"height":880},"/assets/pousada-madeira-3.jpg":{"src":"/assets/pousada-madeira-3-720.webp","srcset":"/assets/pousada-madeira-3-480.webp 480w, /assets/pousada-madeira-3-720.webp 720w","width":720,"height":529},"/assets/pousada-madeira-4.jpg":{"src":"/assets/pousada-madeira-4-720.webp","srcset":"/assets/pousada-madeira-4-480.webp 480w, /assets/pousada-madeira-4-720.webp 720w","width":720,"height":918},"/assets/praia-v2.jpg":{"src":"/assets/praia-v2-712.webp","srcset":"/assets/praia-v2-480.webp 480w, /assets/praia-v2-712.webp 712w","width":712,"height":473},"/assets/restaurante-hymbe-1.jpg":{"src":"/assets/restaurante-hymbe-1-720.webp","srcset":"/assets/restaurante-hymbe-1-480.webp 480w, /assets/restaurante-hymbe-1-720.webp 720w","width":720,"height":1192},"/assets/restaurante-hymbe-2.jpg":{"src":"/assets/restaurante-hymbe-2-720.webp","srcset":"/assets/restaurante-hymbe-2-480.webp 480w, /assets/restaurante-hymbe-2-720.webp 720w","width":720,"height":440},"/assets/restaurante-hymbe-3.jpg":{"src":"/assets/restaurante-hymbe-3-720.webp","srcset":"/assets/restaurante-hymbe-3-480.webp 480w, /assets/restaurante-hymbe-3-720.webp 720w","width":720,"height":968},"/assets/restaurante-hymbe-4.jpg":{"src":"/assets/restaurante-hymbe-4-720.webp","srcset":"/assets/restaurante-hymbe-4-480.webp 480w, /assets/restaurante-hymbe-4-720.webp 720w","width":720,"height":512},"/assets/restaurante-hymbe-5.jpg":{"src":"/assets/restaurante-hymbe-5-720.webp","srcset":"/assets/restaurante-hymbe-5-480.webp 480w, /assets/restaurante-hymbe-5-720.webp 720w","width":720,"height":472},"/assets/trilha-v2.jpg":{"src":"/assets/trilha-v2-1024.webp","srcset":"/assets/trilha-v2-480.webp 480w, /assets/trilha-v2-800.webp 800w, /assets/trilha-v2-1024.webp 1024w","width":1024,"height":768},"/assets/vista-trindade-1.jpg":{"src":"/assets/vista-trindade-1-720.webp","srcset":"/assets/vista-trindade-1-480.webp 480w, /assets/vista-trindade-1-720.webp 720w","width":720,"height":1301},"/assets/vista-trindade-2.jpg":{"src":"/assets/vista-trindade-2-720.webp","srcset":"/assets/vista-trindade-2-480.webp 480w, /assets/vista-trindade-2-720.webp 720w","width":720,"height":1072},"/assets/vista-trindade-3.jpg":{"src":"/assets/vista-trindade-3-720.webp","srcset":"/assets/vista-trindade-3-480.webp 480w, /assets/vista-trindade-3-720.webp 720w","width":720,"height":1253},"/assets/vista-trindade-4.jpg":{"src":"/assets/vista-trindade-4-720.webp","srcset":"/assets/vista-trindade-4-480.webp 480w, /assets/vista-trindade-4-720.webp 720w","width":720,"height":1256}};
 function miniGaleriaHTML(fotos) {
   if (!fotos || !fotos.length) return "";
   const imgs = fotos.map((f, i) =>
@@ -1350,9 +1522,44 @@ function espelharPousadas() {
 
 /* ------------------------------ partida ------------------------------ */
 
+/* Dados legais no rodapé, montados a partir de "negocio" na tabela
+   site-config. Só entra o que estiver preenchido: campo vazio não vira
+   "CNPJ: " solto na tela. Para acrescentar razão social ou Cadastur, basta
+   preencher lá — nunca com dado provisório ou inventado. */
+function mostrarDadosDaEmpresa() {
+  const alvo = $("#dadosEmpresa");
+  const n = SITE.negocio || {};
+  if (!alvo) return;
+  const partes = [
+    n.razaoSocial && n.razaoSocial !== n.nome ? n.razaoSocial : "",
+    n.cnpj ? "CNPJ " + n.cnpj : "",
+    n.cadastur ? "Cadastur " + n.cadastur : ""
+  ].filter(Boolean);
+  alvo.textContent = partes.join(" · ");
+  alvo.hidden = !partes.length;
+}
+
+/* Pousadas: "Direto com a pousada" só pode aparecer quando o botão de fato
+   fala com a pousada (link com data-wa-numero, o WhatsApp dela). Sem isso, o
+   link cai no WhatsApp da Trindade Adventure e o texto precisa dizer isso. */
+function ajustarCanaisDeContato(raiz) {
+  $$("[data-canal-contato]", raiz || document).forEach(rotulo => {
+    const cartao = rotulo.closest(".parceira");
+    const link = cartao && cartao.querySelector("a[data-wa]");
+    if (!link) return;
+    const direto = !!link.dataset.waNumero && link.dataset.waNumero !== CFG.whatsapp;
+    rotulo.textContent = direto ? "Direto com a pousada" : "Atendimento pela Trindade Adventure";
+  });
+}
+
 function iniciar() {
+  // Link antigo (#/passeios?plano=boat) vira o endereço novo antes de tudo.
+  migrarEnderecoAntigo();
   ligarMenu();
   ligarLinksWhatsApp();
+  ajustarCanaisDeContato();
+  mostrarDadosDaEmpresa();
+  pintarFaixasDeHorarios();
   $("#ano").textContent = String(new Date().getFullYear());
 
   // Fotos reais dos parceiros que já enviaram — o resto (ainda sem foto)
@@ -1360,33 +1567,33 @@ function iniciar() {
   const fotoHymbe = $("#fotoHymbe");
   if (fotoHymbe) {
     fotoHymbe.innerHTML = miniGaleriaHTML([
-      { src: "assets/pousada-hymbe-3.jpg", alt: "Quarto da Pousada Hymbé com cama de casal e luminária pendente" },
-      { src: "assets/pousada-hymbe-1.jpg", alt: "Quarto da Pousada Hymbé com cama de casal e beliche, toalhas dobradas" },
-      { src: "assets/pousada-hymbe-2.jpg", alt: "Quarto da Pousada Hymbé com cortina e abajur de palha" },
-      { src: "assets/pousada-hymbe-4.jpg", alt: "Quarto da Pousada Hymbé com remos decorativos na parede" },
-      { src: "assets/pousada-hymbe-5.jpg", alt: "Área comum da Pousada Hymbé com vista para a serra" },
-      { src: "assets/pousada-hymbe-6.jpg", alt: "Corredor de entrada da Pousada Hymbé, com tapete de boas-vindas" }
+      { src: "/assets/pousada-hymbe-3.jpg", alt: "Quarto da Pousada Hymbé com cama de casal e luminária pendente" },
+      { src: "/assets/pousada-hymbe-1.jpg", alt: "Quarto da Pousada Hymbé com cama de casal e beliche, toalhas dobradas" },
+      { src: "/assets/pousada-hymbe-2.jpg", alt: "Quarto da Pousada Hymbé com cortina e abajur de palha" },
+      { src: "/assets/pousada-hymbe-4.jpg", alt: "Quarto da Pousada Hymbé com remos decorativos na parede" },
+      { src: "/assets/pousada-hymbe-5.jpg", alt: "Área comum da Pousada Hymbé com vista para a serra" },
+      { src: "/assets/pousada-hymbe-6.jpg", alt: "Corredor de entrada da Pousada Hymbé, com tapete de boas-vindas" }
     ]);
   }
 
   const fotoMadeira = $("#fotoMadeira");
   if (fotoMadeira) {
     fotoMadeira.innerHTML = miniGaleriaHTML([
-      { src: "assets/pousada-madeira-1.jpg", alt: "Casa de Madeira Trindade — varanda com rede e quintal" },
-      { src: "assets/pousada-madeira-2.jpg", alt: "Café da manhã servido na varanda da Casa de Madeira, com vista para o jardim" },
-      { src: "assets/pousada-madeira-4.jpg", alt: "Varanda da Casa de Madeira com rede e vista para o jardim" },
-      { src: "assets/pousada-madeira-3.jpg", alt: "Casa de Madeira Trindade iluminada à noite" }
+      { src: "/assets/pousada-madeira-1.jpg", alt: "Casa de Madeira Trindade — varanda com rede e quintal" },
+      { src: "/assets/pousada-madeira-2.jpg", alt: "Café da manhã servido na varanda da Casa de Madeira, com vista para o jardim" },
+      { src: "/assets/pousada-madeira-4.jpg", alt: "Varanda da Casa de Madeira com rede e vista para o jardim" },
+      { src: "/assets/pousada-madeira-3.jpg", alt: "Casa de Madeira Trindade iluminada à noite" }
     ]);
   }
 
   const fotoRestauranteHymbe = $("#fotoRestauranteHymbe");
   if (fotoRestauranteHymbe) {
     fotoRestauranteHymbe.innerHTML = miniGaleriaHTML([
-      { src: "assets/restaurante-hymbe-2.jpg", alt: "Espreguiçadeiras do restaurante Hymbé na areia da praia" },
-      { src: "assets/restaurante-hymbe-5.jpg", alt: "Deck do restaurante Hymbé ao entardecer" },
-      { src: "assets/restaurante-hymbe-4.jpg", alt: "Placa de boas-vindas do restaurante Hymbé" },
-      { src: "assets/restaurante-hymbe-1.jpg", alt: "Guarda-sóis do restaurante Hymbé na praia" },
-      { src: "assets/restaurante-hymbe-3.jpg", alt: "Vista aérea da praia em frente ao restaurante Hymbé" }
+      { src: "/assets/restaurante-hymbe-2.jpg", alt: "Espreguiçadeiras do restaurante Hymbé na areia da praia" },
+      { src: "/assets/restaurante-hymbe-5.jpg", alt: "Deck do restaurante Hymbé ao entardecer" },
+      { src: "/assets/restaurante-hymbe-4.jpg", alt: "Placa de boas-vindas do restaurante Hymbé" },
+      { src: "/assets/restaurante-hymbe-1.jpg", alt: "Guarda-sóis do restaurante Hymbé na praia" },
+      { src: "/assets/restaurante-hymbe-3.jpg", alt: "Vista aérea da praia em frente ao restaurante Hymbé" }
     ]);
   }
 

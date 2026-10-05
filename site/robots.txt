@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
+# Painel da operação (login) e API: não são páginas para busca.
+Disallow: /admin
+Disallow: /api/
 
 Sitemap: https://trindade-adventure.pages.dev/sitemap.xml
