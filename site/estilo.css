@@ -746,3 +746,122 @@ html[data-motion="paused"] *,html[data-motion="paused"] *::before,html[data-moti
   *,*::before,*::after{animation:none!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
   .revelar{opacity:1!important;transform:none!important}
 }
+
+/* ---------- vidro (glassmorphism) ----------
+   Camada por cima do sistema: um fundo com manchas suaves de mata, lima e mar
+   dá ao vidro algo para desfocar; topo, barra inferior, cartões e controles
+   sobre foto viram painéis translúcidos. Tudo dentro de @supports — navegador
+   sem backdrop-filter continua com as superfícies sólidas de antes — e quem
+   pede menos transparência no sistema também fica com o sólido. A opacidade do
+   vidro é alta de propósito: o texto continua passando no contraste AA. */
+:root{
+  --vidro:rgb(251 249 243 / .62);
+  --vidro-forte:rgb(251 249 243 / .8);
+  --vidro-borda:rgb(255 255 255 / .7);
+  --vidro-brilho:inset 0 1px 0 rgb(255 255 255 / .75);
+  --vidro-sombra:0 10px 32px -18px rgb(6 42 22 / .35);
+  --vidro-blur:blur(18px) saturate(160%);
+  --vidro-hover:rgb(255 255 255 / .55);
+  --vidro-claro:rgb(255 255 255 / .14);
+  --vidro-claro-borda:rgb(255 255 255 / .32);
+  --mancha-1:rgb(53 176 106 / .16); --mancha-2:rgb(213 239 173 / .55); --mancha-3:rgb(29 106 132 / .12);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --vidro:rgb(14 29 20 / .58); --vidro-forte:rgb(14 29 20 / .78);
+    --vidro-borda:rgb(255 255 255 / .09); --vidro-brilho:inset 0 1px 0 rgb(255 255 255 / .07);
+    --vidro-sombra:0 12px 36px -18px rgb(0 0 0 / .7); --vidro-hover:rgb(255 255 255 / .08);
+    --mancha-1:rgb(53 176 106 / .16); --mancha-2:rgb(124 198 222 / .08); --mancha-3:rgb(13 107 56 / .22);
+  }
+}
+:root[data-theme="dark"]{
+  --vidro:rgb(14 29 20 / .58); --vidro-forte:rgb(14 29 20 / .78);
+  --vidro-borda:rgb(255 255 255 / .09); --vidro-brilho:inset 0 1px 0 rgb(255 255 255 / .07);
+  --vidro-sombra:0 12px 36px -18px rgb(0 0 0 / .7); --vidro-hover:rgb(255 255 255 / .08);
+  --mancha-1:rgb(53 176 106 / .16); --mancha-2:rgb(124 198 222 / .08); --mancha-3:rgb(13 107 56 / .22);
+}
+
+@supports ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+@media (prefers-reduced-transparency:no-preference){
+
+  /* fundo: manchas fixas atrás de tudo */
+  body::before{content:"";position:fixed;inset:-10vmax;z-index:-1;pointer-events:none;
+    background:
+      radial-gradient(38vmax 30vmax at 12% 8%,var(--mancha-2),transparent 70%),
+      radial-gradient(34vmax 28vmax at 92% 22%,var(--mancha-1),transparent 70%),
+      radial-gradient(40vmax 32vmax at 70% 92%,var(--mancha-3),transparent 70%),
+      radial-gradient(30vmax 26vmax at 6% 78%,var(--mancha-1),transparent 70%)}
+
+  /* painéis fixos */
+  .topbar,#climaBar,.rodape{background:var(--vidro);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur)}
+  .topbar.is-scrolled{border-bottom-color:var(--vidro-borda);box-shadow:var(--vidro-sombra)}
+  #climaBar{border-bottom-color:var(--vidro-borda)}
+  .rodape{border-top-color:var(--vidro-borda)}
+  /* O menu do celular fica dentro do .topbar, que já desfoca: vidro dentro de
+     vidro só enxerga o próprio topo, então o menu continua sólido (var(--bg)). */
+  @media(max-width:720px){
+    .tabbar{background:var(--vidro-forte);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);border-top-color:var(--vidro-borda);box-shadow:0 -8px 28px -20px rgb(6 42 22 / .4)}
+  }
+  .menu-fundo{-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+
+  /* cartões e caixas */
+  .caixa,.tour,.parceira,.consulta,.restaurante,.roteiro-resumo,.roteiro-dia,.passo,.resumo,.cam,.mapa,
+  .fishing-gallery,.peixe-card,.historia-capa,.historia-galeria figure{
+    background:var(--vidro);border-color:var(--vidro-borda);box-shadow:var(--vidro-brilho),var(--vidro-sombra);
+    -webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur)}
+  .tour-destaque{border-color:var(--accent)}
+  .abas{background:var(--vidro);box-shadow:var(--vidro-brilho);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur)}
+  .aba[aria-selected="true"]{background:var(--vidro-forte);box-shadow:var(--vidro-brilho),0 1px 3px rgb(0 0 0 / .08),0 0 0 1px var(--vidro-borda)}
+
+  /* opções da reserva: vidro mais claro dentro do painel */
+  .plano-opcao,.data-btn,.hslot,.field input,.field select,.field textarea,.outra-data input{background:var(--vidro-forte)}
+  .plano-opcao[aria-pressed="true"]{background:var(--accent-soft)}
+  .data-btn[aria-pressed="true"],.hslot[aria-pressed="true"]{background:var(--accent)}
+
+  /* selos e controles sobre foto */
+  .tag{background:rgb(251 249 243 / .72);border:1px solid rgb(255 255 255 / .6);-webkit-backdrop-filter:blur(10px) saturate(160%);backdrop-filter:blur(10px) saturate(160%)}
+  .parada figcaption,.consulta-fotos figcaption,.mg-cont,.fg-counter,.fg-expand,.fg-arrow{
+    background:rgb(6 30 20 / .5);border:1px solid var(--vidro-claro-borda);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+  .mg-nav{background:rgb(251 249 243 / .7);border:1px solid rgb(255 255 255 / .7);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+
+  /* abertura: os números viram uma placa de vidro sobre a foto */
+  .hero-fatos{padding:18px 22px;border:1px solid var(--vidro-claro-borda);border-radius:var(--r);background:var(--vidro-claro);
+    box-shadow:inset 0 1px 0 rgb(255 255 255 / .18);-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%)}
+  .btn-contorno-claro{background:var(--vidro-claro);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+  @media(max-width:720px){.hero-fatos{padding:16px 18px}}
+
+  .torrada{background:rgb(18 37 26 / .82);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur)}
+}
+}
+
+/* ---------- hover dos botões ----------
+   Fora do @supports: funciona com ou sem vidro. Só em aparelho com mouse, para
+   o toque no celular não deixar o botão preso no estado de hover. O brilho que
+   atravessa o botão é só transform e some com movimento reduzido. */
+.btn-primario,.btn-claro,.nav .nav-cta{position:relative;overflow:hidden;isolation:isolate}
+.btn-primario::after,.btn-claro::after,.nav .nav-cta::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:linear-gradient(105deg,transparent 35%,rgb(255 255 255 / .38) 50%,transparent 65%);transform:translateX(-120%)}
+@media(hover:hover){
+  .btn{transition:background-color .25s,border-color .25s,color .25s,box-shadow .35s var(--ease),transform .35s var(--ease)}
+  html[data-motion="running"] .btn-primario:hover,html[data-motion="running"] .btn-claro:hover,html[data-motion="running"] .nav .nav-cta:hover{transform:translateY(-1px)}
+  .btn-primario:hover,.nav .nav-cta:hover{box-shadow:0 10px 24px -12px var(--accent),inset 0 1px 0 rgb(255 255 255 / .25)}
+  .btn-claro:hover{box-shadow:0 10px 26px -12px rgb(213 239 173 / .9)}
+  html[data-motion="running"] .btn-primario:hover::after,html[data-motion="running"] .btn-claro:hover::after,html[data-motion="running"] .nav .nav-cta:hover::after{
+    transform:translateX(120%);transition:transform .8s var(--ease)}
+
+  .btn-secundario:hover{background:var(--vidro-hover);border-color:var(--accent);color:var(--accent);
+    box-shadow:var(--vidro-brilho),0 8px 22px -14px rgb(6 42 22 / .45);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+  .btn-contorno-claro:hover{background:rgb(255 255 255 / .22);border-color:#fff;box-shadow:inset 0 1px 0 rgb(255 255 255 / .35),0 10px 24px -14px rgb(0 0 0 / .5)}
+
+  .nav a:not(.nav-cta):hover,.icon-btn:hover{background:var(--vidro-hover);box-shadow:var(--vidro-brilho),0 0 0 1px var(--vidro-borda)}
+  .mg-nav:hover,.fg-arrow:hover{box-shadow:0 6px 18px -6px rgb(0 0 0 / .45)}
+  html[data-motion="running"] .mg-nav:hover{transform:translateY(-50%) scale(1.06)}
+  html[data-motion="running"] .fg-arrow:hover{transform:scale(1.06)}
+
+  .plano-opcao:hover,.data-btn:hover,.hslot:hover:not(:disabled){box-shadow:var(--vidro-brilho),0 8px 20px -14px rgb(6 42 22 / .5)}
+  html[data-motion="running"] .data-btn:hover,html[data-motion="running"] .hslot:hover:not(:disabled){transform:translateY(-2px)}
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .btn-claro:hover{box-shadow:0 10px 26px -14px rgb(213 239 173 / .5)}
+}
+:root[data-theme="dark"] .btn-claro:hover{box-shadow:0 10px 26px -14px rgb(213 239 173 / .5)}
