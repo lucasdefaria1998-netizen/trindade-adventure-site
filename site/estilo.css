@@ -347,6 +347,10 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 /* ---------- praias e cachoeiras ---------- */
 .lugares-fotos{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:12px}
 .lugares-fotos img{width:100%;height:auto;aspect-ratio:4/3;object-fit:cover;border-radius:var(--r);background:var(--surface-2)}
+.lugares-fotos img.foco-60{object-position:50% 60%}
+.lugares-fotos img.foco-65{object-position:50% 65%}
+.lugares-fotos img.foco-70{object-position:50% 70%}
+.lugares-fotos img.foco-75{object-position:50% 75%}
 .lugares{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 32px;list-style:none;padding:0}
 .lugar{padding:24px 0;border-top:1px solid var(--line);display:flex;flex-direction:column}
 .lugar-tipo{font-size:13px;font-weight:600;color:var(--accent)}

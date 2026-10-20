@@ -393,6 +393,28 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 }
 
 
+// ---------- FOTOS enviadas pela equipe na seção "Cinco praias e três cachoeiras" ----------
+{
+  const home = await (await pegar("/")).text();
+  const grade = home.slice(home.indexOf('class="lugares-fotos"'), home.indexOf('<ul class="lugares">'));
+  const imgs = [...grade.matchAll(/<img [^>]*>/g)].map(m => m[0]);
+  checar("FOTOS a grade tem as 4 fotos antigas + 8 novas (12)", imgs.length === 12, imgs.length);
+  const novas = imgs.filter(i => /lugar-(vista-baia|pedras-agua|banco-areia|riacho-mata|amanhecer-pedras|enseada-palmeira|banco-areia-veleiro|baia-ilhas)-480/.test(i));
+  checar("FOTOS as 8 novas estão na grade", novas.length === 8, novas.length);
+  const lugares = ["Praia do Meio", "Cachadaço", "Mamanguá", "Juatinga", "Saco Bravo", "Praia Brava", "Cepilho", "Ranchos", "Pedra que Engole", "Codós", "Paraty", "Trindade", "Hymbé", "Sono", "Antigos", "Pão de Açúcar"];
+  for (const i of novas) {
+    const alt = (i.match(/alt="([^"]*)"/) || [])[1] || "";
+    const nome = (i.match(/lugar-[a-z-]+-480/) || [""])[0].replace("-480", "");
+    const src480 = (i.match(/src="([^"]+)"/) || [])[1], w = Number((i.match(/ width="(\d+)"/) || [])[1]), h = Number((i.match(/ height="(\d+)"/) || [])[1]);
+    const b = readFileSync(new URL("../site" + src480.replace("-480", "-720"), import.meta.url)); // WebP VP8: largura/altura nos bytes 26-29
+    const lw = (b[26] | (b[27] << 8)) & 0x3fff, lh = (b[28] | (b[29] << 8)) & 0x3fff;
+    checar(`FOTOS ${nome}: alt descritivo, sem citar nome de praia/lugar (sem atribuir a local específico)`, alt.length >= 25 && !lugares.some(l => alt.toLowerCase().includes(l.toLowerCase())), alt);
+    checar(`FOTOS ${nome}: width/height do HTML = dimensões reais da imagem de 720 (${w}×${h})`, lw === w && lh === h, lw + "×" + lh);
+    checar(`FOTOS ${nome}: carregamento lazy, decoding async e classe de foco`, i.includes('loading="lazy"') && i.includes('decoding="async"') && /class="foco-(60|65|70|75)"/.test(i));
+  }
+}
+
+
 // ---------- ETAPA 24 — higiene: sem comentários de arquitetura no HTML servido; código do fallback com sufixo aleatório ----------
 {
   const rotas = ["/", "/passeios", "/passeios/boat", "/reservar", "/pousadas", "/pescaria", "/contato", "/historia", "/termos-do-passeio", "/politica-de-privacidade", "/cameras", "/nao-existe"];
