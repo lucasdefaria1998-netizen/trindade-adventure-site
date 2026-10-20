@@ -1030,6 +1030,16 @@ function baixarICS(dados) {
 
 let ultimoEnvio = null;
 
+/* Chave de idempotência do envio: o mesmo pedido leva sempre a mesma chave, então um reenvio
+   (clique duplo, rede que caiu depois de o servidor gravar) devolve a MESMA reserva em vez de
+   criar outra. Se o pedido mudou (outro horário, outro nº de pessoas…), a chave é nova.
+   Depois de um envio que deu certo, a chave é descartada. */
+let chaveEnvio = null;
+function chaveDoEnvio(assinatura) {
+  if (!chaveEnvio || chaveEnvio.assinatura !== assinatura) chaveEnvio = { assinatura, chave: crypto.randomUUID() };
+  return chaveEnvio.chave;
+}
+
 function mostrarConfirmacao(dados) {
   const p = planoPor(reserva.plano);
   const total = p.preco * reserva.pax;
@@ -1170,8 +1180,10 @@ function ligarReserva() {
     if (botao) { botao.disabled = true; botao.textContent = "Enviando…"; }
 
     const o = Origem.detectar();
+    const chave = chaveDoEnvio([reserva.plano, reserva.data, reserva.hora, reserva.pax, dadosForm.tel, dadosForm.nome].join("|"));
     const resultado = await chamarAPI("/api/reservas", {
       method: "POST",
+      headers: { "content-type": "application/json", "Idempotency-Key": chave },
       body: JSON.stringify({
         plano: reserva.plano, data: reserva.data, hora: reserva.hora, pax: reserva.pax,
         nome: dadosForm.nome, telefone: dadosForm.tel, email: dadosForm.email, obs: dadosForm.obs,
@@ -1186,6 +1198,12 @@ function ligarReserva() {
 
     if (resultado.status === 409) {
       if (abaWA) abaWA.close();
+      const motivo = resultado.corpo && resultado.corpo.motivo;
+      if (motivo === "duplicado") {
+        torrada("Já recebemos um pedido igual há poucos minutos. Se for outro grupo, fale com a gente pelo WhatsApp.");
+        return;
+      }
+      if (motivo === "chave_em_uso") { chaveEnvio = null; torrada("Não foi possível enviar agora. Tente de novo."); return; }
       torrada("Esse horário acabou de lotar. Escolha outro, por favor.");
       atualizarDisponibilidade();
       return;
@@ -1207,6 +1225,7 @@ function ligarReserva() {
       // Caminho normal: o servidor gravou a reserva, conferiu a vaga de
       // verdade e devolveu a mensagem pronta — já com a origem, pro dono ver.
       dados = Object.assign({ codigo: resultado.corpo.codigo, waHref: resultado.corpo.whatsapp }, dadosForm);
+      chaveEnvio = null;
     } else {
       // API fora do ar, ou o banco ainda não foi ligado ao projeto: volta ao
       // fluxo de sempre, só pelo WhatsApp, sem gravar nada.

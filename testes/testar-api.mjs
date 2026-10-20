@@ -1,7 +1,7 @@
 // Testes da API (portão dos POST, validação, idempotência, Turnstile, admin…).
 // Uso:  node testes/testar-api.mjs      (wrangler pages dev em http://127.0.0.1:8788)
 // Só localhost. Grava reservas de teste no D1 LOCAL; confere a contagem de linhas antes e depois.
-import { checar, resumo, contar, post, reservaValida, ipNovo, exec, sql, BASE, hojeSP, somaDias, limparDadosDeTeste } from "./lib-testes.mjs";
+import { checar, resumo, contar, post, reservaValida, ipNovo, telNovo, exec, sql, BASE, hojeSP, somaDias, limparDadosDeTeste } from "./lib-testes.mjs";
 
 limparDadosDeTeste();
 
@@ -229,6 +229,101 @@ for (const [n, tel] of [["celular BR formatado", `(24) 9${dig(4)}-${dig(4)}`], [
   let achados = "";
   try { achados = execFileSync("git", ["-C", fileURLToPath(new URL("..", import.meta.url)), "grep", "-nE", "prepare\\(`|prepare\\(\".*\\+|\\$\\{.*\\}.*(SELECT|INSERT|UPDATE|DELETE)", "--", "site/_worker.js"], { encoding: "utf8" }); } catch (e) { achados = e.stdout || ""; }
   checar("E4  _worker.js sem SQL montado por concatenação/template com valor do pedido", achados.trim() === "", achados.trim().slice(0, 200));
+}
+
+// ---------- ETAPA 5 — idempotência e prazo da reserva pendente ----------
+const comChave = (chave, corpo, extra = {}) => post("/api/reservas", { corpo, cabecalhos: { "idempotency-key": chave }, ...extra });
+const uuid = () => crypto.randomUUID();
+const slot = (hora = 11) => ({ dia: somaDias(hoje, 30 + Math.floor(Math.random() * 40)), hora });
+const limparSlot = (dia, hora) => exec(`DELETE FROM reservas WHERE data = '${dia}' AND hora = ${hora}`);
+const restamEm = async (dia, hora) => (await (await fetch(`${BASE}/api/disponibilidade?data=${dia}`)).json()).grade[String(hora)].restam;
+
+{
+  // mesma chave duas vezes → 1 linha e o mesmo código
+  const { dia } = slot(); const antes = contar(); const chave = uuid(); const corpo = reservaValida({ data: dia });
+  const a = await comChave(chave, corpo); const ja = await jsonDe(a);
+  const b = await comChave(chave, corpo); const jb = await jsonDe(b);
+  checar("E5  mesma Idempotency-Key duas vezes → 200 nas duas e o mesmo código", a.status === 200 && b.status === 200 && ja.codigo === jb.codigo, `${a.status}/${b.status} ${ja?.codigo}/${jb?.codigo}`);
+  checar("E5  …e só 1 linha nova no D1", contar() === antes + 1, `${antes} → ${contar()}`);
+  checar("E5  a resposta repetida traz o mesmo link do WhatsApp e marca repetido", jb.whatsapp === ja.whatsapp && jb.repetido === true, jb.repetido);
+  const c = await comChave(chave, { ...corpo, pax: 3 });
+  checar("E5  mesma chave com outro pedido → 409 (chave_em_uso), sem linha nova", c.status === 409 && (await jsonDe(c)).motivo === "chave_em_uso" && contar() === antes + 1, c.status);
+  const bad = await comChave("curta", corpo);
+  checar("E5  chave inválida → 422", bad.status === 422 && (await jsonDe(bad)).erros?.idempotencyKey, bad.status);
+  const viaJson = await post("/api/reservas", { corpo: { ...reservaValida({ data: dia, telefone: telNovo() }), idempotencyKey: uuid() } });
+  checar("E5  chave também aceita no corpo JSON", viaJson.status === 200, viaJson.status);
+}
+{
+  // duas requisições simultâneas com a mesma chave (clique duplo) → 1 reserva
+  const { dia } = slot(); const antes = contar(); const chave = uuid(); const corpo = reservaValida({ data: dia });
+  const [a, b] = await Promise.all([comChave(chave, corpo), comChave(chave, corpo)]);
+  const [ja, jb] = [await jsonDe(a), await jsonDe(b)];
+  checar("E5  duas requisições simultâneas com a mesma chave → ambas 200 com o mesmo código", a.status === 200 && b.status === 200 && ja.codigo === jb.codigo, `${a.status}/${b.status} ${ja?.codigo}/${jb?.codigo}`);
+  checar("E5  …e só 1 linha nova", contar() === antes + 1, `${antes} → ${contar()}`);
+}
+{
+  // pedido igual (telefone+data+hora+plano) com outra chave em menos de 30 min → 409 duplicado
+  const { dia } = slot(); const tel = telNovo(); const corpo = reservaValida({ data: dia, telefone: tel });
+  const a = await comChave(uuid(), corpo); const antes = contar();
+  const b = await comChave(uuid(), corpo); const jb = await jsonDe(b);
+  checar("E5  mesmo telefone+data+hora+plano com outra chave → 409 duplicado, sem linha nova", a.status === 200 && b.status === 409 && jb.motivo === "duplicado" && contar() === antes, `${a.status}/${b.status} ${JSON.stringify(jb)}`);
+  const outraHora = await comChave(uuid(), { ...corpo, hora: 10 });
+  checar("E5  mesmo telefone em outro horário é aceito", outraHora.status === 200, outraHora.status);
+  exec(`UPDATE reservas SET criado_em = '${new Date(Date.now() - 31 * 60000).toISOString()}' WHERE telefone = '${tel}' AND hora = 9`);
+  const depois = await comChave(uuid(), corpo);
+  checar("E5  passados 30 min o mesmo pedido volta a ser aceito", depois.status === 200, depois.status);
+}
+{
+  // prazo da pendente: vencida deixa de contar; confirmada e linha antiga continuam contando
+  const { dia, hora } = slot(11); limparSlot(dia, hora);
+  const base = await restamEm(dia, hora);
+  const r = await post("/api/reservas", { corpo: reservaValida({ plano: "adventure", data: dia, hora, pax: 5 }) });
+  const j = await jsonDe(r);
+  checar("E5  pendente nova segura a vaga (restam cai 5)", r.status === 200 && (await restamEm(dia, hora)) === base - 5, `${base} → ${await restamEm(dia, hora)}`);
+  const linha = sql("SELECT expira_em, criado_em, status FROM reservas WHERE codigo = ?", j.codigo)[0];
+  const horasAte = (Date.parse(linha.expira_em) - Date.parse(linha.criado_em)) / 3600e3;
+  checar("E5  expira_em gravado, no máximo 6 h depois da criação", linha.status === "pendente" && horasAte > 0 && horasAte <= 6.001, `${horasAte.toFixed(2)} h`);
+  exec(`UPDATE reservas SET expira_em = '2000-01-01T00:00:00.000Z' WHERE codigo = '${j.codigo}'`);
+  checar("E5  pendente vencida deixa de contar (restam volta)", (await restamEm(dia, hora)) === base, `${await restamEm(dia, hora)} vs ${base}`);
+  exec(`UPDATE reservas SET status = 'confirmada' WHERE codigo = '${j.codigo}'`);
+  checar("E5  confirmada continua contando mesmo com o prazo vencido", (await restamEm(dia, hora)) === base - 5, await restamEm(dia, hora));
+  exec(`UPDATE reservas SET status = 'pendente' WHERE codigo = '${j.codigo}'`);
+  exec(`INSERT INTO reservas (id, codigo, criado_em, plano, data, hora, pax, nome, telefone, total, voucher, status, canal) VALUES ('legado-${Date.now()}', 'TA-9999', '2026-01-01T00:00:00.000Z', 'adventure', '${dia}', ${hora}, 3, 'Reserva antiga', '24999990000', 450, 180, 'pendente', 'site')`);
+  checar("E5  linha antiga (sem expira_em) continua contando (restam cai 3)", (await restamEm(dia, hora)) === base - 3, `${await restamEm(dia, hora)} vs ${base - 3}`);
+  limparSlot(dia, hora);
+}
+{
+  // painel: lista mostra "expirada"; confirmar uma vencida com o horário já ocupado é recusado (409)
+  const { dia, hora } = slot(12); limparSlot(dia, hora);
+  const adm = { "Cf-Access-Authenticated-User-Email": "teste@example.com", "content-type": "application/json" };
+  const a = await jsonDe(await post("/api/reservas", { corpo: reservaValida({ plano: "adventure", data: dia, hora, pax: 5 }) }));
+  exec(`UPDATE reservas SET expira_em = '2000-01-01T00:00:00.000Z' WHERE codigo = '${a.codigo}'`);
+  const lista = await (await fetch(`${BASE}/api/admin/reservas?de=${dia}&ate=${dia}`, { headers: adm })).json();
+  checar("E5  painel mostra a pendente vencida como \"expirada\"", lista.reservas.find(x => x.codigo === a.codigo)?.status === "expirada", JSON.stringify(lista.reservas.map(x => x.status)));
+  const cheio = await post("/api/reservas", { corpo: reservaValida({ plano: "adventure", data: dia, hora, pax: 15 }) });
+  const cheio2 = await post("/api/reservas", { corpo: reservaValida({ plano: "adventure", data: dia, hora, pax: 5 }) });
+  checar("E5  a vaga liberada pela vencida pode ser ocupada por outro cliente", cheio.status === 200 && cheio2.status === 200, `${cheio.status}/${cheio2.status}`);
+  const id = sql("SELECT id FROM reservas WHERE codigo = ?", a.codigo)[0].id;
+  const conf = await fetch(`${BASE}/api/admin/reservas/${id}`, { method: "PATCH", headers: adm, body: JSON.stringify({ status: "confirmada" }) });
+  checar("E5  confirmar a vencida com o horário lotado → 409 (sem overbooking)", conf.status === 409, `${conf.status} ${(await jsonDe(conf))?.erro}`);
+  exec(`UPDATE reservas SET status = 'cancelada' WHERE codigo = '${(await jsonDe(cheio2)).codigo}'`);
+  const conf2 = await fetch(`${BASE}/api/admin/reservas/${id}`, { method: "PATCH", headers: adm, body: JSON.stringify({ status: "confirmada" }) });
+  checar("E5  com espaço no horário, confirmar a vencida funciona", conf2.status === 200, `${conf2.status} ${(await jsonDe(conf2))?.erro}`);
+  limparSlot(dia, hora);
+}
+{
+  // regra do prazo (função pura do worker)
+  const src = (await import("node:fs")).readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
+  const w = await import("data:text/javascript;base64," + Buffer.from(src).toString("base64"));
+  const t = s => Date.parse(s);
+  const casos = [
+    ["criada com folga: 6 h", w.expiraEm("2026-10-22", 9, t("2026-10-20T15:00:00Z")), "2026-10-20T21:00:00.000Z"],
+    ["12 h antes do passeio vem antes das 6 h", w.expiraEm("2026-10-22", 9, t("2026-10-21T20:00:00Z")), "2026-10-22T00:00:00.000Z"],
+    ["feita com menos de 12 h: 6 h (ou a saída, se vier antes) — 6 h", w.expiraEm("2026-10-22", 9, t("2026-10-22T03:00:00Z")), "2026-10-22T09:00:00.000Z"],
+    ["feita perto da saída: vale até a hora do passeio", w.expiraEm("2026-10-22", 9, t("2026-10-22T10:00:00Z")), "2026-10-22T12:00:00.000Z"],
+    ["horário 8:30 (Boat)", w.expiraEm("2026-10-22", 8.5, t("2026-10-21T20:00:00Z")), "2026-10-21T23:30:00.000Z"]
+  ];
+  for (const [n, got, esperado] of casos) checar(`E5  prazo: ${n}`, got === esperado, `${got} ≠ ${esperado}`);
 }
 
 resumo();

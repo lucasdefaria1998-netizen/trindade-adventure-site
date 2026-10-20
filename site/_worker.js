@@ -345,7 +345,7 @@ async function rotearAPI(request, env, url) {
   if (ROTAS_PUBLICAS[p]) {
     const entrada = await receberPostPublico(request, env, p);
     if (entrada.resposta) return entrada.resposta;
-    return p === "/api/reservas" ? criarReserva(entrada.corpo, env) : registrarEvento(entrada.corpo, env);
+    return p === "/api/reservas" ? criarReserva(entrada.corpo, env, request) : registrarEvento(entrada.corpo, env);
   }
 
   if (p.startsWith("/api/admin/")) {
@@ -617,14 +617,15 @@ async function disponibilidade(env, url) {
   const data = url.searchParams.get("data");
   if (conferirData(data, agoraEmTrindade().data)) return erro("Data inválida.");
 
+  await garantirEsquemaReservas(env);
   const cfg = await lerConfig(env);
 
   const usados = await env.DB
     .prepare(
       "SELECT hora, COALESCE(SUM(pax),0) AS usado FROM reservas " +
-      "WHERE data = ? AND status != 'cancelada' GROUP BY hora"
+      "WHERE data = ?1 AND " + contaNaVaga(2) + " GROUP BY hora"
     )
-    .bind(data)
+    .bind(data, new Date().toISOString())
     .all();
 
   const bloqueios = await env.DB
@@ -662,41 +663,123 @@ async function disponibilidade(env, url) {
   return ok({ ok: true, data, capacidade: cfg.capacidade, grade, horariosPorPlano });
 }
 
-/* ------------------------------ criar reserva ------------------------------ */
+/* ------------------------------ criar reserva ------------------------------
 
-/* Vaga e gravação numa operação só: o INSERT … SELECT só insere se, no mesmo
-   instante, o horário não está bloqueado e a soma de pessoas + este pedido cabe
-   na capacidade. Dois pedidos simultâneos para o último lugar não passam os
-   dois — o segundo não insere nada (0 linhas) e recebe 409. */
+   O que a reserva do site é, de ponta a ponta: o cliente envia o pedido, o
+   servidor grava como "pendente" e segura a vaga; a operação confirma pelo
+   WhatsApp (depois do sinal de 30% via Pix) e marca "confirmada" no painel.
+   Pendente que ninguém confirma no prazo deixa de segurar a vaga — senão um
+   robô, ou um cliente que sumiu, trava horários para sempre.
+
+   Prazo da pendente (decisão do Lucas): 6 h depois de criada, ou 12 h antes do
+   passeio — o que vier primeiro. Reserva feita com menos de 12 h de
+   antecedência já não tem esse "12 h antes" pela frente: ela segura a vaga por
+   6 h ou até a hora do passeio, se for antes.
+
+   Nada é apagado nem muda de status por causa do prazo: a pendente vencida só
+   deixa de contar na vaga (e o painel a mostra como "expirada"). Linhas
+   antigas, de antes desta regra, não têm prazo (expira_em vazio) e continuam
+   contando sempre — não dá para uma reserva real de ontem liberar a vaga
+   quando este código entrar no ar. Confirmada, faltou e cancelada não têm prazo. */
+
+const PENDENTE_VALIDADE_H = 6;
+const PENDENTE_ANTES_DO_PASSEIO_H = 12;
+const DUPLICADA_JANELA_MIN = 30;
+
+// Condição "conta na vaga"; n = número do parâmetro que traz o instante de agora (ISO).
+const contaNaVaga = n => "status != 'cancelada' AND (status != 'pendente' OR expira_em IS NULL OR expira_em > ?" + n + ")";
+const SQL_USADO_NO_HORARIO = "SELECT COALESCE(SUM(pax),0) AS usado FROM reservas WHERE data = ?1 AND hora = ?2 AND " + contaNaVaga(3);
+const SQL_RESERVA_POR_CHAVE = "SELECT * FROM reservas WHERE chave_idempotencia = ?1";
+
+function expiraEm(data, hora, criadoMs) {
+  const h = 3600e3;
+  const inicioMs = Date.parse(data + "T00:00:00Z") + Math.round(hora * h) + 3 * h; // Trindade = UTC−3, sem horário de verão
+  let limite = criadoMs + PENDENTE_VALIDADE_H * h;
+  const antes = inicioMs - PENDENTE_ANTES_DO_PASSEIO_H * h;
+  limite = antes > criadoMs ? Math.min(limite, antes) : Math.min(limite, inicioMs);
+  return new Date(limite).toISOString();
+}
+
+/* Duas colunas novas na tabela de reservas: expira_em (prazo da pendente) e
+   chave_idempotencia (anti-duplicata, com índice único). O mesmo SQL está em
+   migracoes/0002_pendente_e_idempotencia.sql. O worker aplica sozinho, uma vez,
+   e sem estragar nada se já estiverem lá — assim publicar o site antes de rodar
+   a migração não derruba a reserva. */
+let esquemaReservasPronto = false;
+async function garantirEsquemaReservas(env) {
+  if (esquemaReservasPronto) return;
+  const { results } = await env.DB.prepare("PRAGMA table_info(reservas)").all();
+  const tem = new Set(results.map(c => c.name));
+  const novas = [
+    ["expira_em", "ALTER TABLE reservas ADD COLUMN expira_em TEXT"],
+    ["chave_idempotencia", "ALTER TABLE reservas ADD COLUMN chave_idempotencia TEXT"]
+  ];
+  for (const [nome, ddl] of novas) {
+    if (tem.has(nome)) continue;
+    try { await env.DB.prepare(ddl).run(); } catch (e) { if (!/duplicate column/i.test(String(e && e.message))) throw e; }
+  }
+  await env.DB.prepare(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_reservas_chave_idem ON reservas (chave_idempotencia) WHERE chave_idempotencia IS NOT NULL"
+  ).run();
+  esquemaReservasPronto = true;
+}
+
+const CHAVE_IDEMPOTENCIA = /^[A-Za-z0-9_-]{16,64}$/;
+
+/* Vaga, duplicata e gravação numa operação só: o INSERT … SELECT só insere se,
+   no mesmo instante, o horário não está bloqueado, a soma de pessoas + este
+   pedido cabe na capacidade e não existe pedido igual (mesmo telefone, data,
+   horário e passeio) criado nos últimos 30 min. Dois pedidos simultâneos para o
+   último lugar não passam os dois — o segundo não insere nada (0 linhas). */
 const SQL_INSERIR_RESERVA =
   "INSERT INTO reservas " +
   "(id, codigo, criado_em, plano, data, hora, pax, nome, telefone, email, obs, " +
   "total, voucher, origem, origem_detalhe, como_conheceu, instagram_cliente, " +
-  "seguiu_instagram, status, canal, atualizado_em) " +
-  "SELECT ?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,'pendente','site',?3 " +
+  "seguiu_instagram, status, canal, atualizado_em, expira_em, chave_idempotencia) " +
+  "SELECT ?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,'pendente','site',?3,?20,?21 " +
   "WHERE NOT EXISTS (SELECT 1 FROM bloqueios WHERE data = ?5 AND (hora = ?6 OR hora IS NULL)) " +
-  "AND (SELECT COALESCE(SUM(pax),0) FROM reservas WHERE data = ?5 AND hora = ?6 AND status != 'cancelada') + ?7 <= ?19";
+  "AND (SELECT COALESCE(SUM(pax),0) FROM reservas WHERE data = ?5 AND hora = ?6 AND " + contaNaVaga(3) + ") + ?7 <= ?19 " +
+  "AND NOT EXISTS (SELECT 1 FROM reservas WHERE telefone = ?9 AND data = ?5 AND hora = ?6 AND plano = ?4 " +
+  "AND status != 'cancelada' AND criado_em > ?22)";
 
-async function criarReserva(b, env) {
+async function criarReserva(b, env, request) {
+  await garantirEsquemaReservas(env);
   const cfg = await lerConfig(env);
   const agora = agoraEmTrindade();
   const { erros, dados: d } = validarReserva(b, cfg, agora);
+
+  // Chave de idempotência: cabeçalho Idempotency-Key (ou campo idempotencyKey no JSON).
+  const bruta = request.headers.get("idempotency-key") ?? b.idempotencyKey;
+  let chave = null;
+  if (bruta != null && bruta !== "") {
+    if (typeof bruta === "string" && CHAVE_IDEMPOTENCIA.test(bruta)) chave = bruta;
+    else erros.idempotencyKey = "Chave inválida.";
+  }
   if (Object.keys(erros).length) return ok({ ok: false, erros }, 422);
 
   const plano = PLANOS[d.plano];
+  const criadoMs = Date.now();
+  const criadoEm = new Date(criadoMs).toISOString();
+
+  // Mesmo envio repetido (clique duplo, rede ruim): devolve o pedido que já existe, sem gravar outro.
+  if (chave) {
+    const antiga = await env.DB.prepare(SQL_RESERVA_POR_CHAVE).bind(chave).first();
+    if (antiga) return await repetirReserva(env, antiga, d, cfg, criadoEm);
+  }
 
   // Guarda simples contra spam: no máximo 5 pedidos por telefone em 24 h.
   const recentes = await env.DB
     .prepare("SELECT COUNT(*) AS n FROM reservas WHERE telefone = ? AND criado_em > ?")
-    .bind(d.telefone, new Date(Date.now() - 86400000).toISOString())
+    .bind(d.telefone, new Date(criadoMs - 86400000).toISOString())
     .first();
   if (recentes && Number(recentes.n) >= 5)
     return erro("Muitos pedidos deste telefone hoje. Fale com a operação pelo WhatsApp.", 429);
 
   const id = crypto.randomUUID();
-  const criadoEm = new Date().toISOString();
   const total = plano.preco * d.pax;
   const voucher = plano.voucher * d.pax;
+  const limiteDuplicata = new Date(criadoMs - DUPLICADA_JANELA_MIN * 60000).toISOString();
+  const prazo = expiraEm(d.data, d.hora, criadoMs);
 
   let codigo = null;
   for (let tentativa = 0; tentativa < 3 && !codigo; tentativa++) {
@@ -706,14 +789,26 @@ async function criarReserva(b, env) {
         .prepare(SQL_INSERIR_RESERVA)
         .bind(
           id, candidato, criadoEm, d.plano, d.data, d.hora, d.pax, d.nome, d.telefone, d.email, d.obs,
-          total, voucher, d.origem, d.origemDetalhe, d.comoConheceu, d.igCliente, d.seguiu, cfg.capacidade
+          total, voucher, d.origem, d.origemDetalhe, d.comoConheceu, d.igCliente, d.seguiu, cfg.capacidade,
+          prazo, chave, limiteDuplicata
         )
         .run();
-      if (r.meta.changes !== 1) return await responderLotado(env, d, cfg);
+      if (r.meta.changes !== 1) {
+        if (chave) {
+          const antiga = await env.DB.prepare(SQL_RESERVA_POR_CHAVE).bind(chave).first();
+          if (antiga) return await repetirReserva(env, antiga, d, cfg, criadoEm);
+        }
+        return await explicarRecusa(env, d, cfg, criadoEm, limiteDuplicata);
+      }
       codigo = candidato;
     } catch (err) {
+      const msg = String(err && err.message);
+      if (chave && /chave_idempotencia/i.test(msg)) {
+        const antiga = await env.DB.prepare(SQL_RESERVA_POR_CHAVE).bind(chave).first();
+        if (antiga) return await repetirReserva(env, antiga, d, cfg, criadoEm);
+      }
       // Código repetido (chance mínima): sorteia outro. Qualquer outro erro sobe.
-      if (!/UNIQUE/i.test(String(err && err.message)) || tentativa === 2) throw err;
+      if (!/UNIQUE/i.test(msg) || tentativa === 2) throw err;
     }
   }
 
@@ -722,38 +817,62 @@ async function criarReserva(b, env) {
     .bind(criadoEm, "reserva_criada", d.origem, d.origemDetalhe, d.sessao, codigo)
     .run();
 
-  const uso = await env.DB
-    .prepare("SELECT COALESCE(SUM(pax),0) AS usado FROM reservas WHERE data = ? AND hora = ? AND status != 'cancelada'")
-    .bind(d.data, d.hora)
-    .first();
+  const uso = await env.DB.prepare(SQL_USADO_NO_HORARIO).bind(d.data, d.hora, criadoEm).first();
 
-  // O número do WhatsApp é o do servidor (config), nunca algo vindo do pedido.
-  const numeroWA = /^\d{12,13}$/.test(cfg.whatsapp) ? cfg.whatsapp : WHATSAPP_PADRAO;
-  const mensagem = montarMensagem({
+  return respostaDaReserva({
     codigo, plano, data: d.data, hora: d.hora, pax: d.pax, nome: d.nome, telefone: d.telefone, email: d.email, obs: d.obs,
     total, voucher, origem: d.origem, origemDetalhe: d.origemDetalhe, comoConheceu: d.comoConheceu,
-    igCliente: d.igCliente, seguiu: d.seguiu, cfg
-  });
+    igCliente: d.igCliente, seguiu: d.seguiu
+  }, cfg, Math.max(0, cfg.capacidade - Number(uso.usado || 0)));
+}
 
+function respostaDaReserva(m, cfg, restam, extra) {
+  // O número do WhatsApp é o do servidor (config), nunca algo vindo do pedido.
+  const numeroWA = /^\d{12,13}$/.test(cfg.whatsapp) ? cfg.whatsapp : WHATSAPP_PADRAO;
+  const mensagem = montarMensagem({ ...m, cfg });
   return ok({
     ok: true,
-    codigo,
-    restam: Math.max(0, cfg.capacidade - Number(uso.usado || 0)),
+    codigo: m.codigo,
+    restam,
     whatsapp: "https://wa.me/" + numeroWA + "?text=" + encodeURIComponent(mensagem),
-    mensagem
+    mensagem,
+    ...extra
   });
 }
 
-async function responderLotado(env, d, cfg) {
-  const uso = await env.DB
-    .prepare("SELECT COALESCE(SUM(pax),0) AS usado FROM reservas WHERE data = ? AND hora = ? AND status != 'cancelada'")
-    .bind(d.data, d.hora)
+// A mesma chave com outro pedido não é um reenvio: é conflito (409). Com o mesmo pedido, devolve a mesma resposta.
+async function repetirReserva(env, r, d, cfg, agoraISO) {
+  const igual = r.plano === d.plano && r.data === d.data && Number(r.hora) === d.hora && Number(r.pax) === d.pax && r.telefone === d.telefone;
+  if (!igual) return ok({ ok: false, motivo: "chave_em_uso", erro: "Esta chave já foi usada em outro pedido." }, 409);
+  const uso = await env.DB.prepare(SQL_USADO_NO_HORARIO).bind(r.data, Number(r.hora), agoraISO).first();
+  return respostaDaReserva({
+    codigo: r.codigo, plano: PLANOS[r.plano], data: r.data, hora: Number(r.hora), pax: Number(r.pax), nome: r.nome, telefone: r.telefone,
+    email: r.email, obs: r.obs, total: Number(r.total), voucher: Number(r.voucher), origem: r.origem, origemDetalhe: r.origem_detalhe,
+    comoConheceu: r.como_conheceu, igCliente: r.instagram_cliente, seguiu: Number(r.seguiu_instagram)
+  }, cfg, Math.max(0, cfg.capacidade - Number(uso.usado || 0)), { repetido: true });
+}
+
+// O INSERT não inseriu nada: descobre por quê (pedido igual há pouco, horário bloqueado ou lotado).
+async function explicarRecusa(env, d, cfg, agoraISO, limiteDuplicata) {
+  const igual = await env.DB
+    .prepare(
+      "SELECT 1 AS x FROM reservas WHERE telefone = ?1 AND data = ?2 AND hora = ?3 AND plano = ?4 " +
+      "AND status != 'cancelada' AND criado_em > ?5 LIMIT 1"
+    )
+    .bind(d.telefone, d.data, d.hora, d.plano, limiteDuplicata)
     .first();
+  if (igual) {
+    return ok({
+      ok: false, motivo: "duplicado",
+      erro: "Já recebemos um pedido igual há poucos minutos. Se for outro grupo, fale com a operação pelo WhatsApp."
+    }, 409);
+  }
   const bloq = await env.DB
     .prepare("SELECT COUNT(*) AS n FROM bloqueios WHERE data = ? AND (hora = ? OR hora IS NULL)")
     .bind(d.data, d.hora)
     .first();
   if (Number(bloq.n) > 0) return ok({ ok: false, motivo: "bloqueado", restam: 0 }, 409);
+  const uso = await env.DB.prepare(SQL_USADO_NO_HORARIO).bind(d.data, d.hora, agoraISO).first();
   return ok({ ok: false, motivo: "cheio", restam: Math.max(0, cfg.capacidade - Number(uso.usado || 0)) }, 409);
 }
 
@@ -822,10 +941,14 @@ function somaDiasISO(iso, n) {
 }
 
 async function adminResumo(env) {
+  await garantirEsquemaReservas(env);
   const cfg = await lerConfig(env);
   const hoje = hojeSP();
   const fim = somaDiasISO(hoje, 7);
+  const agoraISO = new Date().toISOString();
 
+  // A lista do dia mostra todas as não canceladas (a operação precisa ver até a pendente vencida);
+  // a agenda de vagas conta só quem segura vaga (pendente vencida não conta).
   const doDia = await env.DB
     .prepare(
       "SELECT hora, plano, pax, status, codigo, nome, telefone FROM reservas " +
@@ -837,13 +960,14 @@ async function adminResumo(env) {
   const proximos = await env.DB
     .prepare(
       "SELECT data, hora, pax, status FROM reservas " +
-      "WHERE data >= ? AND data <= ? AND status != 'cancelada'"
+      "WHERE data >= ?1 AND data <= ?2 AND " + contaNaVaga(3)
     )
-    .bind(hoje, fim)
+    .bind(hoje, fim, agoraISO)
     .all();
 
   const pendentes = await env.DB
-    .prepare("SELECT COUNT(*) AS n FROM reservas WHERE status = 'pendente'")
+    .prepare("SELECT COUNT(*) AS n FROM reservas WHERE status = 'pendente' AND (expira_em IS NULL OR expira_em > ?1)")
+    .bind(agoraISO)
     .first();
 
   const bloqueios = await env.DB
@@ -892,6 +1016,7 @@ async function adminResumo(env) {
 }
 
 async function adminListarReservas(env, url) {
+  await garantirEsquemaReservas(env);
   const status = url.searchParams.get("status");
   const de = url.searchParams.get("de") || "2000-01-01";
   const ate = url.searchParams.get("ate") || "2999-12-31";
@@ -900,13 +1025,16 @@ async function adminListarReservas(env, url) {
   let sql =
     "SELECT id, codigo, criado_em, plano, data, hora, pax, nome, telefone, email, obs, " +
     "total, voucher, origem, origem_detalhe, como_conheceu, instagram_cliente, " +
-    "seguiu_instagram, status, canal FROM reservas WHERE data >= ? AND data <= ?";
+    "seguiu_instagram, status, canal, expira_em FROM reservas WHERE data >= ? AND data <= ?";
   const bind = [de, ate];
   if (status && status !== "todas") { sql += " AND status = ?"; bind.push(status); }
   sql += " ORDER BY data DESC, hora DESC LIMIT ?";
   bind.push(limite);
 
   const { results } = await env.DB.prepare(sql).bind(...bind).all();
+  // Pendente que passou do prazo aparece como "expirada" (só na exibição: o banco continua "pendente").
+  const agoraISO = new Date().toISOString();
+  for (const r of results) if (r.status === "pendente" && r.expira_em && r.expira_em <= agoraISO) r.status = "expirada";
   return ok({ ok: true, reservas: results });
 }
 
@@ -951,6 +1079,30 @@ async function adminAtualizarReserva(request, env, id) {
   try { b = await request.json(); } catch { return erro("Corpo inválido."); }
   const status = ["pendente", "confirmada", "cancelada", "nao_compareceu"];
   if (!status.includes(b.status)) return erro("Status inválido.");
+
+  // Confirmar (ou reativar) uma reserva que não segurava mais a vaga — cancelada ou pendente
+  // vencida — só pode se o horário ainda comportar: senão seria overbooking silencioso.
+  if (b.status === "confirmada" || b.status === "pendente") {
+    await garantirEsquemaReservas(env);
+    const agoraISO = new Date().toISOString();
+    const atual = await env.DB
+      .prepare("SELECT data, hora, pax, status, expira_em FROM reservas WHERE id = ?1")
+      .bind(id)
+      .first();
+    if (!atual) return erro("Reserva não encontrada.", 404);
+    const seguravaVaga = atual.status !== "cancelada" && (atual.status !== "pendente" || !atual.expira_em || atual.expira_em > agoraISO);
+    if (!seguravaVaga) {
+      const cfg = await lerConfig(env);
+      const uso = await env.DB
+        .prepare(
+          "SELECT COALESCE(SUM(pax),0) AS usado FROM reservas WHERE data = ?1 AND hora = ?2 AND id != ?3 AND " + contaNaVaga(4)
+        )
+        .bind(atual.data, atual.hora, id, agoraISO)
+        .first();
+      if (Number(uso.usado) + Number(atual.pax) > cfg.capacidade)
+        return erro("Esse horário já está lotado: a vaga desta reserva foi liberada. Abra espaço no horário (ou ajuste a capacidade) antes de confirmar.", 409);
+    }
+  }
 
   const r = await env.DB
     .prepare("UPDATE reservas SET status = ?, atualizado_em = ? WHERE id = ?")
@@ -1060,3 +1212,6 @@ async function adminGravarConfig(request, env) {
   if (stmts.length) await env.DB.batch(stmts);
   return ok({ ok: true });
 }
+
+// Exportadas só para os testes de testes/ (o Pages usa apenas o export default).
+export { expiraEm, normalizarTelefone, conferirData, validarReserva };

@@ -71,6 +71,7 @@ tr:last-child td{border-bottom:none}
 .pill.confirmada{background:var(--ok-bg);color:var(--ok)}
 .pill.cancelada{background:var(--bad-bg);color:var(--bad)}
 .pill.nao_compareceu{background:var(--surface-2);color:var(--muted)}
+.pill.expirada{background:var(--surface-2);color:var(--muted);text-decoration:line-through}
 .acoes{display:flex;gap:4px;flex-wrap:wrap}
 .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:4px;font-size:12.5px;font-weight:500;border:1px solid var(--line-2);background:var(--surface);white-space:nowrap}
 .btn:hover{border-color:var(--ink-2)}
@@ -425,7 +426,7 @@ $("#salvarConfig").addEventListener("click", async () => {
 
 /* ------- utilidades ------- */
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
-function rotStatus(s) { return { pendente: "pendente", confirmada: "confirmada", cancelada: "cancelada", nao_compareceu: "faltou" }[s] || s; }
+function rotStatus(s) { return { pendente: "pendente", confirmada: "confirmada", cancelada: "cancelada", nao_compareceu: "faltou", expirada: "expirada" }[s] || s; }
 function nomePlano(id) { return { essencial: "Trindade Essencial", adventure: "Trindade Adventure", boat: "Trindade Boat" }[id] || id; }
 
 /* quem está logado (Cloudflare Access injeta no header; o Worker não devolve,
