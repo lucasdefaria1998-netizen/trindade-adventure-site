@@ -57,6 +57,17 @@
   revelar();
  }
 
+ /* Na carga, o que mede posição (revelar) e cria o Lenis espera a primeira pintura: o estado do
+    movimento (data-motion) já vai certo no primeiro instante, e o que fica abaixo da dobra só ganha
+    a classe de revelação depois. Se a pessoa rolar antes disso, a rolagem nativa funciona e nada
+    fica escondido. */
+ function aposPrimeiraPintura(fn) {
+  const rodar = () => { if (rodar.feito) return; rodar.feito = true; fn(); };
+  if ('requestIdleCallback' in window) requestIdleCallback(rodar, { timeout: 1200 });
+  else setTimeout(rodar, 200);
+  return rodar;
+ }
+
  botao?.addEventListener('click', () => {
   pausado = !pausado;
   try { localStorage.setItem('trindade.motion', pausado ? 'paused' : 'running'); } catch (e) {}
@@ -88,5 +99,9 @@
  document.querySelectorAll('dialog').forEach(d => new MutationObserver(() => { if (d.open) lenis?.stop(); else lenis?.start(); }).observe(d, { attributes: true, attributeFilter: ['open'] }));
  addEventListener('trindade:menu', e => { if (e.detail?.aberto) lenis?.stop(); else lenis?.start(); });
 
- aplicar();
+ root.dataset.motion = ativo() ? 'running' : 'paused';
+ const inicial = aposPrimeiraPintura(aplicar);
+ // Quem interage antes do ocioso (botão de movimento, troca de rota) já exige o estado completo.
+ addEventListener('trindade:before-route', inicial, { once: true });
+ botao?.addEventListener('pointerdown', inicial, { once: true });
 })();

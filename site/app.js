@@ -412,9 +412,39 @@ function ajustarH1(rota) {
   if (alvo) trocarTag(alvo, "h1");
 }
 
+/* O que só serve a uma página (mapa dos roteiros, formulário de reserva, câmeras) é montado quando
+   a rota é aberta; o resto é montado em tempo ocioso, para quem navegar já encontrar pronto. Cada
+   montagem roda uma vez. Antes, tudo isso rodava na carga de qualquer página (tarefa longa na home). */
+const MONTAGENS = {
+  passeios: [prepararMapa],
+  reservar: [ligarReserva],
+  cameras: [desenharCameras, ligarRelogios]
+};
+const montadas = new Set();
+function montar(nome) {
+  if (montadas.has(nome) || !MONTAGENS[nome]) return;
+  montadas.add(nome);
+  MONTAGENS[nome].forEach(fn => fn());
+}
+function montarOsDemais() {
+  const fila = Object.keys(MONTAGENS);
+  const proxima = () => {
+    const nome = fila.shift();
+    if (!nome) return;
+    montar(nome);
+    agendarOcioso(proxima);
+  };
+  agendarOcioso(proxima);
+}
+function agendarOcioso(fn) {
+  if ("requestIdleCallback" in window) requestIdleCallback(fn, { timeout: 2500 });
+  else setTimeout(fn, 300);
+}
+
 function aplicarRota(rolarTopo) {
   const rota = lerRota();
   const { nome, params } = rota;
+  montar(nome);
   window.dispatchEvent(new Event("trindade:before-route"));
 
   $$("[data-secao]").forEach(s => { s.hidden = s.dataset.secao !== nome; });
@@ -1809,10 +1839,6 @@ function iniciar() {
 
   ligarMiniGalerias();
   espelharPousadas();
-  prepararMapa();
-  desenharCameras();
-  ligarRelogios();
-  ligarReserva();
 
   // Se a detecção automática já sabe que veio do Instagram ou do Google,
   // deixa pré-marcado no formulário — a pessoa só confirma, não escolhe do zero.
@@ -1823,6 +1849,7 @@ function iniciar() {
   }
 
   aplicarRota(false);
+  montarOsDemais();
 
   // Tempo e mar e a métrica de visita esperam a página terminar de carregar:
   // no 4G, a foto da abertura chega primeiro. A faixa já reserva o espaço.

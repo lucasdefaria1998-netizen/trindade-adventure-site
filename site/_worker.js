@@ -440,6 +440,12 @@ function aplicarMetadados(resposta, m, naoEncontrada, env, rota) {
       .on('meta[property="og:url"]', { element(el) { el.remove(); } });
   }
 
+  // A foto da abertura só existe na seção "inicio": nas outras rotas o preload gastaria banda (e
+  // disputaria o LCP) com uma imagem que fica escondida.
+  if (rota.secao !== "inicio") {
+    rw = rw.on('link[rel="preload"][as="image"]', { element(el) { el.remove(); } });
+  }
+
   rw = reescreverTitulos(rw, rota);
 
   rw = reescreverSecoes(rw, rota);

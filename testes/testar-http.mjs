@@ -374,5 +374,21 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar(`E14 todos os ${caminhos.length} caminhos /assets e /vendor citados no HTML, JS e CSS respondem 200`, !quebrados.length, quebrados.join("; "));
 }
 
+// ---------- ETAPA 15 — preload do hero só onde o hero aparece; montagens por rota ----------
+{
+  const preloads = doc => (doc.match(/rel="preload" as="image"/g) || []).length;
+  checar("E15 / mantém o preload da foto da abertura (≥ 1)", preloads(await (await pegar("/")).text()) >= 1);
+  for (const c of ["/historia", "/termos-do-passeio", "/passeios", "/passeios/boat", "/reservar", "/contato", "/pousadas", "/pescaria", "/nao-existe"]) {
+    const r = await pegar(c); const doc = await r.text();
+    checar(`E15 ${c} não faz preload da foto da abertura`, preloads(doc) === 0, preloads(doc));
+  }
+  const app = readFileSync(new URL("../site/app.js", import.meta.url), "utf8");
+  const iniciar = app.slice(app.indexOf("function iniciar()"));
+  checar("E15 iniciar(): mapa, reserva e câmeras não rodam mais direto na carga (só via montar/montarOsDemais)",
+    !/^\s*(prepararMapa|ligarReserva|desenharCameras|ligarRelogios)\(\);/m.test(iniciar) && /montarOsDemais\(\)/.test(iniciar) && /montar\(nome\)/.test(app));
+  const html = await (await pegar("/")).text();
+  checar("E15 index.html aponta app.js e motion.js para o ?v= da etapa", html.includes("/app.js?v=20261020-s15") && html.includes("/motion.js?v=20261020-s15"));
+}
+
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);
 process.exit(falhas ? 1 : 0);
