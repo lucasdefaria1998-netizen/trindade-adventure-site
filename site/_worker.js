@@ -92,8 +92,15 @@ function comHeadersSeguranca(resp, { api = false, caminho = "" } = {}) {
     r.headers.set("content-security-policy-report-only", CSP_SITE);
     r.headers.set("reporting-endpoints", 'csp="/api/csp-report"');
   }
+  // Painel (página e API): nunca indexado nem guardado em cache compartilhado.
+  if (ehCaminhoDoPainel(caminho)) {
+    r.headers.set("x-robots-tag", "noindex, nofollow");
+    r.headers.set("cache-control", "private, no-store");
+  }
   return r;
 }
+
+const ehCaminhoDoPainel = caminho => /^\/(api\/)?admin(\/|$|\.html$)/.test(caminho);
 
 /* Domínio oficial. Os endereços antigos viram 301 para ele — mas SÓ em produção e SÓ depois de o
    Lucas ligar a variável REDIRECIONAR_PARA_DOMINIO="1" (isto é, depois de o domínio responder com HTTPS;
@@ -133,6 +140,8 @@ async function tratar(request, env) {
     try {
       return await servirSite(request, env, url);
     } catch (e) {
+      // Falha ao montar a página: o site estático ainda sai — mas nunca o painel sem a checagem do Access.
+      if (ehCaminhoDoPainel(url.pathname)) return new Response("403 — acesso restrito.", { status: 403, headers: { "content-type": "text/plain; charset=utf-8" } });
       return env.ASSETS.fetch(request);
     }
   }
@@ -372,10 +381,14 @@ const SEM_CACHE = "no-cache";
 async function servirSite(request, env, url) {
   const p = url.pathname;
   const metodo = request.method;
-  if (metodo !== "GET" && metodo !== "HEAD") return env.ASSETS.fetch(request);
+  // O painel tem página e login próprios (Cloudflare Access) — e, além dele, o JWT do Access é conferido aqui.
+  if (p === "/admin" || p.startsWith("/admin/") || p === "/admin.html") {
+    const auth = await checarAdmin(request, env);
+    if (!auth.ok) return new Response("403 — acesso restrito.", { status: 403, headers: { "content-type": "text/plain; charset=utf-8" } });
+    return env.ASSETS.fetch(request);
+  }
 
-  // O painel tem página e login próprios (Cloudflare Access); passa direto.
-  if (p === "/admin" || p.startsWith("/admin/") || p === "/admin.html") return env.ASSETS.fetch(request);
+  if (metodo !== "GET" && metodo !== "HEAD") return env.ASSETS.fetch(request);
 
   // Endereços que mudaram de lugar: 301 permanente, mantendo a query string. Vale com ou sem
   // barra no fim (um salto só, sem passar pelo endereço sem barra).
@@ -630,8 +643,10 @@ async function rotearAPI(request, env, url) {
   }
 
   if (p.startsWith("/api/admin/")) {
-    const auth = checarAdmin(request, env);
-    if (!auth.ok) return erro("Acesso restrito.", 401);
+    const auth = await checarAdmin(request, env);
+    if (!auth.ok) return erro("Acesso restrito.", 403);
+    const recusada = mutacaoAdminRecusada(request, env);
+    if (recusada) return recusada;
 
     if (p === "/api/admin/resumo" && metodo === "GET") return adminResumo(env);
     if (p === "/api/admin/reservas" && metodo === "GET") return adminListarReservas(env, url);
@@ -662,15 +677,99 @@ async function rotearAPI(request, env, url) {
    ar. Em produção a variável fica sem valor e esse caminho morre sozinho.
    ------------------------------------------------------------------------ */
 
-function checarAdmin(request, env) {
-  const email = request.headers.get("Cf-Access-Authenticated-User-Email");
-  if (email) return { ok: true, email };
+/* Defesa em profundidade (além do Access): o worker confere o JWT que o Access injeta no header
+   Cf-Access-Jwt-Assertion — assinatura (RS256, certificados do time em /cdn-cgi/access/certs), audiência
+   (env.ACCESS_AUD, o "AUD" do aplicativo no Zero Trust), emissor e validade. O header de e-mail sozinho NÃO
+   vale mais (qualquer um consegue mandá-lo se o pedido não passar pelo Access, ex.: um preview não coberto).
+   Sem ACCESS_AUD configurado, tudo em /admin e /api/admin responde 403 — configure a variável antes de publicar.
+   Os certificados ficam em cache (1 h) e só são buscados de novo se o kid do token não estiver no cache
+   (rotação), no máximo 1 vez por minuto; se a busca falhar, vale o cache anterior; sem cache, 403. */
+const ACCESS_ISSUER = "https://cold-smoke-c7c6.cloudflareaccess.com";
+const ACCESS_CERTS_PADRAO = ACCESS_ISSUER + "/cdn-cgi/access/certs";
+const CERTS_TTL_MS = 3600 * 1000, CERTS_REFETCH_MIN_MS = 60 * 1000, SKEW_S = 30;
+let certsCache = { url: "", chaves: new Map(), buscadoEm: 0, tentouEm: 0 };
 
+function b64urlBytes(s) {
+  const t = String(s).replace(/-/g, "+").replace(/_/g, "/");
+  const b = atob(t.padEnd(Math.ceil(t.length / 4) * 4, "="));
+  return Uint8Array.from(b, c => c.charCodeAt(0));
+}
+const b64urlJson = s => JSON.parse(new TextDecoder().decode(b64urlBytes(s)));
+
+async function chaveDoAccess(kid, env, agora = Date.now()) {
+  const url = String(env.ACCESS_CERTS_URL || ACCESS_CERTS_PADRAO);
+  if (certsCache.url !== url) certsCache = { url, chaves: new Map(), buscadoEm: 0, tentouEm: 0 };
+  const velho = agora - certsCache.buscadoEm > CERTS_TTL_MS;
+  const naoTem = !certsCache.chaves.has(kid);
+  if ((velho || naoTem) && agora - certsCache.tentouEm > CERTS_REFETCH_MIN_MS) {
+    certsCache.tentouEm = agora;
+    try {
+      const r = await fetch(url, { headers: { accept: "application/json" } });
+      if (r.ok) {
+        const j = await r.json();
+        const novas = new Map();
+        for (const k of (j && j.keys) || []) {
+          if (k && k.kty === "RSA" && k.kid && k.n && k.e) {
+            novas.set(k.kid, await crypto.subtle.importKey("jwk", { kty: "RSA", n: k.n, e: k.e, alg: "RS256", ext: true }, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]));
+          }
+        }
+        if (novas.size) certsCache = { url, chaves: novas, buscadoEm: agora, tentouEm: agora };
+      }
+    } catch (e) {
+      console.error("[access] falha ao buscar certificados", mascarar(e && e.message ? e.message : String(e)));
+    }
+  }
+  return certsCache.chaves.get(kid) || null;
+}
+
+async function validarJwtAccess(jwt, env, agora = Date.now()) {
+  try {
+    if (!env.ACCESS_AUD || typeof jwt !== "string" || jwt.length > 8192) return { ok: false };
+    const partes = jwt.split(".");
+    if (partes.length !== 3) return { ok: false };
+    const cab = b64urlJson(partes[0]);
+    if (cab.alg !== "RS256" || typeof cab.kid !== "string") return { ok: false };
+    const chave = await chaveDoAccess(cab.kid, env, agora);
+    if (!chave) return { ok: false };
+    const assinaturaOk = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", chave, b64urlBytes(partes[2]), new TextEncoder().encode(partes[0] + "." + partes[1]));
+    if (!assinaturaOk) return { ok: false };
+    const c = b64urlJson(partes[1]);
+    const s = Math.floor(agora / 1000);
+    const audiencias = Array.isArray(c.aud) ? c.aud : [c.aud];
+    if (!audiencias.includes(env.ACCESS_AUD)) return { ok: false };
+    if (c.iss !== ACCESS_ISSUER) return { ok: false };
+    if (typeof c.exp !== "number" || c.exp < s - SKEW_S) return { ok: false };
+    if (typeof c.nbf === "number" && c.nbf > s + SKEW_S) return { ok: false };
+    return { ok: true, email: typeof c.email === "string" ? c.email : "" };
+  } catch (e) {
+    return { ok: false };
+  }
+}
+
+async function checarAdmin(request, env) {
+  const v = await validarJwtAccess(request.headers.get("Cf-Access-Jwt-Assertion"), env);
+  if (v.ok) return v;
+
+  // Só para o desenvolvedor testar sem o Access; em produção a variável fica sem valor e este caminho morre sozinho.
   if (env.ADMIN_KEY) {
-    const chave = request.headers.get("X-Admin-Key") || new URL(request.url).searchParams.get("key");
+    const chave = request.headers.get("X-Admin-Key");
     if (chave && chave === env.ADMIN_KEY) return { ok: true, email: "chave-dev" };
   }
   return { ok: false };
+}
+
+/* Mutações do painel (POST, PATCH, PUT, DELETE): Origin do próprio site (ou same-origin) e, quando há corpo, JSON. */
+function mutacaoAdminRecusada(request, env) {
+  const m = request.method;
+  if (m === "GET" || m === "HEAD" || m === "OPTIONS") return null;
+  const origem = request.headers.get("origin");
+  const permitida = origem ? origemPermitida(origem, origensPermitidas(env)) : request.headers.get("sec-fetch-site") === "same-origin";
+  if (!permitida) return erro("Origem não permitida.", 403);
+  if (m !== "DELETE") {
+    const tipo = (request.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+    if (tipo !== "application/json") return erro("Tipo de conteúdo não aceito.", 415);
+  }
+  return null;
 }
 
 /* ------------------------------ config ------------------------------ */

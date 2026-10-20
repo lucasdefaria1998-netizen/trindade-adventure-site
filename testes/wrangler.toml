@@ -14,3 +14,6 @@ database_id = "00000000-0000-0000-0000-000000000000"
 ORIGENS_PERMITIDAS = "http://localhost:8788,http://127.0.0.1:8788,https://trindadeadventury.com.br,https://trindade-adventure.pages.dev"
 TURNSTILE_SECRET = "1x0000000000000000000000000000000AA"
 # Sitekey de teste (sempre passa) já é a que vem no index.html; em produção: env.TURNSTILE_SITEKEY.
+# Cloudflare Access de teste (S23): AUD fictício e certificados servidos pelo próprio teste (testar-api.mjs, porta 8791).
+ACCESS_AUD = "aud-de-teste-local-0123456789abcdef"
+ACCESS_CERTS_URL = "http://127.0.0.1:8791/certs"

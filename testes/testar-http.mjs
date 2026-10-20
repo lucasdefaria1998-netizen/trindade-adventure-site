@@ -393,6 +393,20 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 }
 
 
+// ---------- ETAPA 23 — nada do Access no cliente; painel fechado sem JWT ----------
+{
+  const arquivos = ["index.html", "app.js", "boot.js", "motion.js", "pescaria-galeria.js"].map(f => readFileSync(new URL("../site/" + f, import.meta.url), "utf8")).join("\n");
+  checar("E23 index.html/app.js e demais JS públicos sem ACCESS_AUD nem cloudflareaccess", !/ACCESS_AUD|cloudflareaccess/i.test(arquivos));
+  const servido = await (await pegar("/app.js")).text() + await (await pegar("/")).text();
+  checar("E23 o servido ao visitante também não cita ACCESS_AUD/cloudflareaccess", !/ACCESS_AUD|cloudflareaccess/i.test(servido));
+  const a = await pegar("/admin"); await a.arrayBuffer();
+  const b = await pegar("/api/admin/reservas"); await b.arrayBuffer();
+  checar("E23 /admin e /api/admin/reservas sem JWT → 403", a.status === 403 && b.status === 403, `${a.status}/${b.status}`);
+  const adm = readFileSync(new URL("../site/admin.html", import.meta.url), "utf8");
+  checar("E23 admin.html sem AUD, chave ou e-mails embutidos", !/ACCESS_AUD|cloudflareaccess|ADMIN_KEY|X-Admin-Key/i.test(adm));
+}
+
+
 // ---------- ETAPA 22 — domínio oficial, e-mails, SEO do <head>, JSON-LD por rota ----------
 {
   const OFICIAL = "https://trindadeadventury.com.br";

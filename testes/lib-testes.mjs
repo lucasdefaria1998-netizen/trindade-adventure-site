@@ -71,3 +71,25 @@ export const reservaValida = (extra = {}) => ({
 export function limparDadosDeTeste() {
   for (const t of ["reservas", "eventos", "bloqueios", "rate_limit"]) { try { exec(`DELETE FROM ${t}`); } catch { /* tabela ainda não existe */ } }
 }
+
+// ---------- Cloudflare Access de teste (S23): chaves RSA geradas na hora, servidas como JWKS em http://127.0.0.1:8791/certs ----------
+// O worker local lê ACCESS_AUD e ACCESS_CERTS_URL do wrangler.toml desta pasta. Nenhuma chave real, nenhum segredo.
+import { generateKeyPairSync, createSign } from "node:crypto";
+import http from "node:http";
+export const ACCESS_AUD_TESTE = "aud-de-teste-local-0123456789abcdef";
+export const ISS_ACCESS = "https://cold-smoke-c7c6.cloudflareaccess.com";
+const KID = "chave-de-teste-" + Math.random().toString(16).slice(2, 10); // kid novo a cada execução, como numa rotação real (o worker guarda os certificados em cache)
+const par = generateKeyPairSync("rsa", { modulusLength: 2048 });
+const outroPar = generateKeyPairSync("rsa", { modulusLength: 2048 });
+export function iniciarServidorDeCertificados(porta = 8791) {
+  const jwk = par.publicKey.export({ format: "jwk" });
+  const srv = http.createServer((req, res) => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ keys: [{ kid: KID, kty: "RSA", alg: "RS256", use: "sig", n: jwk.n, e: jwk.e }] })); });
+  return new Promise(ok => srv.listen(porta, "127.0.0.1", () => ok(srv)));
+}
+const b64u = x => Buffer.from(typeof x === "string" ? x : JSON.stringify(x)).toString("base64url");
+export function criarJwtAccess({ aud = ACCESS_AUD_TESTE, iss = ISS_ACCESS, exp = Math.floor(Date.now() / 1000) + 3600, nbf, email = "teste@example.com", kid = KID, alg = "RS256", comOutraChave = false } = {}) {
+  const cab = b64u({ alg, kid, typ: "JWT" });
+  const corpo = b64u({ aud: [aud], iss, exp, ...(nbf ? { nbf } : {}), email, iat: Math.floor(Date.now() / 1000) - 5 });
+  const s = createSign("RSA-SHA256"); s.update(cab + "." + corpo);
+  return cab + "." + corpo + "." + s.sign(comOutraChave ? outroPar.privateKey : par.privateKey).toString("base64url");
+}

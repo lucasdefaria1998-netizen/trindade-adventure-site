@@ -1,7 +1,8 @@
 // Testes da API (portão dos POST, validação, idempotência, Turnstile, admin…).
 // Uso:  node testes/testar-api.mjs      (wrangler pages dev em http://127.0.0.1:8788)
 // Só localhost. Grava reservas de teste no D1 LOCAL; confere a contagem de linhas antes e depois.
-import { checar, resumo, contar, post, reservaValida, ipNovo, telNovo, exec, sql, BASE, hojeSP, somaDias, limparDadosDeTeste } from "./lib-testes.mjs";
+import { checar, resumo, contar, post, reservaValida, ipNovo, telNovo, exec, sql, BASE, hojeSP, somaDias, limparDadosDeTeste, iniciarServidorDeCertificados, criarJwtAccess, ACCESS_AUD_TESTE } from "./lib-testes.mjs";
+await iniciarServidorDeCertificados(); // certificados de teste do Access (S23)
 
 limparDadosDeTeste();
 
@@ -295,7 +296,7 @@ const restamEm = async (dia, hora) => (await (await fetch(`${BASE}/api/disponibi
 {
   // painel: lista mostra "expirada"; confirmar uma vencida com o horário já ocupado é recusado (409)
   const { dia, hora } = slot(12); limparSlot(dia, hora);
-  const adm = { "Cf-Access-Authenticated-User-Email": "teste@example.com", "content-type": "application/json" };
+  const adm = { "Cf-Access-Jwt-Assertion": criarJwtAccess(), origin: BASE, "content-type": "application/json" };
   const a = await jsonDe(await post("/api/reservas", { corpo: reservaValida({ plano: "adventure", data: dia, hora, pax: 5 }) }));
   exec(`UPDATE reservas SET expira_em = '2000-01-01T00:00:00.000Z' WHERE codigo = '${a.codigo}'`);
   const lista = await (await fetch(`${BASE}/api/admin/reservas?de=${dia}&ate=${dia}`, { headers: adm })).json();
@@ -383,6 +384,67 @@ const restamEm = async (dia, hora) => (await (await fetch(`${BASE}/api/disponibi
   checar("E6  verificação: Cloudflare fora do ar → indisponível (vira 503, não grava)", cai.ok === false && cai.motivo === "indisponivel", JSON.stringify(cai));
   const http500 = await w.verificarTurnstile(tok, "1.2.3.4", env, async () => ({ ok: false, json: async () => ({}) }));
   checar("E6  verificação: resposta 5xx da Cloudflare → indisponível", http500.motivo === "indisponivel", JSON.stringify(http500));
+}
+
+// ---------- ETAPA 23 — /admin: JWT do Cloudflare Access conferido no worker ----------
+{
+  const get = (caminho, headers = {}) => fetch(BASE + caminho, { headers, redirect: "manual" });
+  const jwt = criarJwtAccess();
+  const rotaApi = "/api/admin/resumo";
+  const recusa = async (nome, headers) => { const r = await get(rotaApi, headers); await r.arrayBuffer(); checar(`E23 ${nome} → 403`, r.status === 403, r.status); };
+  await recusa("sem credencial", {});
+  await recusa("só o header de e-mail do Access (antes bastava, agora não)", { "Cf-Access-Authenticated-User-Email": "teste@example.com" });
+  await recusa("Cf-Access-Jwt-Assertion: x", { "Cf-Access-Jwt-Assertion": "x" });
+  await recusa("JWT com 3 partes de lixo", { "Cf-Access-Jwt-Assertion": "a.b.c" });
+  await recusa("JWT expirado", { "Cf-Access-Jwt-Assertion": criarJwtAccess({ exp: Math.floor(Date.now() / 1000) - 3600 }) });
+  await recusa("JWT com audiência de outro aplicativo", { "Cf-Access-Jwt-Assertion": criarJwtAccess({ aud: "outro-aud" }) });
+  await recusa("JWT de outro emissor", { "Cf-Access-Jwt-Assertion": criarJwtAccess({ iss: "https://evil.cloudflareaccess.com" }) });
+  await recusa("JWT assinado com outra chave", { "Cf-Access-Jwt-Assertion": criarJwtAccess({ comOutraChave: true }) });
+  await recusa("JWT com kid desconhecido", { "Cf-Access-Jwt-Assertion": criarJwtAccess({ kid: "kid-que-nao-existe" }) });
+  await recusa("JWT com alg diferente de RS256 (HS256)", { "Cf-Access-Jwt-Assertion": criarJwtAccess({ alg: "HS256" }) });
+  await recusa("JWT com alg none", { "Cf-Access-Jwt-Assertion": criarJwtAccess({ alg: "none" }) });
+  await recusa("JWT que só vale no futuro (nbf)", { "Cf-Access-Jwt-Assertion": criarJwtAccess({ nbf: Math.floor(Date.now() / 1000) + 3600 }) });
+  await recusa("JWT gigante (> 8 KB)", { "Cf-Access-Jwt-Assertion": "a".repeat(9000) });
+  const ok1 = await get(rotaApi, { "Cf-Access-Jwt-Assertion": jwt });
+  const corpo = await ok1.json();
+  checar("E23 JWT de teste válido → 200 com o resumo", ok1.status === 200 && typeof corpo === "object", ok1.status);
+  checar("E23 admin API: X-Robots-Tag noindex, nofollow e Cache-Control private, no-store", ok1.headers.get("x-robots-tag") === "noindex, nofollow" && ok1.headers.get("cache-control") === "private, no-store", JSON.stringify([...ok1.headers]));
+  const sem = await get(rotaApi); await sem.arrayBuffer();
+  checar("E23 resposta 403 do admin também sai com noindex e private, no-store", sem.headers.get("x-robots-tag") === "noindex, nofollow" && sem.headers.get("cache-control") === "private, no-store");
+  for (const c of ["/admin", "/admin/reservas", "/admin.html"]) {
+    const s = await get(c); await s.arrayBuffer();
+    checar(`E23 ${c} sem JWT → 403 (sem corpo do painel)`, s.status === 403, s.status);
+  }
+  const pag = await get("/admin", { "Cf-Access-Jwt-Assertion": jwt }); const html = await pag.text();
+  checar("E23 /admin com JWT válido → entrega o painel, com noindex e private, no-store", pag.status === 200 && /<title>/i.test(html) && pag.headers.get("x-robots-tag") === "noindex, nofollow" && pag.headers.get("cache-control") === "private, no-store", `${pag.status} ${pag.headers.get("cache-control")}`);
+  const home = await get("/"); await home.arrayBuffer();
+  checar("E23 o site público não foi afetado (200, sem noindex de admin)", home.status === 200 && !home.headers.has("x-robots-tag"));
+
+  // Mutações do painel: Origin do próprio site e JSON
+  const mut = async (nome, init, esperado) => { const r = await fetch(BASE + "/api/admin/bloqueios", { method: "POST", redirect: "manual", ...init, headers: { "Cf-Access-Jwt-Assertion": jwt, ...init.headers } }); await r.arrayBuffer(); checar(`E23 mutação: ${nome} → ${esperado}`, r.status === esperado, r.status); };
+  await mut("Origin de fora", { headers: { origin: "https://evil.example", "content-type": "application/json" }, body: "{}" }, 403);
+  await mut("sem Origin nem Sec-Fetch-Site", { headers: { "content-type": "application/json" }, body: "{}" }, 403);
+  await mut("Content-Type text/plain", { headers: { origin: BASE, "content-type": "text/plain" }, body: "{}" }, 415);
+  const del = await fetch(BASE + "/api/admin/bloqueios/inexistente", { method: "DELETE", headers: { "Cf-Access-Jwt-Assertion": jwt, origin: "https://evil.example" } }); await del.arrayBuffer();
+  checar("E23 mutação: DELETE com Origin de fora → 403", del.status === 403, del.status);
+  const patch = await fetch(BASE + "/api/admin/reservas/qualquer", { method: "PATCH", headers: { "Cf-Access-Jwt-Assertion": jwt, "content-type": "text/plain", origin: BASE }, body: "x" }); await patch.arrayBuffer();
+  checar("E23 mutação: PATCH com text/plain → 415", patch.status === 415, patch.status);
+
+  // Certificados em cache: várias chamadas válidas não buscam /certs de novo
+  checar("E23 5 chamadas válidas seguidas continuam 200 (certificados em cache)", (await Promise.all([1, 2, 3, 4, 5].map(() => get(rotaApi, { "Cf-Access-Jwt-Assertion": jwt })))).every(r => r.status === 200));
+
+  // Sem ACCESS_AUD configurado: tudo no painel é 403, mesmo com um JWT bem assinado
+  const src = (await import("node:fs")).readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
+  const w = await import("data:text/javascript;base64," + Buffer.from(src).toString("base64"));
+  const envSemAud = { DB: {}, ASSETS: { fetch: async () => new Response("painel") }, ACCESS_CERTS_URL: "http://127.0.0.1:8791/certs" };
+  for (const caminho of ["/api/admin/resumo", "/admin"]) {
+    const r = await w.default.fetch(new Request("http://127.0.0.1:8788" + caminho, { headers: { "Cf-Access-Jwt-Assertion": jwt } }), envSemAud);
+    checar(`E23 sem env.ACCESS_AUD, ${caminho} responde 403 mesmo com JWT válido`, r.status === 403, r.status);
+  }
+  const envComAud = { ...envSemAud, ACCESS_AUD: ACCESS_AUD_TESTE };
+  const rOk = await w.default.fetch(new Request("http://127.0.0.1:8788/admin", { headers: { "Cf-Access-Jwt-Assertion": jwt } }), envComAud);
+  checar("E23 com env.ACCESS_AUD e JWT válido, /admin passa para o painel", rOk.status === 200 && (await rOk.text()) === "painel", rOk.status);
+  checar("E23 ADMIN_KEY (só desenvolvimento) continua exigindo o header X-Admin-Key, nunca a query", (await w.default.fetch(new Request("http://127.0.0.1:8788/api/admin/resumo?key=k", {}), { ...envComAud, ADMIN_KEY: "k" })).status === 403);
 }
 
 // ---------- ETAPA 22 — redirecionamento para o domínio oficial (função pura) ----------

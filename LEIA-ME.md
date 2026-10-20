@@ -219,6 +219,7 @@ ele troca o `window.open` por um stub e nunca abre o WhatsApp).
 | `ORIGENS_PERMITIDAS` | Origens que podem fazer POST em `/api/reservas` e `/api/eventos`, separadas por vírgula. Aceita `https://*.trindade-adventure.pages.dev` para os endereços de preview. Configure em **Produção** e em **Preview**. | Vale a lista de produção embutida no `_worker.js` (`trindadeadventury.com.br` e `trindade-adventure.pages.dev`): um preview recebe 403 no POST até a variável ser configurada. |
 | `TURNSTILE_SITEKEY` | Sitekey **pública** do widget Turnstile (desafio anti-robô da reserva). O `_worker.js` coloca este valor no `<meta name="turnstile-sitekey">`; sem ela vale a chave de teste que vem no `index.html`. Hostnames do widget: `trindadeadventury.com.br`, `www.trindadeadventury.com.br`, `trindade-adventure.pages.dev`. | Widget de teste (sempre "passa"): com o segredo real, toda reserva online é recusada (403) e o site segue pelo WhatsApp. |
 | `TURNSTILE_SECRET` | Segredo do Turnstile (**Secret**, nunca no repositório nem no chat). Configure em Produção e em Preview, junto com a sitekey. | **Reserva online fechada** (503): o site cai sozinho no fluxo de WhatsApp, sem gravar no painel. Configure antes de publicar. |
+| `ACCESS_AUD` | **Obrigatória para o painel.** O "Application Audience (AUD) Tag" do aplicativo do Cloudflare Access (Zero Trust → Access → Applications → o aplicativo do painel → Overview). O `_worker.js` confere o JWT que o Access envia (assinatura, audiência, emissor, validade). Configure em Produção **e** em Preview, como variável/secret — nunca no `index.html`, `app.js` ou `admin.html`. | **`/admin` e `/api/admin/*` respondem 403 para todo mundo** (inclusive para você). Configure antes de publicar. |
 | `REDIRECIONAR_PARA_DOMINIO` | `1` liga o redirecionamento **301** de `trindade-adventure.pages.dev` e `www.trindadeadventury.com.br` para `https://trindadeadventury.com.br` (caminho e query preservados; só GET/HEAD). Ligue **só em Produção** e **só depois** de o domínio responder com HTTPS (DNS, certificado, custom domains `trindadeadventury.com.br` e `www`). Previews por hash/branch, localhost e o próprio domínio oficial nunca redirecionam. | Desligado: nada redireciona e o site responde nos dois endereços. |
 | `TURNSTILE_HOSTNAMES` | (Opcional) Hosts aceitos na verificação, separados por vírgula. | Vale a lista de produção e qualquer subdomínio de `trindade-adventure.pages.dev` (previews). |
 
@@ -358,3 +359,22 @@ rotas internas e `TouristTrip` + `Offer` (preço da tabela `PLANOS`, BRL, `InSto
 Essencial, Adventure e Boat. Passeios sob consulta e a pescaria não têm `Offer` (a pescaria
 ainda não tem a unidade do preço decidida). `og:image:width/height` vêm de
 `site-config.imagensDim` — ao trocar a imagem de uma página, atualize a medida ali.
+
+## Painel: checagem dupla (Access + JWT)
+
+O Cloudflare Access continua na frente de `/admin` e `/api/admin/*`. Além dele, o próprio worker
+exige o JWT que o Access injeta (`Cf-Access-Jwt-Assertion`), com a variável `ACCESS_AUD` (tabela
+acima). Assim, se alguém mexer na política do Access, ou se um endereço de preview não estiver
+coberto por ele, o painel continua fechado (403). O header de e-mail do Access, sozinho, não vale mais.
+As respostas do painel saem com `X-Robots-Tag: noindex, nofollow` e `Cache-Control: private, no-store`,
+e POST/PATCH/DELETE exigem `Origin` do próprio site e corpo JSON. Os certificados do Access são buscados em
+`https://cold-smoke-c7c6.cloudflareaccess.com/cdn-cgi/access/certs` e ficam 1 hora em cache.
+
+**O que conferir no Zero Trust (é seu, o código não mexe nisso):** o aplicativo do Access deve cobrir
+`trindade-adventure.pages.dev/admin*` e `/api/admin*`, `*.trindade-adventure.pages.dev/admin*` e
+`/api/admin*` (previews por hash e branch), `trindadeadventury.com.br/admin*` e `/api/admin*`, e
+`www.trindadeadventury.com.br/admin*`. Não desligue o Access.
+
+Para testar localmente sem o Access: `testes/wrangler.toml` já traz um `ACCESS_AUD` de teste e
+`ACCESS_CERTS_URL` apontando para um servidor de certificados de teste que o `testar-api.mjs` sobe na porta 8791
+(`ACCESS_CERTS_URL` não existe em produção). `ADMIN_KEY` é só para desenvolvimento: **deixe sem valor em produção**.
