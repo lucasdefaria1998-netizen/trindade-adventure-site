@@ -903,6 +903,7 @@ async function atualizarDisponibilidade() {
     desenharPlanos();
     pintarFaixasDeHorarios();
   }
+  if (preSelecionarHorarioUnico()) desenharResumo(); // Boat: o único horário livre já vem selecionado
   pintarHorarios();
 
   // O horário que a pessoa já tinha escolhido pode ter lotado agora mesmo
@@ -938,8 +939,28 @@ function desenharResumo() {
   $("#rsCalculo").textContent = `${BRL(p.preco)} × ${reserva.pax}`;
   $("#rsSubtotal").textContent = BRL(total);
   $("#rsTotal").textContent = BRL(total);
+  // O voucher já está dentro do valor do passeio: aparece como "incluso", nunca como um valor a somar.
   $("#rsVoucherLinha").hidden = !voucher;
-  if (voucher) $("#rsVoucher").textContent = BRL(voucher);
+  if (voucher) $("#rsVoucher").textContent = `incluso · ${BRL(voucher)}`;
+}
+
+/* Passeio com um único horário (o Trindade Boat): se ele está livre na data escolhida, já vem
+   selecionado — a pessoa não precisa clicar no único botão para o resumo mostrar o horário.
+   Só vale depois de saber as vagas da data (ou de a API não responder); horário que já saiu,
+   bloqueado ou esgotado fica sem seleção. Passeios com vários horários nunca pré-selecionam. */
+function preSelecionarHorarioUnico() {
+  if (reserva.hora !== null) return false;
+  const horas = horariosDoPlano(planoPor(reserva.plano));
+  if (horas.length !== 1) return false;
+  const h = horas[0];
+  const agora = agoraEmTrindade();
+  if (reserva.data === agora.data && h <= agora.hora) return false;
+  const grade = (dispoCache && dispoCache.data === reserva.data) ? dispoCache.grade : null;
+  const info = grade ? grade[String(h)] : null;
+  if (info && (info.bloqueado || info.restam <= 0)) return false;
+  reserva.hora = h;
+  mostrarErro(null, "#errHora", "");
+  return true;
 }
 
 function desenharReserva() {
@@ -1168,7 +1189,7 @@ function mostrarConfirmacao(dados) {
         <div class="linha"><span>Saída efetiva</span><b class="num">${esc(saidaLabel(reserva.hora))}</b></div>
         <div class="linha"><span>Pessoas</span><b class="num">${inteiroSeguro(reserva.pax)}</b></div>
         <div class="linha"><span>Total</span><b class="num">${esc(BRL(total))}</b></div>
-        ${voucher ? `<div class="linha linha-ouro"><span>Voucher almoço incluso</span><b class="num">${esc(BRL(voucher))}</b></div>` : ""}
+        ${voucher ? `<div class="linha linha-ouro"><span>Voucher almoço</span><b class="num">incluso · ${esc(BRL(voucher))}</b></div>` : ""}
       </div>
       <p class="nota">Ponto de encontro: ${esc(CFG.pontoEncontro)}. Chegue 15 minutos antes, com protetor solar, água e calçado fechado.</p>
       <a class="btn btn-primario btn-largo" id="btnAbrirWA" href="${esc(hrefSeguro)}" target="_blank" rel="noopener">
