@@ -389,7 +389,27 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("E15 iniciar(): mapa, reserva e câmeras não rodam mais direto na carga (só via montar/montarOsDemais)",
     !/^\s*(prepararMapa|ligarReserva|desenharCameras|ligarRelogios)\(\);/m.test(iniciar) && /montarOsDemais\(\)/.test(iniciar) && /montar\(nome\)/.test(app));
   const html = await (await pegar("/")).text();
-  checar("E15 index.html aponta app.js e motion.js para o ?v= da etapa", html.includes("/app.js?v=20261020-s16") && html.includes("/motion.js?v=20261020-s15"));
+  checar("E15 index.html aponta app.js e motion.js para o ?v= da etapa", /\/app\.js\?v=[\w.-]+/.test(html) && html.includes("/motion.js?v=20261020-s15"));
+}
+
+
+// ---------- ETAPA 19 — dados da empresa no rodapé, sem JavaScript ----------
+{
+  const esperado = "64.565.826 IGOR SANTIAGO FRAGA · CNPJ 64.565.826/0001-80 · Cadastur 64.565.826/0001-80";
+  for (const c of ["/", "/passeios/boat", "/pescaria", "/nao-existe", "/reservar", "/termos-do-passeio"]) {
+    const doc = await (await pegar(c)).text();
+    const m = doc.match(/<p class="rodape-legal" id="dadosEmpresa"([^>]*)>([^<]*)<\/p>/);
+    checar(`E19 ${c}: #dadosEmpresa com razão social, CNPJ e Cadastur, sem hidden`, !!m && !/\bhidden\b/.test(m[1]) && m[2] === esperado, m ? m[1] + "|" + m[2] : "sem parágrafo");
+    // Marcadores de pendência (TODO em maiúsculas, PREENCHER): "todo/todos" em português é texto normal e não conta.
+    checar(`E19 ${c}: nenhum marcador TODO/PREENCHER no HTML`, !/\bTODO\b|PREENCHER/.test(doc));
+  }
+  const appjs = readFileSync(new URL("../site/app.js", import.meta.url), "utf8");
+  checar("E19 app.js não duplica nem apaga o parágrafo quando o servidor já o preencheu", appjs.includes("if (!alvo || alvo.textContent.trim()) return;"));
+  checar("E19 site-config: razaoSocial, cnpj e cadastur preenchidos", SITE.negocio.razaoSocial === "64.565.826 IGOR SANTIAGO FRAGA" && SITE.negocio.cnpj === "64.565.826/0001-80" && SITE.negocio.cadastur === "64.565.826/0001-80");
+  const todas = ["/", ...[...(await (await pegar("/sitemap.xml")).text()).matchAll(/<loc>([^<]*)<\/loc>/g)].map(m => new URL(m[1]).pathname)].filter((u, i, a) => a.indexOf(u) === i);
+  let sujas = [];
+  for (const u of todas) { const d = await (await pegar(u)).text(); if (/\bTODO\b|PREENCHER/.test(d)) sujas.push(u); }
+  checar(`E19 as ${todas.length} URLs do sitemap sem marcador TODO/PREENCHER`, todas.length === 15 && !sujas.length, sujas.join(","));
 }
 
 

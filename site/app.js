@@ -1776,7 +1776,8 @@ function espelharPousadas() {
 function mostrarDadosDaEmpresa() {
   const alvo = $("#dadosEmpresa");
   const n = SITE.negocio || {};
-  if (!alvo) return;
+  // O servidor já entrega o parágrafo preenchido (ver textoDaEmpresa no _worker.js): não duplicar nem apagar.
+  if (!alvo || alvo.textContent.trim()) return;
   const partes = [
     n.razaoSocial && n.razaoSocial !== n.nome ? n.razaoSocial : "",
     n.cnpj ? "CNPJ " + n.cnpj : "",

@@ -433,7 +433,18 @@ async function servirPagina(request, env, url) {
   if (!pagina) h.set("cache-control", SEM_CACHE);
 
   const resposta = new Response(html, { status: pagina ? 200 : 404, headers: h });
-  return aplicarMetadados(resposta, meta, !pagina, env, { secao: (pagina || site.naoEncontrada).secao, foco: (pagina && pagina.foco) || null });
+  return aplicarMetadados(resposta, meta, !pagina, env, { secao: (pagina || site.naoEncontrada).secao, foco: (pagina && pagina.foco) || null, empresa: textoDaEmpresa(site.negocio) });
+}
+
+/* Dados legais do rodapé (razão social, CNPJ, Cadastur), a partir de "negocio" no site-config. Campo vazio
+   não entra: sem rótulo solto. Mesma regra e mesmo texto do app.js (mostrarDadosDaEmpresa). */
+function textoDaEmpresa(n) {
+  n = n || {};
+  return [
+    n.razaoSocial && n.razaoSocial !== n.nome ? n.razaoSocial : "",
+    n.cnpj ? "CNPJ " + n.cnpj : "",
+    n.cadastur ? "Cadastur " + n.cadastur : ""
+  ].filter(Boolean).join(" · ");
 }
 
 /* Mesma regra do app.js (função metadadosDaPagina lá): imagem e canonical
@@ -488,6 +499,11 @@ function aplicarMetadados(resposta, m, naoEncontrada, env, rota) {
   // disputaria o LCP) com uma imagem que fica escondida.
   if (rota.secao !== "inicio") {
     rw = rw.on('link[rel="preload"][as="image"]', { element(el) { el.remove(); } });
+  }
+
+  // Dados da empresa no rodapé já no HTML (sem depender de JavaScript); sem dados, o parágrafo fica escondido.
+  if (rota.empresa) {
+    rw = rw.on("#dadosEmpresa", { element(el) { el.setInnerContent(rota.empresa); el.removeAttribute("hidden"); } });
   }
 
   rw = reescreverTitulos(rw, rota);
