@@ -1112,11 +1112,16 @@ function validar() {
 /* ------------------------------ envio ------------------------------ */
 
 function codigoReserva() {
-  // Código curto só para o cliente e a operação citarem a mesma reserva na
-  // conversa. Não é identificador de sistema: não há sistema.
+  // Código do pedido quando o servidor não respondeu (o código oficial vem dele, formato TA-XXXX-XXXX). Dia, hora e
+  // minuto + 4 caracteres aleatórios: dois pedidos no mesmo minuto não repetem o código. Sempre casa com
+  // CODIGO_PEDIDO (/^TA-[A-Z0-9-]{4,32}$/), que o resto do site usa para validar o que mostra.
   const d = new Date();
   const base = doisDig(d.getDate()) + doisDig(d.getHours()) + doisDig(d.getMinutes());
-  return "TA-" + base;
+  const letras = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = new Uint8Array(4);
+  if (window.crypto && crypto.getRandomValues) crypto.getRandomValues(bytes);
+  else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  return "TA-" + base + "-" + Array.from(bytes, b => letras[b % letras.length]).join("");
 }
 
 function mensagemWhatsApp(dados) {

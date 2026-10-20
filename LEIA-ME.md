@@ -378,3 +378,29 @@ e POST/PATCH/DELETE exigem `Origin` do próprio site e corpo JSON. Os certificad
 Para testar localmente sem o Access: `testes/wrangler.toml` já traz um `ACCESS_AUD` de teste e
 `ACCESS_CERTS_URL` apontando para um servidor de certificados de teste que o `testar-api.mjs` sobe na porta 8791
 (`ACCESS_CERTS_URL` não existe em produção). `ADMIN_KEY` é só para desenvolvimento: **deixe sem valor em produção**.
+
+## Notas que ficavam como comentário no HTML
+
+Os comentários do `index.html` continuam no código-fonte, mas o `_worker.js` os tira da página
+que o visitante recebe (para não expor a arquitetura). O que eles explicavam, em resumo:
+
+- **Turnstile:** o `<meta name="turnstile-sitekey">` traz a chave de teste da Cloudflare; em produção o
+  worker a troca por `env.TURNSTILE_SITEKEY`.
+- **Pré-visualização (WhatsApp, Instagram, Facebook):** as tags `og:*`/`twitter:*` do `<head>` são as da página
+  inicial; para cada endereço o worker troca título, descrição, imagem e canonical a partir da tabela
+  `site-config`.
+- **Tabela `site-config`:** fonte única das páginas (`secao`, `foco`, `imagem`, `indexar:false`) e dos dados da
+  empresa (`negocio`). O worker e o `app.js` leem o mesmo bloco.
+- **Página "não encontrada":** o worker entrega a seção `#nao-encontrada` com status 404 e sem `hidden`; o
+  `app.js` mostra a mesma seção para links antigos (`#/…`) que apontam para página que não existe mais.
+- **Política de Privacidade:** descreve só o que o site faz (reserva gravada no banco D1 da Cloudflare, eventos de
+  funil próprios em `/api/eventos`, `localStorage`, sem cookies e sem analytics/pixel de terceiros). Se algo disso
+  mudar, atualize o texto.
+- **Termos do Passeio:** só regras que o site já informa em outros pontos; nada de multa, taxa ou prazo novo.
+- **Dados da empresa no rodapé:** preenchidos pelo servidor a partir de `negocio` (campo vazio não aparece).
+- **Leaflet** vem do próprio site e só carrega quando o mapa se aproxima da tela; se faltar, o `app.js` mostra a
+  lista de pontos.
+
+Código do pedido: quando o servidor responde, o código vem dele (formato `TA-XXXX-XXXX`). Se não responder, o
+`app.js` gera um provisório `TA-DDHHMM-XXXX` (4 caracteres aleatórios), que só serve para cliente e equipe
+citarem o mesmo pedido no WhatsApp.

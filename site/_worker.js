@@ -568,6 +568,9 @@ function aplicarMetadados(resposta, m, naoEncontrada, env, rota) {
     rw = rw.on('link[rel="preload"][as="image"]', { element(el) { el.remove(); } });
   }
 
+  // Comentários HTML (notas de arquitetura: banco, rotas de API, worker…) ficam só no código-fonte, não vão para o visitante.
+  rw = rw.onDocument({ comments(c) { c.remove(); } });
+
   // JSON-LD da rota (BreadcrumbList, TouristTrip). "<" escapado: nada de fechar o <script> por dentro.
   if (rota.jsonld && rota.jsonld.length) {
     rw = rw.on("head", { element(el) {

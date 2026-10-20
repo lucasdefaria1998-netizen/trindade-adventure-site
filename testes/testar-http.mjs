@@ -393,6 +393,26 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 }
 
 
+// ---------- ETAPA 24 — higiene: sem comentários de arquitetura no HTML servido; código do fallback com sufixo aleatório ----------
+{
+  const rotas = ["/", "/passeios", "/passeios/boat", "/reservar", "/pousadas", "/pescaria", "/contato", "/historia", "/termos-do-passeio", "/politica-de-privacidade", "/cameras", "/nao-existe"];
+  for (const c of rotas) {
+    const doc = await (await pegar(c)).text();
+    checar(`E24 ${c}: nenhum comentário HTML no que o visitante recebe, e nada de D1, /api/eventos, _worker.js ou LEIA-ME`, !doc.includes("<!--") && !["D1", "api/eventos", "_worker.js", "LEIA-ME"].some(x => doc.includes(x)), (doc.match(/<!--/g) || []).length + " comentários");
+  }
+  const fonte = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
+  checar("E24 o código-fonte do index.html mantém as notas (a remoção é só na saída do worker)", (fonte.match(/<!--/g) || []).length > 10);
+  const app = readFileSync(new URL("../site/app.js", import.meta.url), "utf8");
+  const trecho = app.slice(app.indexOf("function codigoReserva()"), app.indexOf("function mensagemWhatsApp"));
+  checar("E24 codigoReserva (fallback): dia/hora/minuto + 4 caracteres de crypto.getRandomValues", trecho.includes("crypto.getRandomValues") && trecho.includes('"TA-" + base + "-"'));
+  // Executa a função de verdade: 200 códigos no mesmo instante, todos no formato e todos diferentes
+  const fn = new Function("doisDig", "window", "crypto", trecho + "; return codigoReserva;");
+  const gerar = fn(n => String(n).padStart(2, "0"), { crypto: globalThis.crypto }, globalThis.crypto);
+  const codigos = Array.from({ length: 200 }, () => gerar());
+  checar("E24 200 códigos gerados juntos casam /^TA-[A-Z0-9-]{4,32}$/ e não se repetem", codigos.every(c => /^TA-[A-Z0-9-]{4,32}$/.test(c)) && new Set(codigos).size === 200, codigos.slice(0, 3).join(","));
+}
+
+
 // ---------- ETAPA 23 — nada do Access no cliente; painel fechado sem JWT ----------
 {
   const arquivos = ["index.html", "app.js", "boot.js", "motion.js", "pescaria-galeria.js"].map(f => readFileSync(new URL("../site/" + f, import.meta.url), "utf8")).join("\n");
