@@ -387,7 +387,30 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("E15 iniciar(): mapa, reserva e câmeras não rodam mais direto na carga (só via montar/montarOsDemais)",
     !/^\s*(prepararMapa|ligarReserva|desenharCameras|ligarRelogios)\(\);/m.test(iniciar) && /montarOsDemais\(\)/.test(iniciar) && /montar\(nome\)/.test(app));
   const html = await (await pegar("/")).text();
-  checar("E15 index.html aponta app.js e motion.js para o ?v= da etapa", html.includes("/app.js?v=20261020-s15") && html.includes("/motion.js?v=20261020-s15"));
+  checar("E15 index.html aponta app.js e motion.js para o ?v= da etapa", html.includes("/app.js?v=20261020-s16") && html.includes("/motion.js?v=20261020-s15"));
+}
+
+
+// ---------- ETAPA 16 — nada inline incompatível com CSP: /boot.js, fonte sem onload, sem style= ----------
+{
+  const rotas = ["/", "/passeios", "/passeios/boat", "/reservar", "/contato", "/pousadas", "/pescaria", "/cameras", "/historia", "/termos-do-passeio", "/politica-de-privacidade", "/nao-existe"];
+  for (const c of rotas) {
+    const doc = await (await pegar(c)).text();
+    const tags = [...doc.matchAll(/<script\b[^>]*>/g)].map(m => m[0]);
+    const inline = tags.filter(t => !/\ssrc=/.test(t) && !/type="application\/(json|ld\+json)"/.test(t));
+    checar(`E16 ${c}: nenhum <script> inline executável`, inline.length === 0, inline.join(" "));
+    checar(`E16 ${c}: sem onload=/onclick=/onerror= e sem style="`, !/\son(load|click|error)=/i.test(doc) && !/\sstyle="/i.test(doc), (doc.match(/\s(onload|onclick|onerror|style)="[^"]{0,40}/i) || [""])[0]);
+  }
+  const home = await (await pegar("/")).text();
+  checar("E16 / carrega /boot.js?v= sem defer/async, antes do CSS", /<script src="\/boot\.js\?v=[^"]+"><\/script>/.test(home) && home.indexOf("/boot.js?v=") < home.indexOf('/estilo.css?v='));
+  checar("E16 / mantém o preload da fonte como <link rel=preload as=style> (ativado pelo boot.js)", /<link rel="preload" as="style" href="https:\/\/fonts\.googleapis\.com\/css2\?family=Archivo[^"]*">/.test(home));
+  const boot = await pegar("/boot.js?v=20261020-s16"); const bootJs = await boot.text();
+  checar("E16 /boot.js responde 200 como JavaScript com tema, movimento e ativação da fonte", boot.status === 200 && /javascript/.test(boot.headers.get("content-type") || "") &&
+    bootJs.includes("trindade.tema") && bootJs.includes("trindade.motion") && bootJs.includes("data-motion") && bootJs.includes("l.rel = 'stylesheet'"), boot.status);
+  const app = readFileSync(new URL("../site/app.js", import.meta.url), "utf8");
+  checar("E16 app.js: nenhum style= em template (valores dinâmicos pelo CSSOM)", !/style="/.test(app) && app.includes('style.setProperty("--capacity-ratio"') && app.includes("el.style.background = el.dataset.cor"));
+  const css = readFileSync(new URL("../site/estilo.css", import.meta.url), "utf8");
+  checar("E16 estilo.css tem as classes que substituíram os style= (sprite-oculto, foco-62, sem-mapa)", css.includes(".sprite-oculto{position:absolute}") && css.includes(".tour-media img.foco-62{object-position:50% 62%}") && css.includes(".mapa-nota.sem-mapa{margin:0 0 14px}"));
 }
 
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);

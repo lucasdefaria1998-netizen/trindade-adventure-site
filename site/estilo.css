@@ -269,6 +269,8 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 .tour-destaque{border-color:var(--accent)}
 .tour-media{position:relative;aspect-ratio:4/3;overflow:hidden;background:var(--surface-2)}
 .tour-media img{width:100%;height:100%;object-fit:cover;transition:transform .9s var(--ease)}
+.tour-media img.foco-62{object-position:50% 62%}
+.sprite-oculto{position:absolute}
 .tag{position:absolute;top:14px;left:14px;padding:5px 12px;border-radius:999px;background:rgb(251 249 243 / .94);color:#12251a;font-size:13px;font-weight:500}
 .tour-corpo{display:flex;flex-direction:column;gap:10px;flex:1;padding:22px 24px 24px}
 .tour h3{font-size:22px;letter-spacing:-.025em}
@@ -466,6 +468,7 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 .mapa-legenda{display:flex;gap:8px 16px;flex-wrap:wrap;padding:14px 18px;border-top:1px solid var(--line);font-size:13px;color:var(--ink-2)}
 .mapa-legenda i{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:7px}
 .mapa-nota{margin-top:10px;font-size:13.5px;color:var(--muted)}
+.mapa-nota.sem-mapa{margin:0 0 14px}
 .mapa-loading{height:460px;display:grid;place-items:center;border-radius:var(--r-lg);background:var(--surface-2);color:var(--ink-2);font-size:14.5px}
 .leaflet-container{font-family:var(--font)}
 .leaflet-popup-content{font-size:14px;line-height:1.5}

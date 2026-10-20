@@ -922,9 +922,11 @@ function pintarHorarios() {
       aria-pressed="${reserva.hora === h}">
       <b>${esc(horaLabel(h))}</b>
       <span class="saida">${esc(legenda)}</span>
-      ${info ? `<span class="slot-capacity" aria-hidden="true"><span class="slot-capacity-fill" data-ratio="${proporcao}" style="--capacity-ratio:${proporcao}"></span></span>` : ""}
+      ${info ? `<span class="slot-capacity" aria-hidden="true"><span class="slot-capacity-fill" data-ratio="${proporcao}"></span></span>` : ""}
     </button>`;
   }).join("");
+  // Valor dinâmico aplicado pelo CSSOM (não por atributo style=), para a CSP poder bloquear style inline.
+  $$(".slot-capacity-fill[data-ratio]", alvo).forEach(el => el.style.setProperty("--capacity-ratio", el.dataset.ratio));
 
   const aviso = $("#avisoHorario");
   if (aviso) {
@@ -1501,7 +1503,7 @@ const linkMaps = p => `https://www.google.com/maps/search/?api=1&query=${p.lat},
 function listaDePontos() {
   return `<ul class="pontos-lista">
     ${PONTOS.map(p => `<li>
-      <span class="ponto-cor" style="background:${TIPOS[p.tipo].c}" aria-hidden="true"></span>
+      <span class="ponto-cor" data-cor="${TIPOS[p.tipo].c}" aria-hidden="true"></span>
       <div>
         <b>${p.nome}</b>
         <p class="tiny muted">${p.obs}</p>
@@ -1537,20 +1539,26 @@ function prepararMapa() {
   observer.observe(alvo);
 }
 
+/* Cor do ponto/legenda vem de TIPOS (uma fonte só) e é aplicada pelo CSSOM, não por style= no HTML. */
+function pintarCores(raiz) {
+  $$("[data-cor]", raiz).forEach(el => { el.style.background = el.dataset.cor; });
+}
+
 function desenharMapa() {
   const alvo = $("#mapaWrap");
   if (!alvo) return;
 
   const usados = [...new Set(PONTOS.map(p => p.tipo))];
   const legenda = `<div class="mapa-legenda">
-    ${usados.map(t => `<span><i style="background:${TIPOS[t].c}"></i>${TIPOS[t].l}</span>`).join("")}
+    ${usados.map(t => `<span><i data-cor="${TIPOS[t].c}"></i>${TIPOS[t].l}</span>`).join("")}
   </div>`;
 
   if (!window.L) {
     alvo.innerHTML = `<div class="caixa">
-      <p class="mapa-nota" style="margin:0 0 14px">O mapa não pôde ser carregado. Os pontos do roteiro:</p>
+      <p class="mapa-nota sem-mapa">O mapa não pôde ser carregado. Os pontos do roteiro:</p>
       ${listaDePontos()}
     </div>`;
+    pintarCores(alvo);
     return;
   }
 
@@ -1560,6 +1568,7 @@ function desenharMapa() {
       Praia dos Ranchos, Cachoeira dos Codós e Poço das Duas Paredes ainda não têm registro na base aberta
       e por isso não aparecem aqui.
     </p>`;
+  pintarCores(alvo);
 
   const mapa = L.map("mapaLeaflet", { scrollWheelZoom: false });
   L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
