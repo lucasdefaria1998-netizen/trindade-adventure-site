@@ -21,7 +21,7 @@ document.documentElement.classList.add("js");
    -------------------------------------------------------------------------- */
 const CFG = {
   whatsapp: "5524993337247",
-  instagram: "trindadeadventurerj",
+  instagram: "trindadeadventure",
   pontoEncontro: "Praia do Meio — placa das trilhas, Trindade/Paraty",
   slotInicio: 8,      // primeira saída da grade
   slotFim: 15,        // última saída da grade
@@ -484,6 +484,9 @@ function aplicarRota(rolarTopo) {
   }
   if (nome === "passeios" && params.get("passeio")) alvo = "consulta-" + params.get("passeio");
   if (nome === "inicio" && params.has("catalogo")) alvo = "roteiros-inicio";
+  // Âncora no endereço (ex.: /passeios#sob-consulta): só id simples, e só se existir na seção aberta.
+  const ancora = location.hash.slice(1);
+  if (!alvo && /^[A-Za-z][\w-]*$/.test(ancora) && document.querySelector('[data-secao="' + nome + '"] #' + ancora)) alvo = ancora;
   if (alvo) requestAnimationFrame(() => {
     const el = document.getElementById(alvo);
     if (!el) return;
@@ -495,7 +498,7 @@ function aplicarRota(rolarTopo) {
 /* Troca de página sem recarregar. Mesmo endereço = reaplica a rota (volta ao
    topo), como antes acontecia ao clicar no link da página em que já se está. */
 function navegar(destino, substituir) {
-  if (destino !== location.pathname + location.search) {
+  if (destino !== location.pathname + location.search + location.hash) {
     history[substituir ? "replaceState" : "pushState"](null, "", destino);
   }
   aplicarRota(true);
@@ -530,7 +533,7 @@ document.addEventListener("click", e => {
   if (url.origin !== location.origin || !ehPaginaDoSite(url.pathname)) return;
   if (url.hash && url.pathname === location.pathname && url.search === location.search) return;
   e.preventDefault();
-  navegar(normalizarCaminho(url.pathname) + url.search);
+  navegar(normalizarCaminho(url.pathname) + url.search + url.hash);
 });
 
 /* Menu no celular e no tablet: painel sob o topo, com fundo que fecha ao
@@ -834,8 +837,8 @@ const Clima = {
    Não existe banco de dados: a reserva é montada aqui e entregue no WhatsApp
    da operação, que é onde ela realmente acontece. Por isso o site não promete
    "restam 3 vagas" — número que só um servidor compartilhado saberia. Ele diz
-   a verdade: o grupo tem no máximo 20 pessoas e a vaga fica garantida quando a
-   operação confirmar.
+   a verdade: cada reserva tem até 15 pessoas e a vaga fica garantida quando a
+   operação confirmar (depois do sinal de 30% via Pix).
    ========================================================================== */
 
 const reserva = {

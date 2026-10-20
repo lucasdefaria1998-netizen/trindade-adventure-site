@@ -393,6 +393,55 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 }
 
 
+// ---------- ETAPA 21 — Instagram oficial, até 15 pessoas por reserva, sinal Pix de 30% ----------
+{
+  const { execFileSync } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const raiz = fileURLToPath(new URL("..", import.meta.url));
+  const VELHO = "trindadeadventure" + "rj"; // conta que não é do Lucas; montada por concatenação para este arquivo não a citar
+  const temVelho = txt => txt.toLowerCase().includes(VELHO);
+  const PARCEIROS = ["hymberestaurantepraia", "pousadahymbetrindade", "demadeiratrindade"];
+  let achados = "";
+  try { achados = execFileSync("git", ["-C", raiz, "grep", "-n", "-i", VELHO], { encoding: "utf8" }); } catch (e) { achados = e.stdout || ""; }
+  checar("E21 nenhum arquivo versionado cita a conta antiga do Instagram (git grep vazio)", achados.trim() === "", achados.trim().slice(0, 200));
+  const SOCIAL = "https://www.instagram.com/trindadeadventure/";
+  const rotas21 = ["/", "/contato", "/reservar", "/passeios", "/pousadas", "/pescaria", "/historia", "/termos-do-passeio", "/politica-de-privacidade", "/cameras", "/nao-existe"];
+  for (const c of rotas21) {
+    const doc = await (await pegar(c)).text();
+    const hrefs = [...doc.matchAll(/href="([^"]*instagram\.com[^"]*)"/g)].map(m => m[1]);
+    const proprios = hrefs.filter(h => !PARCEIROS.some(p => h.endsWith("/" + p)));
+    checar(`E21 ${c}: sem a conta antiga e todo link do Instagram da empresa é ${SOCIAL} (parceiros intactos)`, !temVelho(doc) && proprios.length > 0 && proprios.every(h => h === SOCIAL) && PARCEIROS.every(p => doc.includes("instagram.com/" + p)), hrefs.join(" | "));
+    for (const bloco of doc.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) {
+      const j = JSON.parse(bloco[1]);
+      if (j.sameAs) checar(`E21 ${c}: JSON-LD sameAs = [${SOCIAL}]`, JSON.stringify(j.sameAs) === JSON.stringify([SOCIAL]), JSON.stringify(j.sameAs));
+      if (j.description) checar(`E21 ${c}: JSON-LD fala de até 15 pessoas por reserva`, /até 15 pessoas por reserva/.test(j.description) && !/20 pessoas/.test(j.description), j.description);
+    }
+  }
+  const app = await (await pegar("/app.js?v=20261020-s21")).text();
+  checar("E21 app.js: CFG.instagram = trindadeadventure e sem a conta antiga", /instagram: "trindadeadventure"/.test(app) && !temVelho(app));
+  const worker = readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
+  checar("E21 _worker.js: padrão de instagram é trindadeadventure", worker.includes('c.instagram || "trindadeadventure"'));
+  const fonteTexto = ["index.html", "app.js", "_worker.js"].map(f => readFileSync(new URL("../site/" + f, import.meta.url), "utf8")).join("\n");
+  checar("E21 nenhum '20 pessoas'/'até 20'/'pessoas por horário' nos textos", !/20 pessoas|até 20|máximo · 20|maximo 20|pessoas por horário/i.test(fonteTexto));
+  checar("E21 seletor de pessoas: Math.min(limitePaxPedido, capacidade) e limitePaxPedido = 15", /Math\.min\(CFG\.limitePaxPedido, CFG\.capacidade\)/.test(app) && /limitePaxPedido: 15/.test(app) && /const LIMITE_PAX_PEDIDO = 15/.test(worker));
+  const home = await (await pegar("/")).text(), reservar = await (await pegar("/reservar")).text(), contato = await (await pegar("/contato")).text(), termos = await (await pegar("/termos-do-passeio")).text();
+  checar("E21 home: 'Pessoas por reserva · até 15'", home.includes("<dt>Pessoas por reserva</dt><dd>até 15</dd>") && home.includes("grupos de até 15 pessoas por reserva"));
+  checar("E21 /contato: 'Grupo máximo · 15 pessoas por reserva'", contato.includes("<dt>Grupo máximo</dt><dd>15 pessoas por reserva</dd>"));
+  checar("E21 /reservar: nota com 15 pessoas e sinal de 30% via Pix", reservar.includes("Até 15 pessoas por reserva. A reserva é confirmada pela equipe no WhatsApp, após o pagamento de um sinal de 30% via Pix.") && reservar.includes("sem cadastro e sem pagamento online"));
+  checar("E21 FAQ 'Como pago?' com o sinal de 30%", reservar.includes("Para confirmar a reserva, a equipe pede pelo WhatsApp um sinal de 30% do valor via Pix. Não há pagamento pelo site."));
+  checar("E21 Termos §2 e §3 com o sinal de 30% e até 15 pessoas", termos.includes("A vaga só fica garantida depois do pagamento do sinal de 30% via Pix e da confirmação da equipe pelo WhatsApp. Cada reserva tem até 15 pessoas.") &&
+    termos.includes("Para confirmar a reserva, é pago um sinal de 30% do valor via Pix, combinado pelo WhatsApp. Não há pagamento pelo site."));
+  checar("E21 nenhum texto antigo de pagamento no local/Pix combinado", !/no local, em dinheiro ou cartão, ou por pix|pagamento no local ou por pix/i.test(fonteTexto));
+  checar("E21 nada sobre o restante (70%) nem devolução do sinal (sem decisão)", !/70%|restante/i.test(termos + reservar) && !/(sinal)[^.]{0,60}(devol|crédito)/i.test(termos + reservar));
+  checar("E21 Boat: ninguém voltou a dizer 'saída única às 8h30'", !/saída única às 0?8[h:]30/i.test(fonteTexto));
+  checar("E21 rodapé: 'Passeios sob consulta' aponta para /passeios#sob-consulta", home.includes('<a href="/passeios#sob-consulta">Passeios sob consulta</a>') && !home.includes('<a href="/mamangua"') );
+  const pass = await (await pegar("/passeios")).text();
+  checar("E21 /passeios tem a seção id=sob-consulta", /<section class="bloco" id="sob-consulta"/.test(pass));
+  checar("E21 app.js: navegação SPA mantém o #fragmento e rola até a âncora", app.includes("navegar(normalizarCaminho(url.pathname) + url.search + url.hash)") && app.includes("alvo = ancora"));
+  for (const c of ["/", "/contato", "/termos-do-passeio", "/reservar"]) checar(`E21 ${c}: sem marcador TODO/PREENCHER`, !/\bTODO\b|PREENCHER/.test(await (await pegar(c)).text()));
+}
+
+
 // ---------- ETAPA 19 — dados da empresa no rodapé, sem JavaScript ----------
 {
   const esperado = "64.565.826 IGOR SANTIAGO FRAGA · CNPJ 64.565.826/0001-80 · Cadastur 64.565.826/0001-80";

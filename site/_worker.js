@@ -626,7 +626,7 @@ async function lerConfig(env) {
     cancelamentoH: Number(c.cancelamento_h || 12),
     retornoLimiteMin: minutosDe(c.retorno_limite || RETORNO_LIMITE_PADRAO),
     whatsapp: c.whatsapp || "5524993337247",
-    instagram: c.instagram || "trindadeadventurerj",
+    instagram: c.instagram || "trindadeadventure",
     cupom: c.cupom || "TRINDADE10",
     beneficioInstagram: c.beneficio_instagram || "Siga e receba as fotos do seu dia de passeio."
   };
