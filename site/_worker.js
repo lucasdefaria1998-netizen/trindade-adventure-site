@@ -389,7 +389,7 @@ async function servirPagina(request, env, url) {
   if (!pagina) h.set("cache-control", SEM_CACHE);
 
   const resposta = new Response(html, { status: pagina ? 200 : 404, headers: h });
-  return aplicarMetadados(resposta, meta, !pagina, env);
+  return aplicarMetadados(resposta, meta, !pagina, env, { secao: (pagina || site.naoEncontrada).secao, foco: (pagina && pagina.foco) || null });
 }
 
 /* Mesma regra do app.js (função metadadosDaPagina lá): imagem e canonical
@@ -409,7 +409,7 @@ function metadadosDaPagina(site, caminho, pagina) {
   };
 }
 
-function aplicarMetadados(resposta, m, naoEncontrada, env) {
+function aplicarMetadados(resposta, m, naoEncontrada, env, rota) {
   const attr = (nome, valor) => ({ element(el) { el.setAttribute(nome, valor); } });
   let rw = new HTMLRewriter()
     .on("title", { element(el) { el.setInnerContent(m.titulo); } })
@@ -440,12 +440,31 @@ function aplicarMetadados(resposta, m, naoEncontrada, env) {
       .on('meta[property="og:url"]', { element(el) { el.remove(); } });
   }
 
+  rw = reescreverTitulos(rw, rota);
+
   // Sem JavaScript, a seção "não encontrada" fica escondida em todas as
   // páginas; numa resposta 404 ela precisa aparecer.
   if (naoEncontrada) {
     rw = rw.on('[data-secao="nao-encontrada"]', { element(el) { el.removeAttribute("hidden"); } });
   }
   return rw.transform(resposta);
+}
+
+/* Um <h1> por página. O HTML traz o título de cada seção como <h1 data-titulo> (todas as seções vêm
+   no mesmo arquivo; o app.js esconde as outras) e, nos passeios com endereço próprio, o nome do
+   passeio como <h2|h3 data-titulo-foco>. Aqui, por rota: o título da seção ativa sai como h1 e os
+   demais viram h2; em /passeios/<passeio> o h1 é o nome do passeio (do mesmo site-config: foco.plano
+   ou foco.passeio) e o título da seção vira h2. Mesmas classes, ids e atributos — só a tag muda.
+   O app.js faz o mesmo ao navegar sem recarregar (ajustarH1). */
+function reescreverTitulos(rw, rota) {
+  const foco = rota && rota.foco;
+  const idFoco = foco && foco.plano ? "roteiro-" + foco.plano : foco && foco.passeio ? "consulta-" + foco.passeio : null;
+  let secao = null, recipiente = null;
+  return rw
+    .on("[data-secao]", { element(el) { secao = el.getAttribute("data-secao"); recipiente = null; } })
+    .on(".painel-roteiro, .consulta", { element(el) { recipiente = el.getAttribute("id"); } })
+    .on("[data-titulo]", { element(el) { el.tagName = secao === rota.secao && !idFoco ? "h1" : "h2"; } })
+    .on("[data-titulo-foco]", { element(el) { if (idFoco && recipiente === idFoco) el.tagName = "h1"; } });
 }
 
 /* ------------------------------ roteador ------------------------------ */

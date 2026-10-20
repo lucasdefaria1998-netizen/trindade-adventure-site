@@ -389,12 +389,36 @@ function aplicarMetadados(rota) {
   }
 }
 
+/* Um <h1> por página, também ao navegar sem recarregar. O servidor já entrega a página certa
+   (ver reescreverTitulos no _worker.js); aqui se repete a regra a cada troca de rota: o título
+   da seção ativa — ou o nome do passeio, em /passeios/<passeio> — vira h1 e os demais h2/h3.
+   Só a tag muda; classes, ids e atributos (aria-labelledby) seguem os mesmos. */
+function trocarTag(el, tag) {
+  if (!el || el.tagName.toLowerCase() === tag) return el;
+  const novo = document.createElement(tag);
+  for (const a of el.attributes) novo.setAttribute(a.name, a.value);
+  while (el.firstChild) novo.appendChild(el.firstChild);
+  el.replaceWith(novo);
+  return novo;
+}
+function ajustarH1(rota) {
+  const foco = (rota.pagina && rota.pagina.foco) || {};
+  const idFoco = foco.plano ? "roteiro-" + foco.plano : foco.passeio ? "consulta-" + foco.passeio : null;
+  const alvo = idFoco
+    ? document.querySelector("#" + idFoco + " [data-titulo-foco]")
+    : document.querySelector('[data-secao="' + rota.nome + '"] [data-titulo]');
+  document.querySelectorAll("[data-titulo]").forEach(h => { if (h !== alvo) trocarTag(h, "h2"); });
+  document.querySelectorAll("[data-titulo-foco]").forEach(h => { if (h !== alvo) trocarTag(h, h.closest(".painel-roteiro") ? "h2" : "h3"); });
+  if (alvo) trocarTag(alvo, "h1");
+}
+
 function aplicarRota(rolarTopo) {
   const rota = lerRota();
   const { nome, params } = rota;
   window.dispatchEvent(new Event("trindade:before-route"));
 
   $$("[data-secao]").forEach(s => { s.hidden = s.dataset.secao !== nome; });
+  ajustarH1(rota);
   $$("[data-rota]").forEach(a => {
     if (a.dataset.rota === nome) a.setAttribute("aria-current", "page");
     else a.removeAttribute("aria-current");

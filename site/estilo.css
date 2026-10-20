@@ -222,7 +222,7 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 .cabeca-linha{display:flex;justify-content:space-between;align-items:flex-end;gap:16px 32px;flex-wrap:wrap;max-width:none}
 .cabeca-linha>div{max-width:720px}
 .pagina-cabeca{padding-top:clamp(20px,4vw,48px);margin-bottom:clamp(28px,4vw,48px);max-width:780px}
-.pagina-cabeca h1{font-size:clamp(38px,5.4vw,68px);font-weight:500;letter-spacing:-.045em;line-height:1.02}
+.pagina-cabeca [data-titulo]{font-size:clamp(38px,5.4vw,68px);font-weight:500;letter-spacing:-.045em;line-height:1.02}
 .pagina-cabeca p{margin-top:16px;font-size:clamp(16.5px,1.4vw,18px);color:var(--ink-2);max-width:62ch}
 .pagina-cabeca-linha{display:flex;justify-content:space-between;align-items:flex-end;gap:16px 32px;flex-wrap:wrap;max-width:none}
 
@@ -402,7 +402,7 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 .roteiro-info{display:flex;flex-direction:column;gap:14px;padding:26px 28px 28px}
 .roteiro-info>p:not(.nota):not(.roteiro-meta){color:var(--ink-2)}
 .roteiro-titulo{display:flex;justify-content:space-between;align-items:baseline;gap:8px 16px;flex-wrap:wrap}
-.roteiro-titulo h2{font-size:28px;font-weight:500;letter-spacing:-.035em}
+.roteiro-titulo :is(h1,h2){font-size:28px;font-weight:500;letter-spacing:-.035em}
 .roteiro-titulo .tour-preco,.consulta-topo .tour-preco{margin:0;padding:0;border:0}
 .roteiro-meta{font-size:14px;color:var(--muted)}
 .incluso{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;padding-top:16px;border-top:1px solid var(--line)}
@@ -445,7 +445,7 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 .consulta-fotos img{width:100%;height:100%;object-fit:cover}
 .consulta-fotos figcaption{position:absolute;left:8px;bottom:8px;right:8px;padding:2px 8px;width:fit-content;border-radius:999px;background:rgb(6 30 20 / .78);color:#fff;font-size:11.5px;line-height:1.5}
 .consulta-topo{display:flex;justify-content:space-between;align-items:flex-start;gap:8px 16px;flex-wrap:wrap}
-.consulta-topo h3{font-size:22px}
+.consulta-topo :is(h1,h3){font-size:22px}
 .consulta-sub{margin-top:4px;font-size:14px;color:var(--muted)}
 .consulta-acoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
 @media(max-width:900px){.consultas{grid-template-columns:minmax(0,1fr)}}

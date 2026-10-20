@@ -303,5 +303,28 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("E11 'passeios/fishing' só aparece na tabela de redirecionamentos (worker e app.js)", linhas.length === 2 && linhas.every(l => /^site\/(_worker|app)\.js:/.test(l)), achados.trim());
 }
 
+
+// ---------- ETAPA 12 — um <h1> por rota ----------
+{
+  const tabela = [];
+  const rotas = [...new Set([...Object.keys(SITE.paginas), "/cameras"])];
+  for (const c of rotas) {
+    const doc = await (await pegar(c)).text();
+    const h1s = [...doc.matchAll(/<h1[^>]*>([\s\S]*?)<\/h1>/g)].map(m => m[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim());
+    tabela.push([c, h1s.length, h1s[0]]);
+    checar(`E12 ${c} tem exatamente 1 <h1>`, (doc.match(/<h1/g) || []).length === 1 && h1s.length === 1, JSON.stringify(h1s));
+  }
+  console.log("      URL → texto do <h1>:"); for (const [c, n, t] of tabela) console.log(`        ${c.padEnd(28)} ${t}`);
+  const h = Object.fromEntries(tabela.map(([c, , t]) => [c, t]));
+  checar("E12 /passeios/boat tem o h1 do Boat (não \"Roteiros e preços\")", h["/passeios/boat"] === "Trindade Boat", h["/passeios/boat"]);
+  checar("E12 /passeios/essencial e /adventure idem", h["/passeios/essencial"] === "Trindade Essencial" && h["/passeios/adventure"] === "Trindade Adventure");
+  checar("E12 /passeios/mamangua, /saco-bravo e /juatinga com o nome do passeio", h["/passeios/mamangua"] === "Mamanguá Adventure" && h["/passeios/saco-bravo"] === "Saco Bravo Adventure" && h["/passeios/juatinga"] === "Costa da Juatinga", JSON.stringify([h["/passeios/mamangua"], h["/passeios/saco-bravo"], h["/passeios/juatinga"]]));
+  checar("E12 /passeios continua \"Roteiros e preços\" e / traz o h1 do hero", h["/passeios"] === "Roteiros e preços" && /extraordinário/.test(h["/"]), `${h["/passeios"]} | ${h["/"]}`);
+  const nf = await pegar("/nao-existe"); const dnf = await nf.text();
+  checar("E12 /nao-existe → 404 com único h1 \"Página não encontrada\"", nf.status === 404 && (dnf.match(/<h1/g) || []).length === 1 && />Página não encontrada<\/h1>/.test(dnf), nf.status);
+  const boat = await (await pegar("/passeios/boat")).text();
+  checar("E12 /passeios/boat: título da seção virou h2 e conserva classes e ids", /<h2 data-titulo>Roteiros e preços<\/h2>/.test(boat) && /<h2 data-titulo id="titulo-pescaria">Pescaria em Alto Mar<\/h2>/.test(boat) && /<h1 data-titulo-foco>Trindade Boat<\/h1>/.test(boat), "");
+}
+
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);
 process.exit(falhas ? 1 : 0);

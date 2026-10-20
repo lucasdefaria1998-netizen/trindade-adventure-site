@@ -171,7 +171,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
      na fonte do sistema, com métricas parecidas. -->
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap"></noscript>
-<link rel="stylesheet" href="/estilo.css?v=20261020-s06">
+<link rel="stylesheet" href="/estilo.css?v=20261020-s12">
 <link rel="preload" as="image" href="/assets/og-v2-800.webp" imagesrcset="/assets/og-v2-480.webp 480w, /assets/og-v2-800.webp 800w, /assets/og-v2-1200.webp 1200w" imagesizes="(max-width: 720px) 100vw, 1240px" fetchpriority="high">
 
 <!-- Dados estruturados (schema.org) para o Google: quem é a empresa, onde fica
@@ -317,7 +317,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
 <section class="secao secao-404" id="nao-encontrada" data-secao="nao-encontrada" hidden>
   <header class="pagina-cabeca">
     <p class="selo-404" aria-hidden="true">404</p>
-    <h1>Página não encontrada</h1>
+    <h1 data-titulo>Página não encontrada</h1>
     <p>Não conseguimos encontrar o endereço que você tentou acessar. Ele pode ter mudado ou ter sido digitado com algum erro.</p>
   </header>
   <div class="acoes-404">
@@ -335,7 +335,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
       <img src="/assets/og-v2-800.webp" srcset="/assets/og-v2-480.webp 480w, /assets/og-v2-800.webp 800w, /assets/og-v2-1200.webp 1200w" sizes="(max-width: 720px) 100vw, 1240px" width="1200" height="630" alt="Enseada de Trindade vista do alto, com a Mata Atlântica descendo até a praia" fetchpriority="high" decoding="async">
     </figure>
     <div class="hero-texto">
-      <h1 class="hero-titulo" aria-label="Entre o mar e o extraordinário."><span class="hero-linha" aria-hidden="true"><span>Entre o mar</span></span><span class="hero-linha" aria-hidden="true"><span>e o <em>extraordinário.</em></span></span></h1>
+      <h1 data-titulo class="hero-titulo" aria-label="Entre o mar e o extraordinário."><span class="hero-linha" aria-hidden="true"><span>Entre o mar</span></span><span class="hero-linha" aria-hidden="true"><span>e o <em>extraordinário.</em></span></span></h1>
       <p class="hero-lede">Praias paradisíacas, natureza preservada, piscinas naturais e trilhas na Mata Atlântica. Viva Trindade com quem realmente conhece e ama esse lugar.</p>
       <div class="hero-acoes">
         <a class="btn btn-claro" href="/?catalogo" data-rolar="roteiros-inicio">Ver os 7 passeios</a>
@@ -527,7 +527,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
 <!-- ======================= PASSEIOS ======================= -->
 <section class="secao" id="passeios" data-secao="passeios">
   <header class="pagina-cabeca">
-    <h1>Roteiros e preços</h1>
+    <h1 data-titulo>Roteiros e preços</h1>
     <p>O que acontece em cada passeio: paradas, o que está incluso e quanto custa.</p>
   </header>
 
@@ -542,7 +542,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
       <div class="roteiro-resumo">
         <div class="roteiro-foto"><img src="/assets/piscina-v2-800.webp" srcset="/assets/piscina-v2-480.webp 480w, /assets/piscina-v2-800.webp 800w, /assets/piscina-v2-1155.webp 1155w" sizes="(max-width: 860px) 92vw, 600px" width="1155" height="768" alt="Piscina natural do Cachadaço entre as pedras" loading="lazy" decoding="async"></div>
         <div class="roteiro-info">
-          <div class="roteiro-titulo"><h2>Trindade Essencial</h2><p class="tour-preco"><b>R$ 70</b><span>por pessoa</span></p></div>
+          <div class="roteiro-titulo"><h2 data-titulo-foco>Trindade Essencial</h2><p class="tour-preco"><b>R$ 70</b><span>por pessoa</span></p></div>
           <p class="roteiro-meta">≈ 3h · saídas <span data-faixa-horarios="essencial" data-formato="hhmm">de 08:00 às 15:00</span></p>
           <p>Trilha guiada pela Mata Atlântica até a piscina natural do Cachadaço.</p>
           <div class="incluso">
@@ -580,7 +580,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
       <div class="roteiro-resumo">
         <div class="roteiro-foto"><img src="/assets/trilha-v2-800.webp" srcset="/assets/trilha-v2-480.webp 480w, /assets/trilha-v2-800.webp 800w, /assets/trilha-v2-1024.webp 1024w" sizes="(max-width: 860px) 92vw, 600px" width="1024" height="768" alt="Trecho de trilha dentro da mata" loading="lazy" decoding="async"></div>
         <div class="roteiro-info">
-          <div class="roteiro-titulo"><h2>Trindade Adventure</h2><p class="tour-preco"><b>R$ 150</b><span>por pessoa</span></p></div>
+          <div class="roteiro-titulo"><h2 data-titulo-foco>Trindade Adventure</h2><p class="tour-preco"><b>R$ 150</b><span>por pessoa</span></p></div>
           <p class="roteiro-meta">≈ 6h · saídas <span data-faixa-horarios="adventure" data-formato="hhmm">de 08:00 às 12:00</span></p>
           <p>Roteiro completo com snorkel na piscina natural, retorno pela Pedra que Engole e almoço no Restaurante Hymbé.</p>
           <p class="nota nota-ouro"><b>Voucher de R$ 60 por pessoa</b> para usar no Restaurante Hymbé, na praia — já incluso no valor.</p>
@@ -621,7 +621,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
       <div class="roteiro-resumo">
         <div class="roteiro-foto"><img src="/assets/foto-costa-trindade-720.webp" srcset="/assets/foto-costa-trindade-480.webp 480w, /assets/foto-costa-trindade-720.webp 720w" sizes="(max-width: 860px) 92vw, 600px" width="720" height="756" alt="Costa de Trindade ao entardecer, com a mata descendo até o mar" loading="lazy" decoding="async"></div>
         <div class="roteiro-info">
-          <div class="roteiro-titulo"><h2>Trindade Boat</h2><p class="tour-preco"><b>R$ 400</b><span>por pessoa</span></p></div>
+          <div class="roteiro-titulo"><h2 data-titulo-foco>Trindade Boat</h2><p class="tour-preco"><b>R$ 400</b><span>por pessoa</span></p></div>
           <p class="roteiro-meta">≈ 8h · encontro às 08:30, saída às 08:50</p>
           <p>Trilha pela Trindade e passeio de barco por cinco paradas na costa da Trindade, com almoço no Restaurante Hymbé.</p>
           <p class="nota nota-ouro"><b>Voucher de R$ 60 por pessoa</b> para usar no Restaurante Hymbé, na praia — já incluso no valor.</p>
@@ -666,7 +666,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
     </header>
     <div class="consultas">
       <article class="consulta" id="consulta-mamangua" data-revelar>
-        <div class="consulta-topo"><div><h3>Mamanguá Adventure</h3><p class="consulta-sub">Pico do Pão de Açúcar · van, barco e trilha</p></div><p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p></div>
+        <div class="consulta-topo"><div><h3 data-titulo-foco>Mamanguá Adventure</h3><p class="consulta-sub">Pico do Pão de Açúcar · van, barco e trilha</p></div><p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p></div>
         <p>Uma experiência completa saindo de Trindade para conhecer um dos cenários mais impressionantes de Paraty.</p>
         <ul class="lista-check">
           <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Traslado Trindade → Paraty-Mirim</li>
@@ -690,7 +690,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
 
       <article class="consulta" id="consulta-saco-bravo" data-revelar>
         <div class="consulta-foto"><img src="/assets/foto-saco-bravo-960.webp" srcset="/assets/foto-saco-bravo-480.webp 480w, /assets/foto-saco-bravo-960.webp 960w" sizes="(max-width: 860px) 92vw, 560px" width="1280" height="664" alt="Cachoeira do Saco Bravo encontrando o mar entre as pedras" loading="lazy" decoding="async"></div>
-        <div class="consulta-topo"><div><h3>Saco Bravo Adventure</h3><p class="consulta-sub">Natureza, aventura e paisagens incríveis</p></div><p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p></div>
+        <div class="consulta-topo"><div><h3 data-titulo-foco>Saco Bravo Adventure</h3><p class="consulta-sub">Natureza, aventura e paisagens incríveis</p></div><p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p></div>
         <p>Saída de barco de Trindade, passagem pela Praia do Sono, chegada em Ponta Negra e trilha até a Cachoeira do Saco Bravo.</p>
         <ul class="lista-check">
           <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Barco até Ponta Negra</li>
@@ -706,7 +706,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
           <figure><img src="/assets/foto-praia-sono-480.webp" width="1280" height="799" alt="Praia do Sono vista do alto" loading="lazy" decoding="async"><figcaption>Praia do Sono</figcaption></figure>
           <figure><img src="/assets/foto-restaurante-sono-480.webp" width="1280" height="1100" alt="Mesa posta em restaurante na areia da Praia do Sono" loading="lazy" decoding="async"><figcaption>Restaurante no Sono</figcaption></figure>
         </div>
-        <div class="consulta-topo"><div><h3>Costa da Juatinga</h3><p class="consulta-sub">As praias mais incríveis de Paraty em um só dia</p></div><p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p></div>
+        <div class="consulta-topo"><div><h3 data-titulo-foco>Costa da Juatinga</h3><p class="consulta-sub">As praias mais incríveis de Paraty em um só dia</p></div><p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p></div>
         <p>Passagem pela Praia Brava, parada na Galheta, mergulho na piscina natural, Praia dos Antigos e almoço na Praia do Sono.</p>
         <ul class="lista-check">
           <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Praia Brava e Galheta</li>
@@ -751,7 +751,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
 <!-- ======================= RESERVAR ======================= -->
 <section class="secao" id="reservar" data-secao="reservar">
   <header class="pagina-cabeca">
-    <h1>Reservar horário</h1>
+    <h1 data-titulo>Reservar horário</h1>
     <p>Monte o pedido aqui e envie em um toque. A reserva é confirmada pela equipe no WhatsApp, com o guia do dia — sem cadastro e sem pagamento online.</p>
   </header>
 
@@ -880,7 +880,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
 <!-- ======================= POUSADAS ======================= -->
 <section class="secao" id="pousadas" data-secao="pousadas">
   <header class="pagina-cabeca">
-    <h1>Pousadas parceiras</h1>
+    <h1 data-titulo>Pousadas parceiras</h1>
     <p><b>10% de desconto</b> nas parceiras que já fecharam acordo, para quem reserva passeio pelo site. Apresente o cupom <b class="num">TRINDADE10</b> na hora de fechar a diária.</p>
   </header>
 
@@ -927,7 +927,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
 <!-- ======================= CÂMERAS ======================= -->
 <section class="secao" id="cameras" data-secao="cameras">
   <header class="pagina-cabeca">
-    <h1>Câmeras da operação</h1>
+    <h1 data-titulo>Câmeras da operação</h1>
     <p>Em preparação. Ainda não há câmera instalada em Trindade: os quadros abaixo são ilustrações geradas pelo próprio site, não imagens reais das praias. Quando cada câmera existir, este mesmo quadro passa a exibir o vídeo ao vivo. A faixa de tempo e mar no topo da página é <b>informação real</b>, lida da Open-Meteo.</p>
   </header>
   <div class="cams" id="listaCams"></div>
@@ -936,7 +936,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
 <!-- ======================= CONTATO ======================= -->
 <section class="secao" id="contato" data-secao="contato">
   <header class="pagina-cabeca">
-    <h1>Fale com a operação</h1>
+    <h1 data-titulo>Fale com a operação</h1>
     <p>Dúvidas sobre roteiro, data ou grupo? A equipe responde pelo WhatsApp.</p>
   </header>
 
@@ -969,7 +969,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
 <section class="secao" id="pescaria" data-secao="pescaria" aria-labelledby="titulo-pescaria">
   <header class="pagina-cabeca pagina-cabeca-linha">
     <div>
-      <h1 id="titulo-pescaria">Pescaria em Alto Mar</h1>
+      <h1 data-titulo id="titulo-pescaria">Pescaria em Alto Mar</h1>
       <p>Uma experiência no mar de Trindade, com o acompanhamento de um guia experiente.</p>
     </div>
     <a class="link-seta" href="/passeios">Todos os passeios<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
@@ -1031,7 +1031,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
 <!-- ======================= HISTÓRIA ======================= -->
 <section class="secao" id="historia" data-secao="historia" aria-labelledby="titulo-historia">
   <header class="pagina-cabeca historia-cabeca">
-    <h1 id="titulo-historia">História de Trindade</h1>
+    <h1 data-titulo id="titulo-historia">História de Trindade</h1>
     <p>Memória, cultura caiçara e pertencimento.</p>
   </header>
   <figure class="historia-capa"><a href="https://paraty.com.br/fotos-de-trindade-decada-de-70/" target="_blank" rel="noopener" aria-label="Ver álbum histórico de Trindade no Portal Paraty"><img src="/assets/historia-trindade-16.jpg" alt="Fotografia em preto e branco da enseada e da ocupação da vila de Trindade" width="380" height="250" loading="lazy" decoding="async"></a><figcaption><p>A vila entre a mata e o mar. Registro apresentado no álbum de Trindade da década de 1970.</p><a class="credito" href="https://paraty.com.br/fotos-de-trindade-decada-de-70/" target="_blank" rel="noopener">Fonte: Portal Paraty · ver acervo</a></figcaption></figure>
@@ -1055,7 +1055,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
      pixel de terceiros. Se algo disso mudar, atualize este texto. -->
 <section class="secao" id="privacidade" data-secao="privacidade" aria-labelledby="titulo-privacidade">
   <header class="pagina-cabeca">
-    <h1 id="titulo-privacidade">Política de Privacidade</h1>
+    <h1 data-titulo id="titulo-privacidade">Política de Privacidade</h1>
     <p>Quais informações a Trindade Adventure recebe pelo site, para que usa e como você pode pedir correção ou exclusão. Atualizada em 5 de outubro de 2026.</p>
   </header>
   <article class="texto-legal">
@@ -1114,7 +1114,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
      taxa ou prazo novo: o que não está definido fica para a confirmação. -->
 <section class="secao" id="termos" data-secao="termos" aria-labelledby="titulo-termos">
   <header class="pagina-cabeca">
-    <h1 id="titulo-termos">Termos do Passeio</h1>
+    <h1 data-titulo id="titulo-termos">Termos do Passeio</h1>
     <p>Como funcionam o pedido de reserva, a confirmação e o dia do passeio com a Trindade Adventure. Atualizados em 5 de outubro de 2026.</p>
   </header>
   <article class="texto-legal">
@@ -1236,7 +1236,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
 
 <!-- Leaflet é servido pelo próprio site e só carrega quando o mapa se aproxima
      da tela. Se ainda assim faltar, o app.js mostra a lista de pontos. -->
-<script src="/app.js?v=20261020-s11" defer></script>
+<script src="/app.js?v=20261020-s12" defer></script>
 <script src="/vendor/lenis-1.3.11.min.js" defer></script>
 <script src="/motion.js?v=20261005-rotas" defer></script>
 <script src="/pescaria-galeria.js?v=20261005-rotas" defer></script>
