@@ -352,5 +352,27 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("E13 a seção \"não encontrada\" só aparece na resposta 404", /id="nao-encontrada"[^>]*data-secao="nao-encontrada">/.test(nf) && !/id="nao-encontrada"[^>]*hidden/.test(nf) && /id="nao-encontrada"[^>]*\shidden/.test(await (await pegar("/")).text()));
 }
 
+
+// ---------- ETAPA 14 — recompressão das imagens ----------
+{
+  const { readdirSync, statSync } = await import("node:fs");
+  const dirAssets = new URL("../site/assets/", import.meta.url);
+  const pesadas = readdirSync(dirAssets).filter(n => n.endsWith(".webp") && statSync(new URL(n, dirAssets)).size > 150 * 1024);
+  // 3 exceções justificadas: fotos de folhagem densa que só chegam abaixo de 150 KB com qualidade < 50 (blocos visíveis)
+  const excecoes = ["lugar-trilha-720.webp", "pousada-madeira-2-720.webp", "trilha-v2-1024.webp"];
+  checar("E14 nenhum WebP acima de 150 KiB além das 3 exceções justificadas (folhagem densa, q50)", pesadas.every(n => excecoes.includes(n)), pesadas.join(", "));
+  const dims = { "lugar-trilha-720.webp": [720, 960], "pousada-madeira-1-720.webp": [720, 704], "pousada-madeira-2-720.webp": [720, 880], "pousada-madeira-4-720.webp": [720, 918], "trilha-v2-1024.webp": [1024, 768], "trilha-v2-800.webp": [800, 600] };
+  for (const [n, [w, h]] of Object.entries(dims)) {
+    const b = readFileSync(new URL(n, dirAssets)); // WebP VP8: largura/altura nos bytes 26-29
+    const lw = (b[26] | (b[27] << 8)) & 0x3fff, lh = (b[28] | (b[29] << 8)) & 0x3fff;
+    checar(`E14 ${n} mantém ${w}×${h}`, lw === w && lh === h, `${lw}×${lh}`);
+  }
+  const fontes = ["index.html", "app.js", "estilo.css", "motion.js", "pescaria-galeria.js", "manifest.json"].map(f => readFileSync(new URL("../site/" + f, import.meta.url), "utf8")).join("\n");
+  const caminhos = [...new Set([...fontes.matchAll(/\/(?:assets|vendor)\/[A-Za-z0-9_.\-]+\.[A-Za-z0-9]+/g)].map(m => m[0]))];
+  const quebrados = [];
+  for (const c of caminhos) { const r = await pegar(c); await r.arrayBuffer(); if (r.status !== 200) quebrados.push(`${c} → ${r.status}`); }
+  checar(`E14 todos os ${caminhos.length} caminhos /assets e /vendor citados no HTML, JS e CSS respondem 200`, !quebrados.length, quebrados.join("; "));
+}
+
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);
 process.exit(falhas ? 1 : 0);
