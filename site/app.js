@@ -33,6 +33,8 @@ const CFG = {
   retornoLimite: "18:20",
   fuso: "America/Sao_Paulo",
   capacidade: 20,     // tamanho máximo do grupo por horário
+  limitePaxPedido: 15, // máximo de pessoas por reserva (o servidor recusa mais: LIMITE_PAX_PEDIDO no _worker.js)
+  janelaReservaDias: 90, // reservas de hoje até hoje + 90 dias (JANELA_RESERVA_DIAS no _worker.js)
   cancelamentoH: 12,
   cupom: "TRINDADE10",
   /* Dois pontos de propósito: a previsão de terra é lida na própria vila, e a
@@ -766,7 +768,7 @@ function desenharDatas() {
       <div class="mes">${MESES[+iso.slice(5, 7) - 1]}</div>
     </button>`).join("");
   const dt = $("#dtPick");
-  if (dt) { dt.value = reserva.data; dt.min = hojeISO(); }
+  if (dt) { dt.value = reserva.data; dt.min = hojeISO(); dt.max = somaDias(hojeISO(), CFG.janelaReservaDias); }
 }
 
 /* Chamada em todo ponto que hoje já disparava a antiga desenharHorarios():
@@ -865,7 +867,7 @@ async function atualizarDisponibilidade() {
 function desenharPax() {
   const sel = $("#fPax");
   if (!sel || sel.options.length) return;
-  sel.innerHTML = Array.from({ length: CFG.capacidade }, (_, i) => i + 1)
+  sel.innerHTML = Array.from({ length: Math.min(CFG.limitePaxPedido, CFG.capacidade) }, (_, i) => i + 1)
     .map(n => `<option value="${n}">${n} ${n === 1 ? "pessoa" : "pessoas"}</option>`).join("");
   sel.value = String(reserva.pax);
 }
@@ -920,6 +922,9 @@ function validar() {
   const email = $("#fEmail").value.trim();
   falha("#fEmail", "#fEmail", "#errEmail",
     email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? "E-mail inválido." : "");
+
+  const insta = ($("#fInstagram") ? $("#fInstagram").value.trim() : "").replace(/^@+/, "");
+  falha("#fInstagram", "#fInstagram", "#errInstagram", insta && !/^[A-Za-z0-9._]{1,30}$/.test(insta) ? "Use só letras, números, ponto e sublinhado." : "");
 
   const agora = agoraEmTrindade();
   const semData = reserva.data < agora.data;
@@ -1113,6 +1118,9 @@ function ligarReserva() {
 
   $("#dtPick").addEventListener("change", ev => {
     if (!ev.target.value) return;
+    // Uma data digitada fora da janela não passa pelo min/max do seletor: ajusta aqui.
+    const limite = somaDias(hojeISO(), CFG.janelaReservaDias);
+    if (ev.target.value > limite) ev.target.value = limite;
     reserva.data = ev.target.value;
     reserva.hora = null;
     desenharDatas(); desenharHorarios(); desenharResumo();

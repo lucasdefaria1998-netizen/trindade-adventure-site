@@ -61,3 +61,9 @@ export const reservaValida = (extra = {}) => ({
   plano: "essencial", data: somaDias(hojeSP(), 1), hora: 9, pax: 2,
   nome: "Teste Automatizado", telefone: telNovo(), origem: "direto", sessao: "teste-sessao-01", ...extra
 });
+
+// Começa cada execução de testes com o banco LOCAL vazio (nunca toca produção): sem isso, as
+// reservas das execuções anteriores enchem os horários de teste e o limite de pedidos por IP/telefone.
+export function limparDadosDeTeste() {
+  for (const t of ["reservas", "eventos", "bloqueios", "rate_limit"]) { try { exec(`DELETE FROM ${t}`); } catch { /* tabela ainda não existe */ } }
+}

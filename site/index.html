@@ -805,7 +805,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
         <h2 class="passo-titulo"><span>4</span>Seus dados</h2>
         <div class="campos">
           <label class="field">Nome completo
-            <input id="fNome" name="nome" placeholder="Como no documento" autocomplete="name" required>
+            <input id="fNome" name="nome" placeholder="Como no documento" autocomplete="name" maxlength="80" required>
             <span class="err" id="errNome" hidden></span>
           </label>
           <label class="field">WhatsApp
@@ -813,7 +813,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
             <span class="err" id="errTel" hidden></span>
           </label>
           <label class="field">E-mail <span class="hint">opcional</span>
-            <input id="fEmail" name="email" type="email" placeholder="voce@email.com" inputmode="email" autocomplete="email">
+            <input id="fEmail" name="email" type="email" placeholder="voce@email.com" inputmode="email" autocomplete="email" maxlength="254">
             <span class="err" id="errEmail" hidden></span>
           </label>
           <label class="field">Pessoas
@@ -821,7 +821,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
           </label>
         </div>
         <label class="field">Observações <span class="hint">restrição alimentar, criança, mobilidade</span>
-          <textarea id="fObs" name="obs" rows="2" placeholder="Opcional"></textarea>
+          <textarea id="fObs" name="obs" rows="2" placeholder="Opcional" maxlength="500"></textarea>
         </label>
         <!-- Os links abrem na mesma aba: o site troca de página sem recarregar,
              e o botão "voltar" traz o formulário de volta preenchido. -->
@@ -849,7 +849,8 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
         <p class="nota nota-ouro"><b>Siga @trindadeadventurerj e ganhe as fotos do seu dia de passeio</b> — mandamos pelo Direct depois.</p>
         <div class="campos campos-instagram">
           <label class="field">Seu @ no Instagram
-            <input id="fInstagram" placeholder="@seunome">
+            <input id="fInstagram" placeholder="@seunome" maxlength="31" autocapitalize="none" autocomplete="off">
+            <span class="err" id="errInstagram" hidden></span>
           </label>
           <a class="btn btn-secundario" href="https://instagram.com/trindadeadventurerj" target="_blank" rel="noopener">Seguir no Instagram</a>
         </div>
@@ -1236,7 +1237,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
 
 <!-- Leaflet é servido pelo próprio site e só carrega quando o mapa se aproxima
      da tela. Se ainda assim faltar, o app.js mostra a lista de pontos. -->
-<script src="/app.js?v=20261020-s03" defer></script>
+<script src="/app.js?v=20261020-s04" defer></script>
 <script src="/vendor/lenis-1.3.11.min.js" defer></script>
 <script src="/motion.js?v=20261005-rotas" defer></script>
 <script src="/pescaria-galeria.js?v=20261005-rotas" defer></script>

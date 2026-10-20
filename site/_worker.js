@@ -484,11 +484,138 @@ function saidaLabel(h, cfg) {
   return doisDig(Math.floor(t / 60) % 24) + ":" + doisDig(t % 60);
 }
 
+/* ------------------------------ validação dos pedidos ------------------------------
+
+   Só entra no banco o que passou por aqui. Campos desconhecidos são ignorados
+   (a gravação lê só o que está nesta lista), tipos são exatos (pax é número, não
+   texto) e as mensagens de erro são fixas por campo — nunca ecoam o valor
+   recebido. Os campos de rastreio (origem, como conheceu, sessão) não barram a
+   reserva: um valor fora da lista vira "outro"/vazio, porque perder uma reserva
+   por causa de um parâmetro de campanha estranho custaria mais que o rastreio. */
+
+const LIMITE_PAX_PEDIDO = 15;     // pessoas por reserva (decisão do Lucas, 19/10/2026)
+const JANELA_RESERVA_DIAS = 90;   // de hoje até hoje+90 dias, no fuso de Trindade
+const WHATSAPP_PADRAO = "5524993337247";
+
+const CARACTERE_DE_CONTROLE = /[\u0000-\u001F\u007F]/;
+const DDDS_BR = new Set(
+  ("11 12 13 14 15 16 17 18 19 21 22 24 27 28 31 32 33 34 35 37 38 41 42 43 44 45 46 47 48 49 " +
+   "51 53 54 55 61 62 63 64 65 66 67 68 69 71 73 74 75 77 79 81 82 83 84 85 86 87 88 89 91 92 93 94 95 96 97 98 99").split(" ")
+);
+const COMO_CONHECEU = ["Instagram", "Busca no Google", "Indicação de amigo", "Já conhecia / morador", "Outro"];
+
+function dataReal(s) {
+  if (!ehISO(s)) return false;
+  const t = new Date(s + "T12:00:00Z");
+  return !Number.isNaN(t.getTime()) && t.toISOString().slice(0, 10) === s;
+}
+
+// "pass" = dentro da janela [hoje, hoje + 90 dias] no fuso de Trindade.
+function conferirData(s, hoje) {
+  if (typeof s !== "string" || !dataReal(s)) return "Data inválida.";
+  if (s < hoje) return "A data já passou.";
+  if (s > somaDiasISO(hoje, JANELA_RESERVA_DIAS)) return "Data fora do período de reservas.";
+  return "";
+}
+
+/* Telefone: só dígitos depois de normalizar. Brasil com DDD (10 ou 11 dígitos,
+   celular começa com 9), com ou sem o 55 na frente, ou número internacional no
+   formato E.164 (começa com "+", 8 a 15 dígitos). Devolve os dígitos ou null. */
+function normalizarTelefone(bruto) {
+  if (typeof bruto !== "string") return null;
+  const s = bruto.trim();
+  const d = s.replace(/\D/g, "");
+  const nacional = n => (n.length === 10 || n.length === 11) && DDDS_BR.has(n.slice(0, 2)) && (n.length === 10 || n[2] === "9");
+  if (nacional(d)) return d;
+  if (d.startsWith("55")) return (d.length === 12 || d.length === 13) && nacional(d.slice(2)) ? d : null;
+  if (s.startsWith("+") && d.length >= 8 && d.length <= 15 && !d.startsWith("0")) return d;
+  return null;
+}
+
+// Quebras de linha: \r\n vira \n, no máximo uma linha em branco seguida; outros caracteres de controle viram espaço.
+const limparTextoLivre = s => s.replace(/\r\n?/g, "\n").replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+const limparLinha = s => s.replace(CARACTERE_DE_CONTROLE, " ").trim();
+
+function normalizarSessao(v) {
+  return typeof v === "string" && /^[A-Za-z0-9-]{8,64}$/.test(v) ? v : null;
+}
+function normalizarDetalhe(v) {
+  return typeof v === "string" ? limparLinha(v).slice(0, 100) || null : null;
+}
+
+function validarReserva(b, cfg, agora) {
+  const e = {};
+  const d = {};
+
+  if (typeof b.plano === "string" && Object.hasOwn(PLANOS, b.plano)) d.plano = b.plano;
+  else e.plano = "Escolha um passeio.";
+
+  const erroData = conferirData(b.data, agora.data);
+  if (erroData) e.data = erroData; else d.data = b.data;
+
+  const horasOk = d.plano ? horariosDoPlano(d.plano, cfg) : [];
+  if (typeof b.hora !== "number" || !horasOk.includes(b.hora)) e.hora = "Horário indisponível para este passeio.";
+  else if (d.data === agora.data && Math.round(b.hora * 60) <= agora.minuto) e.hora = "Esse horário já passou.";
+  else d.hora = b.hora;
+
+  if (typeof b.pax === "number" && Number.isInteger(b.pax) && b.pax >= 1 && b.pax <= Math.min(cfg.capacidade, LIMITE_PAX_PEDIDO)) d.pax = b.pax;
+  else e.pax = "Número de pessoas inválido.";
+
+  const nome = typeof b.nome === "string" ? b.nome.trim() : "";
+  if (nome.length >= 3 && nome.length <= 80 && !CARACTERE_DE_CONTROLE.test(nome)) d.nome = nome;
+  else e.nome = "Informe o nome completo.";
+
+  const telefone = normalizarTelefone(b.telefone);
+  if (telefone) d.telefone = telefone; else e.telefone = "Telefone com DDD inválido.";
+
+  if (b.email == null || b.email === "") d.email = null;
+  else {
+    const email = typeof b.email === "string" ? b.email.trim() : "";
+    if (email && email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) d.email = email;
+    else e.email = "E-mail inválido.";
+  }
+
+  if (b.obs == null || b.obs === "") d.obs = null;
+  else if (typeof b.obs !== "string") e.obs = "Observações inválidas.";
+  else {
+    const obs = limparTextoLivre(b.obs);
+    if (obs.length > 500) e.obs = "Observações muito longas (máximo 500 caracteres).";
+    else d.obs = obs || null;
+  }
+
+  if (b.instagramCliente == null || b.instagramCliente === "") d.igCliente = null;
+  else {
+    const ig = typeof b.instagramCliente === "string" ? b.instagramCliente.trim().replace(/^@+/, "") : "";
+    if (/^[A-Za-z0-9._]{1,30}$/.test(ig)) d.igCliente = ig;
+    else if (ig === "" && typeof b.instagramCliente === "string") d.igCliente = null;
+    else e.instagramCliente = "Instagram inválido.";
+  }
+
+  if (b.seguiuInstagram == null) d.seguiu = 0;
+  else if (typeof b.seguiuInstagram === "boolean") d.seguiu = b.seguiuInstagram ? 1 : 0;
+  else e.seguiuInstagram = "Valor inválido.";
+
+  d.origem = normalizarOrigem(b.origem);
+  d.origemDetalhe = normalizarDetalhe(b.origemDetalhe);
+  d.comoConheceu = typeof b.comoConheceu === "string" && COMO_CONHECEU.includes(b.comoConheceu) ? b.comoConheceu : null;
+  d.sessao = normalizarSessao(b.sessao);
+
+  return { erros: e, dados: d };
+}
+
+// Código do pedido: aleatório (base32, 8 caracteres), não sequencial — ninguém adivinha o do vizinho.
+const ALFABETO_CODIGO = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+function gerarCodigo() {
+  let s = "";
+  for (const x of crypto.getRandomValues(new Uint8Array(8))) s += ALFABETO_CODIGO[x & 31];
+  return "TA-" + s.slice(0, 4) + "-" + s.slice(4);
+}
+
 /* ------------------------------ disponibilidade ------------------------------ */
 
 async function disponibilidade(env, url) {
   const data = url.searchParams.get("data");
-  if (!ehISO(data)) return erro("Data inválida.");
+  if (conferirData(data, agoraEmTrindade().data)) return erro("Data inválida.");
 
   const cfg = await lerConfig(env);
 
@@ -537,117 +664,109 @@ async function disponibilidade(env, url) {
 
 /* ------------------------------ criar reserva ------------------------------ */
 
+/* Vaga e gravação numa operação só: o INSERT … SELECT só insere se, no mesmo
+   instante, o horário não está bloqueado e a soma de pessoas + este pedido cabe
+   na capacidade. Dois pedidos simultâneos para o último lugar não passam os
+   dois — o segundo não insere nada (0 linhas) e recebe 409. */
+const SQL_INSERIR_RESERVA =
+  "INSERT INTO reservas " +
+  "(id, codigo, criado_em, plano, data, hora, pax, nome, telefone, email, obs, " +
+  "total, voucher, origem, origem_detalhe, como_conheceu, instagram_cliente, " +
+  "seguiu_instagram, status, canal, atualizado_em) " +
+  "SELECT ?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,'pendente','site',?3 " +
+  "WHERE NOT EXISTS (SELECT 1 FROM bloqueios WHERE data = ?5 AND (hora = ?6 OR hora IS NULL)) " +
+  "AND (SELECT COALESCE(SUM(pax),0) FROM reservas WHERE data = ?5 AND hora = ?6 AND status != 'cancelada') + ?7 <= ?19";
+
 async function criarReserva(b, env) {
   const cfg = await lerConfig(env);
-  const plano = PLANOS[b.plano];
-  const e = {};
+  const agora = agoraEmTrindade();
+  const { erros, dados: d } = validarReserva(b, cfg, agora);
+  if (Object.keys(erros).length) return ok({ ok: false, erros }, 422);
 
-  if (!plano) e.plano = "Escolha um passeio.";
-  const emTrindade = agoraEmTrindade();
-  if (!ehISO(b.data)) e.data = "Data inválida.";
-  else if (b.data < emTrindade.data) e.data = "A data já passou.";
-
-  const hora = Number(b.hora);
-  const horasOk = plano ? horariosDoPlano(b.plano, cfg) : [];
-  if (!horasOk.includes(hora)) e.hora = "Horário indisponível para este passeio.";
-  else if (b.data === emTrindade.data && Math.round(hora * 60) <= emTrindade.minuto) e.hora = "Esse horário já passou.";
-
-  const pax = Math.floor(Number(b.pax));
-  if (!(pax >= 1 && pax <= cfg.capacidade)) e.pax = "Número de pessoas inválido.";
-
-  const nome = String(b.nome || "").trim();
-  if (nome.length < 3) e.nome = "Informe o nome completo.";
-
-  const telefone = String(b.telefone || "").replace(/\D/g, "");
-  if (telefone.length < 10 || telefone.length > 13) e.telefone = "Telefone com DDD inválido.";
-
-  const email = String(b.email || "").trim();
-  if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) e.email = "E-mail inválido.";
-
-  if (Object.keys(e).length) return ok({ ok: false, erros: e }, 422);
+  const plano = PLANOS[d.plano];
 
   // Guarda simples contra spam: no máximo 5 pedidos por telefone em 24 h.
   const recentes = await env.DB
     .prepare("SELECT COUNT(*) AS n FROM reservas WHERE telefone = ? AND criado_em > ?")
-    .bind(telefone, new Date(Date.now() - 86400000).toISOString())
+    .bind(d.telefone, new Date(Date.now() - 86400000).toISOString())
     .first();
   if (recentes && Number(recentes.n) >= 5)
     return erro("Muitos pedidos deste telefone hoje. Fale com a operação pelo WhatsApp.", 429);
 
-  // Vaga: confere de novo agora, no servidor.
-  const dispRow = await env.DB
-    .prepare("SELECT COALESCE(SUM(pax),0) AS usado FROM reservas WHERE data = ? AND hora = ? AND status != 'cancelada'")
-    .bind(b.data, hora)
-    .first();
-  const bloqRow = await env.DB
-    .prepare("SELECT COUNT(*) AS n FROM bloqueios WHERE data = ? AND (hora = ? OR hora IS NULL)")
-    .bind(b.data, hora)
-    .first();
-
-  const usado = Number(dispRow.usado || 0);
-  const restam = cfg.capacidade - usado;
-  if (Number(bloqRow.n) > 0) return ok({ ok: false, motivo: "bloqueado", restam: 0 }, 409);
-  if (pax > restam) return ok({ ok: false, motivo: "cheio", restam: Math.max(0, restam) }, 409);
-
-  // Código sequencial, incrementado de forma atômica.
-  const inc = await env.DB
-    .prepare("UPDATE config SET valor = CAST(valor AS INTEGER) + 1 WHERE chave = 'proximo_codigo' RETURNING valor")
-    .first();
-  const numero = Number(inc.valor) - 1;
-  const codigo = "TA-" + numero;
-
   const id = crypto.randomUUID();
-  const agora = new Date().toISOString();
-  const total = plano.preco * pax;
-  const voucher = plano.voucher * pax;
-  const origem = normalizarOrigem(b.origem);
-  const seguiu = b.seguiuInstagram ? 1 : 0;
-  const igCliente = String(b.instagramCliente || "").trim().replace(/^@+/, "").slice(0, 60);
+  const criadoEm = new Date().toISOString();
+  const total = plano.preco * d.pax;
+  const voucher = plano.voucher * d.pax;
 
-  await env.DB
-    .prepare(
-      "INSERT INTO reservas " +
-      "(id, codigo, criado_em, plano, data, hora, pax, nome, telefone, email, obs, " +
-      "total, voucher, origem, origem_detalhe, como_conheceu, instagram_cliente, " +
-      "seguiu_instagram, status, canal, atualizado_em) " +
-      "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pendente', 'site', ?)"
-    )
-    .bind(
-      id, codigo, agora, b.plano, b.data, hora, pax, nome, telefone, email || null,
-      String(b.obs || "").trim().slice(0, 500) || null, total, voucher, origem,
-      String(b.origemDetalhe || "").slice(0, 200) || null,
-      String(b.comoConheceu || "").slice(0, 120) || null,
-      igCliente || null, seguiu, agora
-    )
-    .run();
+  let codigo = null;
+  for (let tentativa = 0; tentativa < 3 && !codigo; tentativa++) {
+    const candidato = gerarCodigo();
+    try {
+      const r = await env.DB
+        .prepare(SQL_INSERIR_RESERVA)
+        .bind(
+          id, candidato, criadoEm, d.plano, d.data, d.hora, d.pax, d.nome, d.telefone, d.email, d.obs,
+          total, voucher, d.origem, d.origemDetalhe, d.comoConheceu, d.igCliente, d.seguiu, cfg.capacidade
+        )
+        .run();
+      if (r.meta.changes !== 1) return await responderLotado(env, d, cfg);
+      codigo = candidato;
+    } catch (err) {
+      // Código repetido (chance mínima): sorteia outro. Qualquer outro erro sobe.
+      if (!/UNIQUE/i.test(String(err && err.message)) || tentativa === 2) throw err;
+    }
+  }
 
   await env.DB
     .prepare("INSERT INTO eventos (ts, tipo, origem, origem_detalhe, sessao, reserva_codigo) VALUES (?,?,?,?,?,?)")
-    .bind(agora, "reserva_criada", origem, String(b.origemDetalhe || "").slice(0, 200) || null,
-      String(b.sessao || "").slice(0, 40) || null, codigo)
+    .bind(criadoEm, "reserva_criada", d.origem, d.origemDetalhe, d.sessao, codigo)
     .run();
 
+  const uso = await env.DB
+    .prepare("SELECT COALESCE(SUM(pax),0) AS usado FROM reservas WHERE data = ? AND hora = ? AND status != 'cancelada'")
+    .bind(d.data, d.hora)
+    .first();
+
+  // O número do WhatsApp é o do servidor (config), nunca algo vindo do pedido.
+  const numeroWA = /^\d{12,13}$/.test(cfg.whatsapp) ? cfg.whatsapp : WHATSAPP_PADRAO;
   const mensagem = montarMensagem({
-    codigo, plano, data: b.data, hora, pax, nome, telefone, email, obs: b.obs,
-    total, voucher, origem, origemDetalhe: b.origemDetalhe, comoConheceu: b.comoConheceu,
-    igCliente, seguiu, cfg
+    codigo, plano, data: d.data, hora: d.hora, pax: d.pax, nome: d.nome, telefone: d.telefone, email: d.email, obs: d.obs,
+    total, voucher, origem: d.origem, origemDetalhe: d.origemDetalhe, comoConheceu: d.comoConheceu,
+    igCliente: d.igCliente, seguiu: d.seguiu, cfg
   });
 
   return ok({
     ok: true,
     codigo,
-    restam: restam - pax,
-    whatsapp: "https://wa.me/" + cfg.whatsapp + "?text=" + encodeURIComponent(mensagem),
+    restam: Math.max(0, cfg.capacidade - Number(uso.usado || 0)),
+    whatsapp: "https://wa.me/" + numeroWA + "?text=" + encodeURIComponent(mensagem),
     mensagem
   });
 }
 
+async function responderLotado(env, d, cfg) {
+  const uso = await env.DB
+    .prepare("SELECT COALESCE(SUM(pax),0) AS usado FROM reservas WHERE data = ? AND hora = ? AND status != 'cancelada'")
+    .bind(d.data, d.hora)
+    .first();
+  const bloq = await env.DB
+    .prepare("SELECT COUNT(*) AS n FROM bloqueios WHERE data = ? AND (hora = ? OR hora IS NULL)")
+    .bind(d.data, d.hora)
+    .first();
+  if (Number(bloq.n) > 0) return ok({ ok: false, motivo: "bloqueado", restam: 0 }, 409);
+  return ok({ ok: false, motivo: "cheio", restam: Math.max(0, cfg.capacidade - Number(uso.usado || 0)) }, 409);
+}
+
+// Origem de rastreio: lista fixa; "link:<fonte>" só com letras, números, ponto, hífen e sublinhado.
 function normalizarOrigem(raw) {
   const s = String(raw || "").toLowerCase();
   if (s.startsWith("instagram")) return "instagram";
   if (s.startsWith("google")) return "google";
   if (s.startsWith("facebook")) return "facebook";
-  if (s.startsWith("link:")) return s.slice(0, 60);
+  if (s.startsWith("link:")) {
+    const fonte = s.slice(5).replace(/[^a-z0-9._-]/g, "").slice(0, 40);
+    return fonte ? "link:" + fonte : "outro";
+  }
   if (s === "direto") return "direto";
   return "outro";
 }
@@ -681,18 +800,13 @@ function montarMensagem(d) {
 
 async function registrarEvento(b, env) {
   const tipos = ["visita", "inicio_reserva", "envio_whatsapp"];
-  if (!tipos.includes(b.tipo)) return erro("Tipo de evento inválido.");
+  if (typeof b.tipo !== "string" || !tipos.includes(b.tipo)) return erro("Tipo de evento inválido.");
+
+  const codigo = typeof b.reservaCodigo === "string" && /^TA-[A-Z0-9-]{4,32}$/.test(b.reservaCodigo) ? b.reservaCodigo : null;
 
   await env.DB
     .prepare("INSERT INTO eventos (ts, tipo, origem, origem_detalhe, sessao, reserva_codigo) VALUES (?,?,?,?,?,?)")
-    .bind(
-      new Date().toISOString(),
-      b.tipo,
-      normalizarOrigem(b.origem),
-      String(b.origemDetalhe || "").slice(0, 200) || null,
-      String(b.sessao || "").slice(0, 40) || null,
-      String(b.reservaCodigo || "").slice(0, 20) || null
-    )
+    .bind(new Date().toISOString(), b.tipo, normalizarOrigem(b.origem), normalizarDetalhe(b.origemDetalhe), normalizarSessao(b.sessao), codigo)
     .run();
 
   return ok({ ok: true });
@@ -796,6 +910,9 @@ async function adminListarReservas(env, url) {
   return ok({ ok: true, reservas: results });
 }
 
+// Código sequencial só das reservas lançadas à mão no painel (as do site usam código aleatório).
+const SQL_PROXIMO_CODIGO_MANUAL = "UPDATE config SET valor = CAST(valor AS INTEGER) + 1 WHERE chave = 'proximo_codigo' RETURNING valor";
+
 async function adminCriarReserva(request, env) {
   let b;
   try { b = await request.json(); } catch { return erro("Corpo inválido."); }
@@ -804,7 +921,7 @@ async function adminCriarReserva(request, env) {
 
   const hora = Number(b.hora);
   const inc = await env.DB
-    .prepare("UPDATE config SET valor = CAST(valor AS INTEGER) + 1 WHERE chave = 'proximo_codigo' RETURNING valor")
+    .prepare(SQL_PROXIMO_CODIGO_MANUAL)
     .first();
   const codigo = "TA-" + (Number(inc.valor) - 1);
   const agora = new Date().toISOString();
