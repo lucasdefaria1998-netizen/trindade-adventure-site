@@ -217,5 +217,48 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   }
 }
 
+
+// ---------- ETAPA 7 — wrapper de headers de segurança ----------
+{
+  const amanha = new Date(Date.now() + 864e5).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const cabecalhosOk = (r, nome) => {
+    const h = r.headers; const falta = [];
+    if (h.get("strict-transport-security") !== "max-age=31536000; includeSubDomains") falta.push("HSTS=" + h.get("strict-transport-security"));
+    if (h.get("x-frame-options") !== "SAMEORIGIN") falta.push("XFO=" + h.get("x-frame-options"));
+    if (h.get("x-content-type-options") !== "nosniff") falta.push("nosniff");
+    if (h.get("referrer-policy") !== "strict-origin-when-cross-origin") falta.push("referrer");
+    if (h.get("permissions-policy") !== "geolocation=(), microphone=(), camera=(), payment=()") falta.push("permissions");
+    const cors = [...h.keys()].filter(k => k.startsWith("access-control-"));
+    if (cors.length) falta.push("CORS: " + cors.join(","));
+    if (/preload/i.test(h.get("strict-transport-security") || "")) falta.push("HSTS com preload");
+    return falta.length ? falta.join("; ") : "";
+  };
+  for (const [caminho, status, cache] of [["/", 200, "public, max-age=0, must-revalidate"], ["/passeios/boat", 200, "public, max-age=0, must-revalidate"],
+    ["/nao-existe", 404, "no-cache"], ["/app.js?v=20261020-s06", 200, "public, max-age=86400"], ["/assets/og-v2-800.webp", 200, "public, max-age=31536000, immutable"],
+    ["/arquivo-que-nao-existe.js", 404, "no-cache"], ["/favicon.svg", 200, "public, max-age=604800"]]) {
+    const r = await pegar(caminho); await r.arrayBuffer();
+    checar(`E7  ${caminho} → ${status}, HSTS/XFO/nosniff/Referrer/Permissions e nenhum ACAO`, r.status === status && !cabecalhosOk(r), `${r.status} ${cabecalhosOk(r)}`);
+    checar(`E7  ${caminho} → cache-control inalterado (${cache})`, (r.headers.get("cache-control") || "") === cache, r.headers.get("cache-control"));
+  }
+  const api = await pegar("/api/disponibilidade?data=" + amanha); await api.arrayBuffer();
+  checar("E7  API (GET): nosniff, no-store, CSP default-src 'none' e nenhum ACAO", api.headers.get("x-content-type-options") === "nosniff" && api.headers.get("cache-control") === "no-store" &&
+    api.headers.get("content-security-policy") === "default-src 'none'; frame-ancestors 'none'" && !cabecalhosOk(api) && /^application\/json; charset=utf-8$/.test(api.headers.get("content-type")), JSON.stringify([...api.headers]));
+  for (const [nome, resp] of [["POST recusado (415)", await fetch(BASE + "/api/reservas", { method: "POST", headers: { origin: BASE, "content-type": "text/plain" }, body: "x" })],
+    ["rota inexistente (404)", await pegar("/api/nao-existe")], ["erro de método (405)", await pegar("/api/reservas")]]) {
+    await resp.arrayBuffer();
+    checar(`E7  API ${nome}: mesmos headers`, resp.headers.get("content-security-policy") === "default-src 'none'; frame-ancestors 'none'" && resp.headers.get("cache-control") === "no-store" && !cabecalhosOk(resp), `${resp.status} ${cabecalhosOk(resp)}`);
+  }
+  const barra = await pegar("/passeios/");
+  checar("E7  /passeios/ → 301 para /passeios (Location preservado)", barra.status === 301 && (barra.headers.get("location") || "").endsWith("/passeios") && !cabecalhosOk(barra), `${barra.status} ${barra.headers.get("location")} ${cabecalhosOk(barra)}`);
+  const idx = await pegar("/index.html");
+  checar("E7  /index.html → 308 para / (Location preservado)", idx.status === 308 && /\/$/.test(idx.headers.get("location") || ""), `${idx.status} ${idx.headers.get("location")}`);
+  const head = await fetch(BASE + "/", { method: "HEAD", redirect: "manual" });
+  checar("E7  HEAD / → 200 com os mesmos headers", head.status === 200 && !cabecalhosOk(head), `${head.status} ${cabecalhosOk(head)}`);
+  const cond = await fetch(BASE + "/estilo.css?v=20261020-s06", { redirect: "manual" });
+  const etag = cond.headers.get("etag"); await cond.arrayBuffer();
+  if (etag) { const r304 = await fetch(BASE + "/estilo.css?v=20261020-s06", { headers: { "if-none-match": etag }, redirect: "manual" }); await r304.arrayBuffer();
+    checar("E7  requisição condicional (304) mantém os headers", r304.status === 304 && !cabecalhosOk(r304), `${r304.status} ${cabecalhosOk(r304)}`); }
+}
+
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);
 process.exit(falhas ? 1 : 0);

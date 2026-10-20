@@ -32,34 +32,75 @@ const erro = (mensagem, status = 400, extra) =>
 
 const ERRO_GENERICO = "Erro interno. Tente de novo ou fale no WhatsApp.";
 
+/* ------------------------------ headers de segurança ------------------------------
+
+   O _headers só vale para o que sai direto do Pages (env.ASSETS); resposta
+   montada aqui (JSON da API, 404 em texto, página reescrita) não passa por ele.
+   Por isso TODA resposta sai por esta função, que garante os mesmos headers
+   em tudo: HTML, 404, arquivos, redirects e API.
+
+   - mantém o que já vem (cache-control, location, link…) e completa os quatro
+     headers-base se faltarem. O X-Frame-Options fica: frame-ancestors não vale
+     em CSP Report-Only;
+   - Strict-Transport-Security sem "preload" (não submeter ao hstspreload.org);
+   - tira todo Access-Control-*: o Pages põe "allow-origin: *" nos arquivos e o
+     site não tem consumidor de outra origem (a API recusa Origin de fora);
+   - API: JSON em UTF-8, nosniff, no-store e CSP "default-src 'none'". */
+const HEADERS_BASE = {
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "SAMEORIGIN",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "permissions-policy": "geolocation=(), microphone=(), camera=(), payment=()"
+};
+const HSTS = "max-age=31536000; includeSubDomains";
+
+function comHeadersSeguranca(resp, { api = false } = {}) {
+  const r = new Response(resp.body, resp); // cópia com headers mutáveis (redirects e respostas do ASSETS são imutáveis)
+  for (const [nome, valor] of Object.entries(HEADERS_BASE)) if (!r.headers.has(nome)) r.headers.set(nome, valor);
+  r.headers.set("strict-transport-security", HSTS);
+  for (const nome of [...r.headers.keys()]) if (nome.startsWith("access-control-")) r.headers.delete(nome);
+  if (api) {
+    r.headers.set("content-type", "application/json; charset=utf-8");
+    r.headers.set("x-content-type-options", "nosniff");
+    r.headers.set("cache-control", "no-store");
+    r.headers.set("content-security-policy", "default-src 'none'; frame-ancestors 'none'");
+  }
+  return r;
+}
+
 export default {
   async fetch(request, env) {
-    const url = new URL(request.url);
-
-    if (!url.pathname.startsWith("/api/")) {
-      try {
-        return await servirSite(request, env, url);
-      } catch (e) {
-        return env.ASSETS.fetch(request);
-      }
-    }
-
-    if (!env.DB) {
-      // Binding ainda não configurado: a API responde "indisponível" e o
-      // front-end volta sozinho para o fluxo de WhatsApp.
-      return erro("Banco de dados não configurado.", 503);
-    }
-
-    try {
-      return await rotearAPI(request, env, url);
-    } catch (e) {
-      // Nada de stack, mensagem de D1 ou SQL na resposta: o detalhe vai só
-      // para os logs do Worker, sem telefone nem e-mail inteiros.
-      console.error("[erro-api]", request.method, url.pathname, mascarar(e && e.message ? e.message : String(e)));
-      return erro(ERRO_GENERICO, 500);
-    }
+    const resposta = await tratar(request, env);
+    return comHeadersSeguranca(resposta, { api: new URL(request.url).pathname.startsWith("/api/") });
   }
 };
+
+async function tratar(request, env) {
+  const url = new URL(request.url);
+
+  if (!url.pathname.startsWith("/api/")) {
+    try {
+      return await servirSite(request, env, url);
+    } catch (e) {
+      return env.ASSETS.fetch(request);
+    }
+  }
+
+  if (!env.DB) {
+    // Binding ainda não configurado: a API responde "indisponível" e o
+    // front-end volta sozinho para o fluxo de WhatsApp.
+    return erro("Banco de dados não configurado.", 503);
+  }
+
+  try {
+    return await rotearAPI(request, env, url);
+  } catch (e) {
+    // Nada de stack, mensagem de D1 ou SQL na resposta: o detalhe vai só
+    // para os logs do Worker, sem telefone nem e-mail inteiros.
+    console.error("[erro-api]", request.method, url.pathname, mascarar(e && e.message ? e.message : String(e)));
+    return erro(ERRO_GENERICO, 500);
+  }
+}
 
 /* Tira e-mail e sequências de dígitos (telefone) de um texto antes de ele ir
    para o log. */
