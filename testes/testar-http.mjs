@@ -67,7 +67,7 @@ const arquivosFalsos = [
   "/assets/arquivo-que-nao-existe.js", "/assets/arquivo-inexistente.js", "/assets/x.css", "/assets/x.png",
   "/assets/x.jpg", "/assets/x.jpeg", "/assets/imagem-inexistente.webp", "/assets/x.svg", "/assets/x.ico",
   "/assets/x.json", "/assets/fonte.woff2", "/assets/fonte.ttf", "/assets/sem-extensao", "/vendor/x.min.js",
-  "/nao-existe.js", "/nao-existe.css", "/favicon.ico", "/manifest.json", "/_worker.js", "/LEIA-ME.md"
+  "/nao-existe.js", "/nao-existe.css", "/_worker.js", "/LEIA-ME.md"
 ];
 for (const c of arquivosFalsos) {
   const r = await pegar(c);
@@ -88,6 +88,9 @@ for (const [c, tipo, cache] of [
   ["/estilo.css?v=20261005-rotas", "text/css", "max-age=86400"],
   ["/motion.js?v=20261005-rotas", "javascript", "max-age=86400"],
   ["/favicon.svg", "image/svg", "max-age=604800"],
+  ["/favicon.ico", "icon", "max-age=604800"],
+  ["/apple-touch-icon.png", "image/png", "max-age=604800"],
+  ["/manifest.json", "json", "max-age=86400"],
   ["/robots.txt", "text/plain", ""],
   ["/sitemap.xml", "xml", ""]
 ]) {
@@ -96,6 +99,19 @@ for (const [c, tipo, cache] of [
   checar(`T4  ${c} → 200 ${tipo}`, r.status === 200 && (r.headers.get("content-type") || "").includes(tipo),
     `${r.status} ${r.headers.get("content-type")}`);
   if (cache) checar(`T4  ${c} → cache "${cache}"`, (r.headers.get("cache-control") || "").includes(cache), r.headers.get("cache-control"));
+}
+
+// ---------- ETAPA 1 — ícones e manifest em todas as rotas ----------
+{
+  const m = await (await pegar("/manifest.json")).json().catch(() => null);
+  checar("E1  manifest.json é JSON válido com nome e ícones", !!m && m.name === "Trindade Adventure" && m.icons.length >= 2, JSON.stringify(m));
+  for (const c of ["/", "/passeios/boat", "/historia"]) {
+    const doc = await (await pegar(c)).text();
+    checar(`E1  ${c} → link do manifest e apple-touch-icon novo`,
+      doc.includes('<link rel="manifest" href="/manifest.json">') && doc.includes('<link rel="apple-touch-icon" href="/apple-touch-icon.png">'));
+  }
+  const lenis = readFileSync(new URL("../site/vendor/lenis-1.3.11.min.js", import.meta.url), "utf8");
+  checar("E1  lenis sem sourceMappingURL", !lenis.includes("sourceMappingURL"));
 }
 
 // ---------- TESTES 5/6/7 — metadados de cada página ----------

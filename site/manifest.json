@@ -1,0 +1,13 @@
+{
+  "name": "Trindade Adventure",
+  "short_name": "Trindade Adventure",
+  "start_url": "/",
+  "scope": "/",
+  "display": "browser",
+  "theme_color": "#0d6b38",
+  "background_color": "#f4f0e6",
+  "icons": [
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
