@@ -442,12 +442,32 @@ function aplicarMetadados(resposta, m, naoEncontrada, env, rota) {
 
   rw = reescreverTitulos(rw, rota);
 
-  // Sem JavaScript, a seção "não encontrada" fica escondida em todas as
-  // páginas; numa resposta 404 ela precisa aparecer.
-  if (naoEncontrada) {
-    rw = rw.on('[data-secao="nao-encontrada"]', { element(el) { el.removeAttribute("hidden"); } });
-  }
+  rw = reescreverSecoes(rw, rota);
   return rw.transform(resposta);
+}
+
+/* A página já sai do servidor com o estado final: só a seção da rota visível (as outras com hidden) e,
+   em /passeios/<plano>, a aba e o painel do plano abertos. Antes, o HTML vinha com todas as seções
+   visíveis e o app.js escondia depois — a tela encolhia de repente (CLS 0,7 a 0,9 em /passeios).
+   Sem JavaScript a página também fica certa: /contato mostra só o contato; a seção "não encontrada"
+   só aparece na resposta 404. O app.js, na primeira carga, encontra tudo no lugar e não mexe em nada. */
+function reescreverSecoes(rw, rota) {
+  const plano = rota && rota.foco && rota.foco.plano;
+  rw = rw.on("[data-secao]", { element(el) {
+    if (el.getAttribute("data-secao") === rota.secao) el.removeAttribute("hidden"); else el.setAttribute("hidden", "");
+  } });
+  if (plano) {
+    rw = rw
+      .on("[data-aba]", { element(el) {
+        const aberta = el.getAttribute("data-aba") === plano;
+        el.setAttribute("aria-selected", aberta ? "true" : "false");
+        if (aberta) el.removeAttribute("tabindex"); else el.setAttribute("tabindex", "-1");
+      } })
+      .on(".painel-roteiro", { element(el) {
+        if (el.getAttribute("id") === "roteiro-" + plano) el.removeAttribute("hidden"); else el.setAttribute("hidden", "");
+      } });
+  }
+  return rw;
 }
 
 /* Um <h1> por página. O HTML traz o título de cada seção como <h1 data-titulo> (todas as seções vêm

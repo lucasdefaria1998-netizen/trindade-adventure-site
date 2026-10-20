@@ -556,7 +556,12 @@ $$("[data-aba]").forEach(b => {
     mostrarRoteiro(b.dataset.aba);
     // Endereço e metadados do roteiro escolhido, sem empilhar no histórico.
     const destino = "/passeios/" + b.dataset.aba;
-    if (location.pathname !== destino) { history.replaceState(null, "", destino); aplicarMetadados(lerRota()); }
+    if (location.pathname !== destino) {
+      history.replaceState(null, "", destino);
+      const rota = lerRota();
+      aplicarMetadados(rota);
+      ajustarH1(rota); // o título da página acompanha a aba (S12)
+    }
   });
   // Setas do teclado trocam de aba, como o padrão de abas do WAI-ARIA.
   b.addEventListener("keydown", e => {

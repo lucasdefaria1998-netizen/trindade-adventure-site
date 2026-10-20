@@ -326,5 +326,31 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("E12 /passeios/boat: título da seção virou h2 e conserva classes e ids", /<h2 data-titulo>Roteiros e preços<\/h2>/.test(boat) && /<h2 data-titulo id="titulo-pescaria">Pescaria em Alto Mar<\/h2>/.test(boat) && /<h1 data-titulo-foco>Trindade Boat<\/h1>/.test(boat), "");
 }
 
+
+// ---------- ETAPA 13 — seção ativa já no HTML do servidor ----------
+{
+  const rotas = [...new Set([...Object.keys(SITE.paginas), "/cameras", "/nao-existe"])];
+  const tabela = [];
+  for (const c of rotas) {
+    const r = await pegar(c); const doc = await r.text();
+    const secoes = [...doc.matchAll(/<section\b[^>]*\bdata-secao="([^"]+)"[^>]*>/g)].map(m => ({ nome: m[1], oculta: /\shidden(\s|=|>)/.test(m[0]) }));
+    const visiveis = secoes.filter(s => !s.oculta).map(s => s.nome);
+    const esperada = c === "/nao-existe" ? "nao-encontrada" : SITE.paginas[c].secao;
+    tabela.push([c, visiveis.join(",")]);
+    checar(`E13 ${c} → exatamente 1 seção visível, a da rota (${esperada})`, secoes.length === 11 && visiveis.length === 1 && visiveis[0] === esperada, JSON.stringify(visiveis));
+  }
+  for (const plano of ["essencial", "adventure", "boat"]) {
+    const doc = await (await pegar("/passeios/" + plano)).text();
+    const abas = Object.fromEntries([...doc.matchAll(/<button[^>]*\bdata-aba="([^"]+)"[^>]*>/g)].map(m => [m[1], { sel: /aria-selected="true"/.test(m[0]), tabindex: (m[0].match(/tabindex="(-?\d+)"/) || [])[1] }]));
+    const paineis = Object.fromEntries([...doc.matchAll(/<div class="painel-roteiro" id="roteiro-([a-z]+)"[^>]*>/g)].map(m => [m[1], /\shidden(\s|=|>)/.test(m[0])]));
+    const certo = Object.keys(abas).every(k => abas[k].sel === (k === plano) && (k === plano ? abas[k].tabindex === undefined : abas[k].tabindex === "-1")) && Object.keys(paineis).every(k => paineis[k] === (k !== plano));
+    checar(`E13 /passeios/${plano} → aba e painel do ${plano} abertos no HTML, os outros fechados`, certo, JSON.stringify({ abas, paineis }));
+  }
+  const geral = await (await pegar("/passeios")).text();
+  checar("E13 /passeios (sem plano) mantém a aba Essencial aberta", /id="roteiro-essencial"[^>]*>/.test(geral) && !/id="roteiro-essencial"[^>]*\shidden/.test(geral) && /id="roteiro-boat"[^>]*\shidden/.test(geral));
+  const nf = await (await pegar("/nao-existe")).text();
+  checar("E13 a seção \"não encontrada\" só aparece na resposta 404", /id="nao-encontrada"[^>]*data-secao="nao-encontrada">/.test(nf) && !/id="nao-encontrada"[^>]*hidden/.test(nf) && /id="nao-encontrada"[^>]*\shidden/.test(await (await pegar("/")).text()));
+}
+
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);
 process.exit(falhas ? 1 : 0);
