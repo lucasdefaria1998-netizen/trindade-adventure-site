@@ -138,6 +138,28 @@ mantendo `?fonte=` do rastreamento.
   um ano.
 - `/cameras` sai com `noindex` e fora do sitemap enquanto não houver câmera real.
 
+### Regra: mudou o arquivo, mude o `?v=`
+
+`boot.js`, `app.js`, `motion.js`, `pescaria-galeria.js` e `estilo.css` são
+chamados no `index.html` com `?v=…`. Quando o pedido traz `?v=` (formato
+`A-Z a-z 0-9 . _ -`, até 40 caracteres), o `_worker.js` responde
+`Cache-Control: public, max-age=31536000, immutable`: o navegador guarda por um
+ano e **só busca de novo se o `?v=` mudar**. Sem `?v=`, vale o cache curto de
+1 dia do `_headers`. HTML, `/api/*`, `sitemap.xml`, `robots.txt` e `/admin` não
+mudam.
+
+Por isso, **alterou qualquer um desses cinco arquivos? Troque o `?v=` dele no
+`index.html`** (ex.: `20261020-s17`), senão quem já visitou fica com a versão
+antiga por até um ano — inclusive com um bug de reserva. O script
+`testes/check-versao.mjs` confere (e é rodado antes de cada commit): falha se o
+conteúdo mudou sem o `?v=` mudar.
+
+    node testes/check-versao.mjs              # conferir
+    node testes/check-versao.mjs --atualizar  # depois de trocar o ?v=, registrar no versoes.json
+
+O registro (`?v=` + hash do conteúdo) fica em `versoes.json`, na raiz do
+repositório (fora de `site/`, não é publicado).
+
 ## Testar antes de publicar
 
 Com Node instalado, a partir da pasta `testes/` (banco D1 **local**, nada vai

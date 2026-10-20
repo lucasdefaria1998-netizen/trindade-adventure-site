@@ -86,9 +86,11 @@ for (const [c, tipo, cache] of [
   ["/assets/og-v2.jpg", "image/jpeg", "immutable"],
   ["/assets/piscina-v2-800.webp", "image/webp", "immutable"],
   ["/vendor/lenis-1.3.11.min.js", "javascript", "immutable"],
-  ["/app.js?v=20261005-rotas", "javascript", "max-age=86400"],
-  ["/estilo.css?v=20261005-rotas", "text/css", "max-age=86400"],
-  ["/motion.js?v=20261005-rotas", "javascript", "max-age=86400"],
+  ["/app.js?v=20261005-rotas", "javascript", "max-age=31536000, immutable"],
+  ["/estilo.css?v=20261005-rotas", "text/css", "max-age=31536000, immutable"],
+  ["/motion.js?v=20261005-rotas", "javascript", "max-age=31536000, immutable"],
+  ["/app.js", "javascript", "max-age=86400"],
+  ["/estilo.css", "text/css", "max-age=86400"],
   ["/favicon.svg", "image/svg", "max-age=604800"],
   ["/favicon.ico", "icon", "max-age=604800"],
   ["/apple-touch-icon.png", "image/png", "max-age=604800"],
@@ -234,7 +236,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     return falta.length ? falta.join("; ") : "";
   };
   for (const [caminho, status, cache] of [["/", 200, "public, max-age=0, must-revalidate"], ["/passeios/boat", 200, "public, max-age=0, must-revalidate"],
-    ["/nao-existe", 404, "no-cache"], ["/app.js?v=20261020-s06", 200, "public, max-age=86400"], ["/assets/og-v2-800.webp", 200, "public, max-age=31536000, immutable"],
+    ["/nao-existe", 404, "no-cache"], ["/app.js?v=20261020-s06", 200, "public, max-age=31536000, immutable"], ["/assets/og-v2-800.webp", 200, "public, max-age=31536000, immutable"],
     ["/arquivo-que-nao-existe.js", 404, "no-cache"], ["/favicon.svg", 200, "public, max-age=604800"]]) {
     const r = await pegar(caminho); await r.arrayBuffer();
     checar(`E7  ${caminho} → ${status}, HSTS/XFO/nosniff/Referrer/Permissions e nenhum ACAO`, r.status === status && !cabecalhosOk(r), `${r.status} ${cabecalhosOk(r)}`);
@@ -411,6 +413,70 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("E16 app.js: nenhum style= em template (valores dinâmicos pelo CSSOM)", !/style="/.test(app) && app.includes('style.setProperty("--capacity-ratio"') && app.includes("el.style.background = el.dataset.cor"));
   const css = readFileSync(new URL("../site/estilo.css", import.meta.url), "utf8");
   checar("E16 estilo.css tem as classes que substituíram os style= (sprite-oculto, foco-62, sem-mapa)", css.includes(".sprite-oculto{position:absolute}") && css.includes(".tour-media img.foco-62{object-position:50% 62%}") && css.includes(".mapa-nota.sem-mapa{margin:0 0 14px}"));
+}
+
+// ---------- ETAPA 17 — cache longo só para JS/CSS com ?v= ----------
+{
+  const { execFileSync, spawnSync } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const { cpSync, mkdtempSync, rmSync, appendFileSync, writeFileSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const amanha = new Date(Date.now() + 864e5).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const home = await (await pegar("/")).text();
+  const versoes = Object.fromEntries(["boot.js", "app.js", "motion.js", "pescaria-galeria.js", "estilo.css"].map(n => [n, (home.match(new RegExp("/" + n.replace(".", "\\.") + "\\?v=([A-Za-z0-9._-]+)")) || [])[1]]));
+  for (const [nome, v] of Object.entries(versoes)) {
+    const r = await pegar(`/${nome}?v=${v}`); await r.arrayBuffer();
+    checar(`E17 /${nome}?v=${v} → 200 com "public, max-age=31536000, immutable"`, r.status === 200 && r.headers.get("cache-control") === "public, max-age=31536000, immutable", `${r.status} ${r.headers.get("cache-control")}`);
+    const s = await pegar(`/${nome}`); await s.arrayBuffer();
+    checar(`E17 /${nome} (sem ?v=) → não é immutable`, s.status === 200 && !/immutable/.test(s.headers.get("cache-control") || ""), s.headers.get("cache-control"));
+    const ruim = await pegar(`/${nome}?v=${encodeURIComponent("x y<z>")}`); await ruim.arrayBuffer();
+    checar(`E17 /${nome}?v= inválido → não é immutable`, !/immutable/.test(ruim.headers.get("cache-control") || ""), ruim.headers.get("cache-control"));
+  }
+  const vazio = await pegar("/app.js?v="); await vazio.arrayBuffer();
+  checar("E17 /app.js?v= (vazio) → não é immutable", !/immutable/.test(vazio.headers.get("cache-control") || ""), vazio.headers.get("cache-control"));
+  const naoVersionado = await pegar("/manifest.json?v=1"); await naoVersionado.arrayBuffer();
+  checar("E17 outros arquivos com ?v= (manifest.json) mantêm o cache do _headers", naoVersionado.headers.get("cache-control") === "public, max-age=86400", naoVersionado.headers.get("cache-control"));
+  const falso = await pegar("/arquivo-que-nao-existe.js?v=1"); await falso.arrayBuffer();
+  checar("E17 arquivo inexistente com ?v= → 404 no-cache (nunca immutable)", falso.status === 404 && falso.headers.get("cache-control") === "no-cache", `${falso.status} ${falso.headers.get("cache-control")}`);
+  const raizHtml = await pegar("/"); await raizHtml.arrayBuffer();
+  checar("E17 HTML inalterado: / → max-age=0, must-revalidate", raizHtml.headers.get("cache-control") === "public, max-age=0, must-revalidate", raizHtml.headers.get("cache-control"));
+  const dispo = await pegar("/api/disponibilidade?data=" + amanha); await dispo.arrayBuffer();
+  checar("E17 API inalterada: no-store", dispo.headers.get("cache-control") === "no-store", dispo.headers.get("cache-control"));
+  for (const c of ["/sitemap.xml", "/robots.txt"]) { const r = await pegar(c); await r.arrayBuffer(); checar(`E17 ${c} inalterado (max-age=3600)`, r.headers.get("cache-control") === "public, max-age=3600", r.headers.get("cache-control")); }
+  const admin = await pegar("/admin"); await admin.arrayBuffer();
+  checar("E17 /admin não ganhou cache longo", !/immutable|max-age=[1-9]/.test(admin.headers.get("cache-control") || ""), admin.headers.get("cache-control"));
+
+  // Toda referência aos arquivos versionados tem ?v= (index.html e app.js). O _worker.js só guarda a LISTA de nomes
+  // (VERSIONADOS), que não é uma referência para carregar o arquivo.
+  const fontes = ["index.html", "app.js"].map(f => [f, readFileSync(new URL("../site/" + f, import.meta.url), "utf8")]);
+  for (const [f, txt] of fontes) {
+    const semV = [...txt.matchAll(/["'`(=]\/(app|motion|pescaria-galeria|boot)\.js(?!\?v=)|["'`(=]\/estilo\.css(?!\?v=)/g)].map(m => m[0]);
+    checar(`E17 ${f}: toda referência a app/motion/pescaria-galeria/boot.js e estilo.css tem ?v=`, semV.length === 0, semV.join(" "));
+  }
+
+  // O script de checagem: passa no estado atual e FALHA se um byte do app.js muda sem o ?v= mudar (numa cópia; nada é alterado no repositório)
+  const raizRepo = fileURLToPath(new URL("..", import.meta.url));
+  const script = fileURLToPath(new URL("./check-versao.mjs", import.meta.url));
+  const ok = spawnSync(process.execPath, [script], { encoding: "utf8" });
+  checar("E17 check-versao.mjs passa no estado atual", ok.status === 0, ok.stdout + ok.stderr);
+  const tmp = mkdtempSync(join(tmpdir(), "versao-"));
+  try {
+    cpSync(raizRepo + "site", tmp + "/site", { recursive: true, filter: s => !/[\\/]assets[\\/]/.test(s) });
+    cpSync(raizRepo + "versoes.json", tmp + "/versoes.json");
+    appendFileSync(tmp + "/site/app.js", " ");
+    const mudou = spawnSync(process.execPath, [script, "--raiz", tmp], { encoding: "utf8" });
+    checar("E17 check-versao.mjs sai com erro quando o app.js muda 1 byte sem trocar o ?v=", mudou.status === 1 && /app\.js: o conteúdo mudou mas o \?v= continua/.test(mudou.stderr), mudou.stdout + mudou.stderr);
+    const idx = readFileSync(tmp + "/site/index.html", "utf8");
+    writeFileSync(tmp + "/site/index.html", idx.replace(/\/app\.js\?v=[A-Za-z0-9._-]+/, "/app.js?v=teste-novo"));
+    const trocou = spawnSync(process.execPath, [script, "--raiz", tmp], { encoding: "utf8" });
+    checar("E17 com o ?v= trocado mas sem registrar, ainda pede --atualizar", trocou.status === 1 && /falta registrar/.test(trocou.stderr), trocou.stderr);
+    const registrou = spawnSync(process.execPath, [script, "--raiz", tmp, "--atualizar"], { encoding: "utf8" });
+    const depois = spawnSync(process.execPath, [script, "--raiz", tmp], { encoding: "utf8" });
+    checar("E17 depois de trocar o ?v= e rodar --atualizar, volta a passar", registrou.status === 0 && depois.status === 0, registrou.stderr + depois.stderr);
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  const intacto = spawnSync(process.execPath, [script], { encoding: "utf8" });
+  checar("E17 o repositório continua intacto depois da demonstração (check-versao passa)", intacto.status === 0, intacto.stderr);
 }
 
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);

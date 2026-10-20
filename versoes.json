@@ -1,0 +1,22 @@
+{
+  "boot.js": {
+    "v": "20261020-s16",
+    "sha256": "4759b0358431d0b5902fc8de4ef12f4101a176cfe18784df1d897c47a54cc821"
+  },
+  "app.js": {
+    "v": "20261020-s16",
+    "sha256": "8efadb2b5105dd49bc64ef54278ce72cd8cbda635d9ee69cc587308e7036dcb6"
+  },
+  "motion.js": {
+    "v": "20261020-s15",
+    "sha256": "b7338862fd377dc04e18e53a234d34924cc59d003990d416db0fa0a73a35c14a"
+  },
+  "pescaria-galeria.js": {
+    "v": "20261005-rotas",
+    "sha256": "fd0e859e0fbfd486f8840402c3eb610a3dbf71504af0469ef34c44c4cca9c183"
+  },
+  "estilo.css": {
+    "v": "20261020-s16",
+    "sha256": "a6c3904e29b36df9a680510a16711280b7e3458b2f0d2e3bda041a21f0dbcd33"
+  }
+}

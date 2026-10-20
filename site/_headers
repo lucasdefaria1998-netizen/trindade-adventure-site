@@ -36,13 +36,18 @@
 /vendor/*
   Cache-Control: public, max-age=31536000, immutable
 
+# JS e CSS próprios: aqui vale o cache curto (1 dia), para pedido SEM ?v=. Pedido com ?v= (como o
+# index.html faz) recebe "public, max-age=31536000, immutable" do _worker.js (VERSIONADOS), porque este
+# arquivo não enxerga query string. Mudou o arquivo, mude o ?v= — testes/check-versao.mjs confere.
 /estilo.css
   Cache-Control: public, max-age=86400
 
 /app.js
   Cache-Control: public, max-age=86400
 
-# Também versionados por ?v= no index.html, como o app.js.
+/boot.js
+  Cache-Control: public, max-age=86400
+
 /motion.js
   Cache-Control: public, max-age=86400
 

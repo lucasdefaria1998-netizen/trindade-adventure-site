@@ -329,7 +329,7 @@ async function servirSite(request, env, url) {
   if (destino) return Response.redirect(url.origin + destino + url.search, 301);
 
   if (EXTENSAO.test(p) || p.startsWith("/assets/") || p.startsWith("/vendor/")) {
-    return servirArquivo(request, env, p);
+    return servirArquivo(request, env, p, url);
   }
 
   // /passeios/ e /passeios são o mesmo endereço: fica um só, sem barra no fim.
@@ -340,7 +340,15 @@ async function servirSite(request, env, url) {
   return servirPagina(request, env, url);
 }
 
-async function servirArquivo(request, env, p) {
+/* JS e CSS próprios do site, referenciados no index.html com ?v=. O _headers não enxerga query string,
+   então a regra "com ?v= guarda por um ano" mora aqui. Sem ?v= (ou com ?v= fora do formato), o
+   cache-control do _headers (1 dia) continua valendo. Quem muda um desses arquivos tem de mudar o ?v=
+   no index.html — testes/check-versao.mjs confere isso. */
+const VERSIONADOS = new Set(["/boot.js", "/app.js", "/motion.js", "/pescaria-galeria.js", "/estilo.css"]);
+const VERSAO_VALIDA = /^[A-Za-z0-9._-]{1,40}$/;
+const CACHE_VERSIONADO = "public, max-age=31536000, immutable";
+
+async function servirArquivo(request, env, p, url) {
   const r = await env.ASSETS.fetch(request);
   const tipo = r.headers.get("content-type") || "";
   const pediuHTML = /\.html?$/i.test(p);
@@ -348,6 +356,11 @@ async function servirArquivo(request, env, p) {
   // responder o index.html no lugar de um arquivo, isso não chega ao visitante.
   const ehFallbackDaSPA = r.status === 200 && !pediuHTML && tipo.includes("text/html");
   if (r.status === 404 || ehFallbackDaSPA) return arquivoNaoEncontrado(r);
+  if ((r.status === 200 || r.status === 304) && VERSIONADOS.has(p) && VERSAO_VALIDA.test((url && url.searchParams.get("v")) || "")) {
+    const versionado = new Response(r.body, r);
+    versionado.headers.set("cache-control", CACHE_VERSIONADO);
+    return versionado;
+  }
   return r;
 }
 
