@@ -792,7 +792,7 @@ function desenharPlanos() {
     return `<button type="button" class="plano-opcao" data-plano="${p.id}" aria-pressed="${sel}">
       <span class="plano-nome">${p.nome}</span>
       <span class="plano-preco"><b>${BRL(p.preco)}</b> <span>por pessoa</span></span>
-      <span class="plano-info">${p.horarios ? "Saída única às " + horariosDoPlano(p).map(horaLabel).join(" e ") : "Saídas " + faixaDeHorarios(p, "hhmm").replace(/^de /, "das ")} · ${p.dur}</span>
+      <span class="plano-info">${p.horarios ? "Encontro às " + horariosDoPlano(p).map(horaLabel).join(" e ") + ", saída às " + horariosDoPlano(p).map(h => saidaLabel(h)).join(" e ") : "Saídas " + faixaDeHorarios(p, "hhmm").replace(/^de /, "das ")} · ${p.dur}</span>
       ${p.voucher ? `<span class="plano-info">Inclui voucher de ${BRL(p.voucher)} no almoço</span>` : ""}
     </button>`;
   }).join("");
@@ -862,7 +862,7 @@ function pintarHorarios() {
     const ultimaGeral = grade ? Math.max(...Object.keys(grade).map(Number)) : CFG.slotFim;
     const cortado = !p.horarios && horas.length && horas[horas.length - 1] < ultimaGeral;
     aviso.textContent = p.horarios
-      ? `${p.nome} tem saída única às ${horas.map(horaLabel).join(" e ")}.`
+      ? `${p.nome} tem encontro às ${horas.map(horaLabel).join(" e ")} e saída às ${horas.map(h => saidaLabel(h)).join(" e ")}.`
       : `Saídas de hora em hora, ${faixaDeHorarios(p, "hhmm").replace(/^de /, "das ")}.` +
         (cortado ? ` O roteiro dura ${p.dur.replace("≈ ", "cerca de ")}, por isso não há saída mais tarde.` : "");
   }
@@ -943,7 +943,7 @@ function desenharResumo() {
 }
 
 function desenharReserva() {
-  // Trocar de plano pode invalidar o horário escolhido (o barco só sai 8:30).
+  // Trocar de plano pode invalidar o horário escolhido (o Trindade Boat só tem encontro às 8:30).
   const p = planoPor(reserva.plano);
   if (reserva.hora !== null && !horariosDoPlano(p).includes(reserva.hora)) reserva.hora = null;
   desenharPlanos(); desenharDatas(); desenharHorarios(); desenharPax(); desenharResumo();
@@ -1606,7 +1606,7 @@ function cenaPousada(indice) {
 const CAMERAS = [
   { nome:"Praia do Meio — ponto de encontro", local:"Entrada das trilhas", cena:"praia" },
   { nome:"Início da Trilha do Cachadaço",     local:"Portal da trilha",    cena:"trilha" },
-  { nome:"Píer de embarque",                  local:"Trindade Boat · 8:30", cena:"pier" },
+  { nome:"Píer de embarque",                  local:"Trindade Boat · saída 8:50", cena:"pier" },
   { nome:"Estacionamento / recepção",         local:"Sede operacional",     cena:"sede" }
 ];
 

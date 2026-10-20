@@ -260,5 +260,23 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     checar("E7  requisição condicional (304) mantém os headers", r304.status === 304 && !cabecalhosOk(r304), `${r304.status} ${cabecalhosOk(r304)}`); }
 }
 
+
+// ---------- ETAPA 9 — horário do Trindade Boat (encontro 08:30, saída 08:50) ----------
+{
+  const rotas = ["/", "/passeios", "/passeios/boat", "/contato", "/termos-do-passeio", "/reservar"];
+  for (const c of rotas) {
+    const doc = await (await pegar(c)).text();
+    checar(`E9  ${c} não diz mais "saída única às 8h30/08:30"`, !/saída única às 0?8[h:]30/i.test(doc) && !/Saída única · 8h30/.test(doc), (doc.match(/.{30}saída única.{20}/i) || [""])[0]);
+  }
+  const boat = await (await pegar("/passeios/boat")).text();
+  checar("E9  /passeios/boat: card e meta dizem encontro 8h30 e saída 8h50", boat.includes("encontro às 8h30, saída às 8h50") && boat.includes("encontro às 8h30 e saída às 8h50, R$ 400"), "");
+  checar("E9  /contato: Trindade Boat com encontro e saída", (await (await pegar("/contato")).text()).includes("encontro às 08:30, saída às 08:50"));
+  checar("E9  Termos §4: encontro às 8h30 e saída às 8h50", (await (await pegar("/termos-do-passeio")).text()).includes("O Trindade Boat tem encontro às 8h30 e saída às 8h50."));
+  const app = await (await pegar("/app.js?v=20261020-s09")).text();
+  checar("E9  app.js: rótulos do Boat com encontro e saída", app.includes('"Encontro às "') && app.includes("tem encontro às"), "");
+  const worker = readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
+  checar("E9  _worker.js: mesmo texto do client (Horário: … — saída …) e o cálculo (saidaApos) não mudou", worker.includes('"Horário: " + horaLabel(d.hora) + " — saída " + saidaLabel(d.hora, cfg)') && worker.includes("const t = Math.round(h * 60) + cfg.saidaApos;"), "");
+}
+
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);
 process.exit(falhas ? 1 : 0);
