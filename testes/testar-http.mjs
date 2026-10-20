@@ -415,6 +415,32 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("E16 estilo.css tem as classes que substituíram os style= (sprite-oculto, foco-62, sem-mapa)", css.includes(".sprite-oculto{position:absolute}") && css.includes(".tour-media img.foco-62{object-position:50% 62%}") && css.includes(".mapa-nota.sem-mapa{margin:0 0 14px}"));
 }
 
+// ---------- ETAPA 18 — CSP em Report-Only (só HTML) ----------
+{
+  const esperada = ["default-src 'self'", "script-src 'self' https://challenges.cloudflare.com", "style-src 'self' https://fonts.googleapis.com", "style-src-attr 'none'",
+    "font-src 'self' https://fonts.gstatic.com", "img-src 'self' data: https://tile.openstreetmap.org", "connect-src 'self' https://api.open-meteo.com https://marine-api.open-meteo.com",
+    "frame-src https://challenges.cloudflare.com", "frame-ancestors 'self'", "base-uri 'self'", "form-action 'self'", "object-src 'none'", "report-uri /api/csp-report", "report-to csp"].join("; ");
+  for (const [c, status] of [["/", 200], ["/passeios/boat", 200], ["/nao-existe", 404], ["/reservar", 200], ["/pescaria", 200]]) {
+    const r = await pegar(c); await r.arrayBuffer(); const h = r.headers;
+    checar(`E18 ${c} → ${status} com Content-Security-Policy-Report-Only igual à política definida`, r.status === status && h.get("content-security-policy-report-only") === esperada, h.get("content-security-policy-report-only"));
+    checar(`E18 ${c}: Reporting-Endpoints, X-Frame-Options, HSTS sem preload, nenhum ACAO, e nada em enforce`,
+      h.get("reporting-endpoints") === 'csp="/api/csp-report"' && h.get("x-frame-options") === "SAMEORIGIN" && h.get("strict-transport-security") === "max-age=31536000; includeSubDomains" &&
+      ![...h.keys()].some(k => k.startsWith("access-control-")) && !h.has("content-security-policy"), JSON.stringify([...h]));
+  }
+  const head = await fetch(BASE + "/passeios/boat", { method: "HEAD", redirect: "manual" });
+  checar("E18 HEAD /passeios/boat também leva a CSP Report-Only", head.headers.get("content-security-policy-report-only") === esperada);
+  checar("E18 a política tem tile.openstreetmap.org sem curinga e nenhum unsafe-* em lugar nenhum", esperada.includes("https://tile.openstreetmap.org") && !esperada.includes("*.tile") && !/unsafe-/.test(esperada));
+  checar("E18 script-src só com 'self' e o Turnstile (sem inline/eval/hashes)", /script-src 'self' https:\/\/challenges\.cloudflare\.com(;|$)/.test(esperada));
+  for (const c of ["/app.js?v=20261020-s16", "/estilo.css?v=20261020-s16", "/assets/og-v2-800.webp", "/manifest.json", "/sitemap.xml", "/api/disponibilidade?data=2030-01-01", "/admin", "/passeios/"]) {
+    const r = await pegar(c); await r.arrayBuffer();
+    checar(`E18 ${c} (não é página do site) não leva a CSP do site`, !r.headers.has("content-security-policy-report-only") || r.headers.get("content-security-policy-report-only") === "" , r.headers.get("content-security-policy-report-only"));
+  }
+  const pg = readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
+  checar("E18 _worker.js: CSP_SITE não contém unsafe-inline/unsafe-eval/unsafe-hashes", !/unsafe-(inline|eval|hashes)/.test(pg.slice(pg.indexOf("const CSP_SITE"), pg.indexOf("function comHeadersSeguranca"))));
+  checar("E18 o X-Frame-Options não foi removido do wrapper nem do _headers", pg.includes('"x-frame-options": "SAMEORIGIN"') && readFileSync(new URL("../site/_headers", import.meta.url), "utf8").includes("X-Frame-Options: SAMEORIGIN"));
+}
+
+
 // ---------- ETAPA 17 — cache longo só para JS/CSS com ?v= ----------
 {
   const { execFileSync, spawnSync } = await import("node:child_process");

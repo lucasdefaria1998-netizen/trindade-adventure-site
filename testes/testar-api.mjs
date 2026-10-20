@@ -385,4 +385,48 @@ const restamEm = async (dia, hora) => (await (await fetch(`${BASE}/api/disponibi
   checar("E6  verificação: resposta 5xx da Cloudflare → indisponível", http500.motivo === "indisponivel", JSON.stringify(http500));
 }
 
+// ---------- ETAPA 18 — /api/csp-report ----------
+{
+  const relatorio = { "csp-report": { "document-uri": "http://127.0.0.1:8788/passeios/boat?plano=boat&nome=Maria", "effective-directive": "script-src-elem", "blocked-uri": "https://evil.example/x.js?token=segredo#frag", "violated-directive": "script-src-elem", "original-policy": "default-src 'self'", "source-file": "http://127.0.0.1:8788/app.js", "line-number": 10 } };
+  const sem = (c, extra = {}) => post("/api/csp-report", { corpo: relatorio, tipo: "application/csp-report", origem: "", ...extra, ...c });
+  const ok1 = await sem({});
+  checar("E18 csp-report (application/csp-report, sem Origin) → 204 sem corpo", ok1.status === 204 && (await ok1.text()) === "", ok1.status);
+  const lista = [{ type: "csp-violation", url: "http://127.0.0.1:8788/reservar?x=1", body: { effectiveDirective: "style-src-attr", blockedURL: "inline", documentURL: "http://127.0.0.1:8788/reservar?x=1" } }];
+  const ok2 = await post("/api/csp-report", { corpo: lista, tipo: "application/reports+json", origem: "" });
+  checar("E18 csp-report (application/reports+json, lista) → 204", ok2.status === 204, ok2.status);
+  const ok3 = await post("/api/csp-report", { corpo: relatorio, tipo: "application/csp-report" });
+  checar("E18 csp-report com Origin do próprio site → 204", ok3.status === 204, ok3.status);
+  const ruim = await post("/api/csp-report", { corpo: relatorio, tipo: "application/csp-report", origem: "https://evil.example" });
+  checar("E18 csp-report com Origin de fora → 403", ruim.status === 403, ruim.status);
+  const txt = await sem({ tipo: "text/plain" });
+  checar("E18 csp-report com text/plain → 415", txt.status === 415, txt.status);
+  const json = await sem({ tipo: "application/json" });
+  checar("E18 csp-report com application/json → 415 (só os dois tipos de relatório)", json.status === 415, json.status);
+  const grande = await post("/api/csp-report", { bruto: JSON.stringify({ "csp-report": { x: "a".repeat(20 * 1024) } }), tipo: "application/csp-report", origem: "" });
+  checar("E18 csp-report com corpo de 20 KB → 413", grande.status === 413, grande.status);
+  const get = await fetch(BASE + "/api/csp-report", { redirect: "manual" });
+  checar("E18 GET /api/csp-report → 405 com Allow: POST", get.status === 405 && get.headers.get("allow") === "POST", get.status);
+  const lixo = await post("/api/csp-report", { bruto: "não é json", tipo: "application/csp-report", origem: "" });
+  checar("E18 corpo que não é JSON → 400", lixo.status === 400, lixo.status);
+  const antesRes = contar(), antesEv = contar("eventos");
+  await sem({}); await post("/api/csp-report", { corpo: lista, tipo: "application/reports+json", origem: "" });
+  checar("E18 relatório não grava nada no banco (nem reserva nem evento)", contar() === antesRes && contar("eventos") === antesEv, `${antesRes}/${antesEv} → ${contar()}/${contar("eventos")}`);
+  const ip = ipNovo(); const cods = [];
+  for (let i = 0; i < 31; i++) cods.push((await sem({ ip })).status);
+  checar("E18 rajada: 30 passam (204) e o 31º é 429 com Retry-After", cods.slice(0, 30).every(c => c === 204) && cods[30] === 429, cods.join(","));
+  const outroIp = await sem({ ip: ipNovo() });
+  checar("E18 outro IP não é afetado pela rajada", outroIp.status === 204, outroIp.status);
+
+  // Resumo: só diretiva, recurso sem query, caminho da página e hora — nada de query string, host da página, UA ou IP
+  const src = (await import("node:fs")).readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
+  const w = await import("data:text/javascript;base64," + Buffer.from(src).toString("base64"));
+  const [a] = w.resumirRelatorioCsp(relatorio);
+  checar("E18 resumo do csp-report: diretiva, bloqueado sem query/fragmento, página só com o caminho", a.diretiva === "script-src-elem" && a.bloqueado === "https://evil.example/x.js" && a.pagina === "/passeios/boat" && Object.keys(a).join() === "diretiva,bloqueado,pagina", JSON.stringify(a));
+  const [b] = w.resumirRelatorioCsp(lista);
+  checar("E18 resumo do reports+json: mesmos campos", b.diretiva === "style-src-attr" && b.bloqueado === "inline" && b.pagina === "/reservar", JSON.stringify(b));
+  const [c] = w.resumirRelatorioCsp({ "csp-report": { "blocked-uri": "data:image/png;base64,AAAA", "document-uri": "javascript:alert(1)", "effective-directive": "img-src\n<script>" } });
+  checar("E18 resumo neutraliza data:, página inválida e caracteres de controle", c.bloqueado === "data" && c.pagina === "" && c.diretiva === "img-srcscript", JSON.stringify(c));
+  checar("E18 resumo aceita lixo sem lançar erro e limita a 5 itens", w.resumirRelatorioCsp([1, null, "x", [], {}, {}, {}, {}, {}]).length <= 5 && Array.isArray(w.resumirRelatorioCsp(42)) && w.resumirRelatorioCsp({}).length === 1);
+}
+
 resumo();

@@ -160,6 +160,32 @@ conteúdo mudou sem o `?v=` mudar.
 O registro (`?v=` + hash do conteúdo) fica em `versoes.json`, na raiz do
 repositório (fora de `site/`, não é publicado).
 
+### Política de segurança de conteúdo (CSP) — por enquanto só observando
+
+Toda página HTML do site (não `/admin`, não arquivos, não `/api/*`) sai com
+`Content-Security-Policy-Report-Only` (a constante `CSP_SITE` do `_worker.js`) e
+`Reporting-Endpoints: csp="/api/csp-report"`. **Nada é bloqueado**: o navegador só
+avisa o que bloquearia. A política libera o próprio domínio e os hosts que o
+site usa: Google Fonts (`fonts.googleapis.com`, `fonts.gstatic.com`), mapa
+(`tile.openstreetmap.org`, sem `*.`), clima (`api.open-meteo.com`,
+`marine-api.open-meteo.com`) e o Turnstile (`challenges.cloudflare.com`).
+`script-src` **nunca** leva `'unsafe-inline'`, `'unsafe-eval'` nem `'unsafe-hashes'`;
+o site não tem `<script>` nem `style=` inline (o tema vem de `/boot.js`).
+
+`POST /api/csp-report` recebe os avisos (`application/csp-report` ou
+`application/reports+json`, até 8 KB, 30 por minuto por IP) e responde 204. Do
+relatório só ficam quatro dados, **no log do Worker** (não no banco): diretiva,
+recurso bloqueado sem query string, caminho da página sem host nem query, e a hora.
+Para ler: painel Cloudflare → Workers e Pages → projeto → **Logs** (em tempo real),
+ou `npx wrangler pages deployment tail`; procure linhas que começam com `[csp]`.
+O Chrome só entrega relatórios da Reporting API (`report-to`) por HTTPS; em
+`http://localhost` o aviso aparece no console, mas não chega ao endpoint.
+
+Passar para "valendo" (enforce) é trocar o nome do header para
+`Content-Security-Policy` em `comHeadersSeguranca` — só depois de ~7 dias de
+tráfego real sem avisos legítimos (Etapa 25 do plano; ainda **não** feito).
+O `X-Frame-Options` continua, porque `frame-ancestors` não vale em Report-Only.
+
 ## Testar antes de publicar
 
 Com Node instalado, a partir da pasta `testes/` (banco D1 **local**, nada vai

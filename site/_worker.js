@@ -54,7 +54,31 @@ const HEADERS_BASE = {
 };
 const HSTS = "max-age=31536000; includeSubDomains";
 
-function comHeadersSeguranca(resp, { api = false } = {}) {
+/* Política de segurança de conteúdo das páginas do site, por enquanto só em modo Report-Only (nada é
+   bloqueado; as violações vão para /api/csp-report). Valem os mesmos hosts que o site já usa:
+   Leaflet e CSS/JS próprios saem do próprio domínio; mapa (tile.openstreetmap.org — o host sem subdomínio,
+   "*.tile…" não cobre), clima (open-meteo), fonte (Google Fonts) e o desafio anti-robô da reserva (Turnstile).
+   Nunca 'unsafe-inline', 'unsafe-eval' ou 'unsafe-hashes' em script-src. style-src-attr 'none': o site não usa
+   atributo style= (valores dinâmicos vão pelo CSSOM). O /admin fica de fora: a página dele tem script e estilo
+   inline e já está atrás do Cloudflare Access. */
+const CSP_SITE = [
+  "default-src 'self'",
+  "script-src 'self' https://challenges.cloudflare.com",
+  "style-src 'self' https://fonts.googleapis.com",
+  "style-src-attr 'none'",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data: https://tile.openstreetmap.org",
+  "connect-src 'self' https://api.open-meteo.com https://marine-api.open-meteo.com",
+  "frame-src https://challenges.cloudflare.com",
+  "frame-ancestors 'self'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "object-src 'none'",
+  "report-uri /api/csp-report",
+  "report-to csp"
+].join("; ");
+
+function comHeadersSeguranca(resp, { api = false, caminho = "" } = {}) {
   const r = new Response(resp.body, resp); // cópia com headers mutáveis (redirects e respostas do ASSETS são imutáveis)
   for (const [nome, valor] of Object.entries(HEADERS_BASE)) if (!r.headers.has(nome)) r.headers.set(nome, valor);
   r.headers.set("strict-transport-security", HSTS);
@@ -64,6 +88,9 @@ function comHeadersSeguranca(resp, { api = false } = {}) {
     r.headers.set("x-content-type-options", "nosniff");
     r.headers.set("cache-control", "no-store");
     r.headers.set("content-security-policy", "default-src 'none'; frame-ancestors 'none'");
+  } else if (/^text\/html\b/i.test(r.headers.get("content-type") || "") && !/^\/admin(\/|$|\.html$)/.test(caminho)) {
+    r.headers.set("content-security-policy-report-only", CSP_SITE);
+    r.headers.set("reporting-endpoints", 'csp="/api/csp-report"');
   }
   return r;
 }
@@ -71,7 +98,8 @@ function comHeadersSeguranca(resp, { api = false } = {}) {
 export default {
   async fetch(request, env) {
     const resposta = await tratar(request, env);
-    return comHeadersSeguranca(resposta, { api: new URL(request.url).pathname.startsWith("/api/") });
+    const caminho = new URL(request.url).pathname;
+    return comHeadersSeguranca(resposta, { api: caminho.startsWith("/api/"), caminho });
   }
 };
 
@@ -134,7 +162,10 @@ const ORIGENS_PADRAO = ["https://trindadeadventury.com.br", "https://trindade-ad
 
 const ROTAS_PUBLICAS = {
   "/api/reservas": { tipos: ["application/json"], maxBytes: 8 * 1024, limite: { max: 5, janelaS: 600 }, turnstile: true },
-  "/api/eventos": { tipos: ["application/json"], maxBytes: 2 * 1024, limite: { max: 60, janelaS: 60 } }
+  "/api/eventos": { tipos: ["application/json"], maxBytes: 2 * 1024, limite: { max: 60, janelaS: 60 } },
+  // Relatórios de violação da CSP. O navegador manda sem cookie e, conforme a versão, sem Origin; o corpo do
+  // formato "reports+json" é uma lista. Por isso aceitaLista/origemOpcional — o resto do portão vale igual.
+  "/api/csp-report": { tipos: ["application/csp-report", "application/reports+json"], maxBytes: 8 * 1024, limite: { max: 30, janelaS: 60 }, aceitaLista: true, origemOpcional: true }
 };
 
 function origensPermitidas(env) {
@@ -214,7 +245,7 @@ async function receberPostPublico(request, env, rota) {
   const origem = request.headers.get("origin");
   const permitida = origem
     ? origemPermitida(origem, origensPermitidas(env))
-    : request.headers.get("sec-fetch-site") === "same-origin";
+    : cfg.origemOpcional || request.headers.get("sec-fetch-site") === "same-origin";
   if (!permitida) return { resposta: erro("Origem não permitida.", 403) };
 
   const tipo = (request.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
@@ -229,7 +260,7 @@ async function receberPostPublico(request, env, rota) {
 
   let corpo;
   try { corpo = JSON.parse(lido.texto); } catch { return { resposta: erro("Corpo inválido.", 400) }; }
-  if (!corpo || typeof corpo !== "object" || Array.isArray(corpo)) return { resposta: erro("Corpo inválido.", 400) };
+  if (!corpo || typeof corpo !== "object" || (Array.isArray(corpo) && !cfg.aceitaLista)) return { resposta: erro("Corpo inválido.", 400) };
 
   // Desafio anti-robô (Turnstile). Depois do limite por IP: robô que insiste cai no 429 antes de gastar a consulta à Cloudflare.
   if (cfg.turnstile) {
@@ -517,6 +548,7 @@ async function rotearAPI(request, env, url) {
   if (ROTAS_PUBLICAS[p]) {
     const entrada = await receberPostPublico(request, env, p);
     if (entrada.resposta) return entrada.resposta;
+    if (p === "/api/csp-report") return registrarRelatorioCsp(entrada.corpo);
     return p === "/api/reservas" ? criarReserva(entrada.corpo, env, request) : registrarEvento(entrada.corpo, env);
   }
 
@@ -1103,6 +1135,51 @@ async function registrarEvento(b, env) {
   return ok({ ok: true });
 }
 
+/* ------------------------------ relatórios de violação da CSP ------------------------------
+
+   O navegador manda aqui o que a política (CSP_SITE) bloquearia. Aceita os dois formatos:
+   "application/csp-report" ({"csp-report": {...}}) e "application/reports+json" (lista de {type, url, body}).
+   Só quatro dados saem do relatório — diretiva, recurso bloqueado SEM query string, caminho da página (sem
+   host nem query) e a hora do servidor — e vão para o log do Worker, não para o banco: nenhum dado pessoal
+   e nenhuma tabela que possa crescer por spam. Sempre 204. */
+function pedacoCsp(valor, max) {
+  return typeof valor === "string" ? valor.replace(/[^A-Za-z0-9:/._%@+~=-]/g, "").slice(0, max) : "";
+}
+
+function recursoCsp(valor) {
+  if (typeof valor !== "string" || !valor) return "";
+  if (/^data:/i.test(valor)) return "data";
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(valor)) {
+    try { const u = new URL(valor); return pedacoCsp(u.origin + u.pathname, 200); } catch { return ""; }
+  }
+  return pedacoCsp(valor.toLowerCase(), 20); // inline, eval, self, about…
+}
+
+function caminhoCsp(valor) {
+  if (typeof valor !== "string" || !/^https?:\/\//i.test(valor)) return "";
+  try { return pedacoCsp(new URL(valor).pathname, 120); } catch { return ""; }
+}
+
+function resumirRelatorioCsp(corpo) {
+  const itens = Array.isArray(corpo) ? corpo : [corpo];
+  const saida = [];
+  for (const item of itens.slice(0, 5)) {
+    if (!item || typeof item !== "object") continue;
+    const b = item["csp-report"] && typeof item["csp-report"] === "object" ? item["csp-report"] : item.body && typeof item.body === "object" ? item.body : item;
+    saida.push({
+      diretiva: pedacoCsp(b["effective-directive"] ?? b.effectiveDirective ?? b["violated-directive"] ?? b.violatedDirective, 60).replace(/[^a-z0-9-]/gi, ""),
+      bloqueado: recursoCsp(b["blocked-uri"] ?? b.blockedURL ?? b.blockedURI),
+      pagina: caminhoCsp(b["document-uri"] ?? b.documentURL ?? b.documentURI ?? item.url)
+    });
+  }
+  return saida;
+}
+
+function registrarRelatorioCsp(corpo) {
+  for (const r of resumirRelatorioCsp(corpo)) console.log("[csp]", JSON.stringify({ ts: new Date().toISOString(), ...r }));
+  return new Response(null, { status: 204 });
+}
+
 /* ------------------------------ painel ------------------------------ */
 
 const hojeSP = () => new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
@@ -1386,4 +1463,4 @@ async function adminGravarConfig(request, env) {
 }
 
 // Exportadas só para os testes de testes/ (o Pages usa apenas o export default).
-export { expiraEm, normalizarTelefone, conferirData, validarReserva, verificarTurnstile };
+export { expiraEm, normalizarTelefone, conferirData, validarReserva, verificarTurnstile, resumirRelatorioCsp };
