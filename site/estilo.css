@@ -193,6 +193,10 @@ html:not(.js) #climaBar{display:none}
   .topbar-in{gap:6px}
 }
 
+/* desafio anti-robô da reserva: só aparece quando a Cloudflare pede interação */
+.turnstile-box{display:flex;justify-content:center}
+.turnstile-box:empty{display:none}
+
 /* barra inferior no celular */
 .tabbar{display:none}
 @media(max-width:720px){

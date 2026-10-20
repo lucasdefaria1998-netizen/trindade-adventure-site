@@ -8,6 +8,9 @@
 <link rel="canonical" href="https://trindade-adventure.pages.dev/">
 <meta name="theme-color" content="#0d6b38" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#08150e" media="(prefers-color-scheme: dark)">
+<!-- Sitekey PÚBLICA do Turnstile (desafio anti-robô da reserva). O valor abaixo é a chave de teste da Cloudflare;
+     em produção o _worker.js troca pelo env.TURNSTILE_SITEKEY do projeto. -->
+<meta name="turnstile-sitekey" content="1x00000000000000000000AA">
 <meta name="author" content="Trindade Adventure">
 <meta name="robots" content="index,follow">
 
@@ -173,7 +176,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
      na fonte do sistema, com métricas parecidas. -->
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap" onload="this.onload=null;this.rel='stylesheet'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap"></noscript>
-<link rel="stylesheet" href="/estilo.css?v=20261020-s02">
+<link rel="stylesheet" href="/estilo.css?v=20261020-s06">
 <link rel="preload" as="image" href="/assets/og-v2-800.webp" imagesrcset="/assets/og-v2-480.webp 480w, /assets/og-v2-800.webp 800w, /assets/og-v2-1200.webp 1200w" imagesizes="(max-width: 720px) 100vw, 1240px" fetchpriority="high">
 
 <!-- Dados estruturados (schema.org) para o Google: quem é a empresa, onde fica
@@ -870,6 +873,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
       <div class="linha linha-sep"><span id="rsCalculo">—</span><b class="num" id="rsSubtotal">—</b></div>
       <div class="linha linha-ouro" id="rsVoucherLinha" hidden><span>Voucher almoço incluso</span><b class="num" id="rsVoucher">—</b></div>
       <div class="linha linha-total"><span>Total</span><b class="num" id="rsTotal">—</b></div>
+      <div id="turnstileBox" class="turnstile-box"></div>
       <button class="btn btn-primario btn-largo" type="submit"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Enviar reserva no WhatsApp</button>
       <p class="resumo-nota">Pagamento no local ou por Pix, combinado no WhatsApp. Grupos de até 20 pessoas por horário. A vaga só está garantida após a confirmação da operação.</p>
     </aside>
@@ -1237,7 +1241,7 @@ r.setAttribute('data-motion',p||matchMedia('(prefers-reduced-motion: reduce)').m
 
 <!-- Leaflet é servido pelo próprio site e só carrega quando o mapa se aproxima
      da tela. Se ainda assim faltar, o app.js mostra a lista de pontos. -->
-<script src="/app.js?v=20261020-s05" defer></script>
+<script src="/app.js?v=20261020-s06" defer></script>
 <script src="/vendor/lenis-1.3.11.min.js" defer></script>
 <script src="/motion.js?v=20261005-rotas" defer></script>
 <script src="/pescaria-galeria.js?v=20261005-rotas" defer></script>

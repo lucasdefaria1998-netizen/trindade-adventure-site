@@ -27,7 +27,7 @@ window.__e2e = async function (plano, opcoes = {}) {
     campo("#fObs", opcoes.obs || "Reserva de teste local"); campo("#fPax", String(opcoes.pax || 2), "change");
     const ac = $("#fAceite"); ac.checked = true; ac.dispatchEvent(new Event("change", { bubbles: true }));
     $("#formReserva").requestSubmit();
-    for (let i = 0; i < 40 && ($("#reservaFeita").hidden); i++) await esp(250);
+    for (let i = 0; i < 100 && ($("#reservaFeita").hidden); i++) await esp(250);
     const feita = !$("#reservaFeita").hidden;
     const url = urls[0] || "";
     const texto = (() => { try { return decodeURIComponent((url.split("?text=")[1]) || ""); } catch { return "(não decodificou)"; } })();

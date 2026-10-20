@@ -399,6 +399,9 @@ function aplicarRota(rolarTopo) {
 
   // Um evento só por sessão: entrar e sair da aba de reserva várias vezes não
   // deveria inflar o "abriram reserva" do funil no painel.
+  // O script do desafio anti-robô só é baixado na página de reserva.
+  if (nome === "reservar") Turnstile.carregar();
+
   if (nome === "reservar" && !aplicarRota.jaAbriuReserva) {
     aplicarRota.jaAbriuReserva = true;
     evento("inicio_reserva");
@@ -1030,6 +1033,50 @@ function baixarICS(dados) {
 
 let ultimoEnvio = null;
 
+/* Desafio anti-robô (Cloudflare Turnstile) da reserva. O script só é baixado quando a
+   pessoa entra na rota /reservar. A cada envio pede-se um token novo (ele vale 5 minutos
+   e só uma vez), então formulário aberto por muito tempo continua funcionando. Se o
+   script não carregar (bloqueador, rede) ou o desafio falhar, token() devolve null e o
+   envio segue pelo WhatsApp, sem gravar — nunca fica um botão sem resposta. */
+const Turnstile = {
+  _script: null, id: null, _resolver: null,
+  sitekey() { return (document.querySelector('meta[name="turnstile-sitekey"]') || {}).content || ""; },
+  carregar() {
+    if (!this._script) {
+      this._script = new Promise(resolve => {
+        const s = document.createElement("script");
+        s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+        s.async = true; s.defer = true;
+        s.onload = () => resolve(window.turnstile || null);
+        s.onerror = () => resolve(null);
+        document.head.appendChild(s);
+      });
+    }
+    return this._script;
+  },
+  async token() {
+    const api = await this.carregar();
+    const caixa = document.getElementById("turnstileBox");
+    if (!api || !caixa || !this.sitekey()) return null;
+    return new Promise(resolve => {
+      const fim = t => { if (this._resolver === fim) { this._resolver = null; clearTimeout(limite); resolve(t || null); } };
+      const limite = setTimeout(() => fim(null), 20000);
+      this._resolver = fim;
+      try {
+        if (this.id === null) {
+          this.id = api.render(caixa, {
+            sitekey: this.sitekey(), action: "reserva", execution: "execute", appearance: "interaction-only", language: "pt-br",
+            callback: t => this._resolver && this._resolver(t),
+            "error-callback": () => { this._resolver && this._resolver(null); return true; },
+            "timeout-callback": () => { this._resolver && this._resolver(null); }
+          });
+        } else api.reset(this.id);
+        api.execute(this.id);
+      } catch (e) { fim(null); }
+    });
+  }
+};
+
 /* Chave de idempotência do envio: o mesmo pedido leva sempre a mesma chave, então um reenvio
    (clique duplo, rede que caiu depois de o servidor gravar) devolve a MESMA reserva em vez de
    criar outra. Se o pedido mudou (outro horário, outro nº de pessoas…), a chave é nova.
@@ -1181,7 +1228,14 @@ function ligarReserva() {
 
     const o = Origem.detectar();
     const chave = chaveDoEnvio([reserva.plano, reserva.data, reserva.hora, reserva.pax, dadosForm.tel, dadosForm.nome].join("|"));
-    const resultado = await chamarAPI("/api/reservas", {
+    // Token novo do desafio anti-robô a cada envio. Sem ele (script bloqueado, rede ruim) não
+    // adianta chamar o servidor: vai direto para o WhatsApp, abaixo, com a mesma aba já aberta.
+    const tokenAnti = await Turnstile.token();
+    let resultado;
+    if (!tokenAnti) {
+      resultado = { status: 0, corpo: null };
+      torrada("Não deu para registrar no site agora. Seguimos pelo WhatsApp.");
+    } else resultado = await chamarAPI("/api/reservas", {
       method: "POST",
       headers: { "content-type": "application/json", "Idempotency-Key": chave },
       body: JSON.stringify({
@@ -1190,7 +1244,8 @@ function ligarReserva() {
         origem: origemEfetiva(o, reserva.comoConheceu), origemDetalhe: o.detalhe,
         comoConheceu: rotuloComoConheceu(reserva.comoConheceu),
         instagramCliente: reserva.instagramCliente, seguiuInstagram: reserva.seguiuInstagram,
-        sessao: Origem.sessao()
+        sessao: Origem.sessao(),
+        "cf-turnstile-response": tokenAnti
       })
     });
 

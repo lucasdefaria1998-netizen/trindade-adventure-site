@@ -326,4 +326,63 @@ const restamEm = async (dia, hora) => (await (await fetch(`${BASE}/api/disponibi
   for (const [n, got, esperado] of casos) checar(`E5  prazo: ${n}`, got === esperado, `${got} ≠ ${esperado}`);
 }
 
+// ---------- ETAPA 6 — Turnstile no formulário de reserva ----------
+{
+  const antes = contar();
+  const semToken = await post("/api/reservas", { corpo: reservaValida(), semToken: true });
+  checar("E6  reserva sem token do Turnstile → 403", semToken.status === 403, semToken.status);
+  const numero = await post("/api/reservas", { corpo: { ...reservaValida(), "cf-turnstile-response": 12345 } });
+  checar("E6  token que não é texto → 403", numero.status === 403, numero.status);
+  const curto = await post("/api/reservas", { corpo: { ...reservaValida(), "cf-turnstile-response": "abc" } });
+  checar("E6  token curto demais → 403", curto.status === 403, curto.status);
+  const vazio = await post("/api/reservas", { corpo: { ...reservaValida(), "cf-turnstile-response": "" } });
+  checar("E6  token vazio → 403", vazio.status === 403, vazio.status);
+  checar("E6  nenhuma dessas grava reserva", contar() === antes, `${antes} → ${contar()}`);
+  const e = await post("/api/eventos", { corpo: { tipo: "visita", sessao: "teste-sessao-01" } });
+  checar("E6  eventos não exigem Turnstile", e.status === 200, e.status);
+  const ok1 = await post("/api/reservas", { corpo: reservaValida({ data: somaDias(hojeSP(), 5) }) });
+  checar("E6  com o token de teste (chave de teste da Cloudflare) a reserva é aceita e grava", ok1.status === 200 && contar() === antes + 1, `${ok1.status}`);
+}
+{
+  // o script do Turnstile só carrega na rota de reserva; o segredo não está no client
+  const home = await (await fetch(BASE + "/")).text();
+  const reservar = await (await fetch(BASE + "/reservar")).text();
+  checar("E6  HTML de / não cita challenges.cloudflare.com", !home.includes("challenges.cloudflare.com"));
+  checar("E6  HTML de /reservar também não (o script entra pelo app.js, só nessa rota)", !reservar.includes("challenges.cloudflare.com"));
+  checar("E6  index.html traz a sitekey pública de teste no meta", /<meta name="turnstile-sitekey" content="1x00000000000000000000AA">/.test(reservar));
+  const { execFileSync } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  let achados = "";
+  try { achados = execFileSync("git", ["-C", fileURLToPath(new URL("..", import.meta.url)), "grep", "-nE", "TURNSTILE_SECRET|0x4AAAA", "--", "site/app.js", "site/index.html", "site/estilo.css", "site/motion.js", "site/pescaria-galeria.js"], { encoding: "utf8" }); } catch (e) { achados = e.stdout || ""; }
+  checar("E6  segredo do Turnstile e chaves reais não aparecem no JS/HTML do site", achados.trim() === "", achados.trim());
+}
+{
+  // verificação com respostas simuladas da Cloudflare (caminhos de chave real)
+  const src = (await import("node:fs")).readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
+  const w = await import("data:text/javascript;base64," + Buffer.from(src).toString("base64"));
+  const env = { TURNSTILE_SECRET: "segredo-real" };
+  const falso = corpo => async () => ({ ok: true, json: async () => corpo });
+  const tok = "token-de-teste-1234567890";
+  const v = (e, corpo) => w.verificarTurnstile(tok, "1.2.3.4", e, falso(corpo));
+  const casos = [
+    ["sucesso, host e ação certos", await v(env, { success: true, hostname: "trindadeadventury.com.br", action: "reserva" }), true, undefined],
+    ["host do pages.dev de produção", await v(env, { success: true, hostname: "trindade-adventure.pages.dev", action: "reserva" }), true, undefined],
+    ["preview (subdomínio do pages.dev)", await v(env, { success: true, hostname: "abc123.trindade-adventure.pages.dev", action: "reserva" }), true, undefined],
+    ["host de outro site", await v(env, { success: true, hostname: "evil.example", action: "reserva" }), false, "host"],
+    ["pages.dev de outro projeto", await v(env, { success: true, hostname: "outro.pages.dev", action: "reserva" }), false, "host"],
+    ["ação errada", await v(env, { success: true, hostname: "trindadeadventury.com.br", action: "login" }), false, "acao"],
+    ["sem ação", await v(env, { success: true, hostname: "trindadeadventury.com.br" }), false, "acao"],
+    ["success false", await v(env, { success: false, "error-codes": ["invalid-input-response"] }), false, "recusado"],
+    ["TURNSTILE_HOSTNAMES manda: host de fora da lista", await v({ ...env, TURNSTILE_HOSTNAMES: "meu.site" }, { success: true, hostname: "trindadeadventury.com.br", action: "reserva" }), false, "host"],
+    ["chave de teste (metadata) dispensa host e ação", await v(env, { success: true, hostname: "example.com", metadata: { result_with_testing_key: true } }), true, undefined],
+    ["sem segredo configurado", await w.verificarTurnstile(tok, "1.2.3.4", {}, falso({ success: true })), false, "sem-segredo"],
+    ["sem token", await w.verificarTurnstile(undefined, "1.2.3.4", env, falso({ success: true })), false, "sem-token"]
+  ];
+  for (const [n, r, okEsp, motivo] of casos) checar(`E6  verificação: ${n}`, r.ok === okEsp && (motivo === undefined || r.motivo === motivo), JSON.stringify(r));
+  const cai = await w.verificarTurnstile(tok, "1.2.3.4", env, async () => { throw new Error("rede caiu"); });
+  checar("E6  verificação: Cloudflare fora do ar → indisponível (vira 503, não grava)", cai.ok === false && cai.motivo === "indisponivel", JSON.stringify(cai));
+  const http500 = await w.verificarTurnstile(tok, "1.2.3.4", env, async () => ({ ok: false, json: async () => ({}) }));
+  checar("E6  verificação: resposta 5xx da Cloudflare → indisponível", http500.motivo === "indisponivel", JSON.stringify(http500));
+}
+
 resumo();

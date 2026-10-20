@@ -47,7 +47,11 @@ let seq = 0;
 export const ipNovo = () => `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${++seq % 250}`;
 export const telNovo = () => "2499" + String(Math.floor(Math.random() * 1e7)).padStart(7, "0");
 
-export function post(caminho, { corpo, tipo = "application/json", origem = ORIGEM_OK, ip = ipNovo(), cabecalhos = {}, bruto } = {}) {
+export const TOKEN_TURNSTILE_TESTE = "XXXX.DUMMY.TOKEN.XXXX"; // aceito pela chave de teste (sempre passa) usada no wrangler.toml local
+
+export function post(caminho, { corpo, tipo = "application/json", origem = ORIGEM_OK, ip = ipNovo(), cabecalhos = {}, bruto, semToken = false } = {}) {
+  // Reservas exigem o token do Turnstile (S06): os testes mandam o de teste, a não ser que peçam semToken.
+  if (caminho === "/api/reservas" && !semToken && corpo && typeof corpo === "object" && !("cf-turnstile-response" in corpo)) corpo = { ...corpo, "cf-turnstile-response": TOKEN_TURNSTILE_TESTE };
   const h = { ...cabecalhos };
   if (tipo) h["content-type"] = tipo;
   if (origem) h["origin"] = origem;

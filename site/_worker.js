@@ -92,7 +92,7 @@ function mascarar(texto) {
 const ORIGENS_PADRAO = ["https://trindadeadventury.com.br", "https://trindade-adventure.pages.dev"];
 
 const ROTAS_PUBLICAS = {
-  "/api/reservas": { tipos: ["application/json"], maxBytes: 8 * 1024, limite: { max: 5, janelaS: 600 } },
+  "/api/reservas": { tipos: ["application/json"], maxBytes: 8 * 1024, limite: { max: 5, janelaS: 600 }, turnstile: true },
   "/api/eventos": { tipos: ["application/json"], maxBytes: 2 * 1024, limite: { max: 60, janelaS: 60 } }
 };
 
@@ -189,7 +189,66 @@ async function receberPostPublico(request, env, rota) {
   let corpo;
   try { corpo = JSON.parse(lido.texto); } catch { return { resposta: erro("Corpo inválido.", 400) }; }
   if (!corpo || typeof corpo !== "object" || Array.isArray(corpo)) return { resposta: erro("Corpo inválido.", 400) };
+
+  // Desafio anti-robô (Turnstile). Depois do limite por IP: robô que insiste cai no 429 antes de gastar a consulta à Cloudflare.
+  if (cfg.turnstile) {
+    if (!env.TURNSTILE_SECRET) {
+      // Sem o segredo configurado a reserva online fica fechada (o site cai no fluxo de WhatsApp); aberta, ela ficaria sem proteção nenhuma.
+      console.error("[turnstile] TURNSTILE_SECRET não configurado");
+      return { resposta: erro("Reservas online indisponíveis no momento. Fale pelo WhatsApp.", 503) };
+    }
+    const v = await verificarTurnstile(corpo["cf-turnstile-response"], ip, env);
+    if (v.motivo === "indisponivel") return { resposta: erro("Verificação indisponível no momento. Fale pelo WhatsApp.", 503) };
+    if (!v.ok) return { resposta: erro("Não foi possível confirmar que você não é um robô. Tente de novo ou fale no WhatsApp.", 403) };
+  }
+  delete corpo["cf-turnstile-response"];
   return { corpo };
+}
+
+/* ------------------------------ Turnstile ------------------------------
+
+   O site manda o token do widget no campo "cf-turnstile-response". Aqui ele é
+   conferido na Cloudflare com o segredo (env.TURNSTILE_SECRET, nunca no JS do
+   site): precisa ter dado certo (success), ter sido gerado numa página do nosso
+   domínio (hostname) e para a ação da reserva (action).
+
+   Hosts aceitos: env.TURNSTILE_HOSTNAMES (vírgula) ou a lista de produção
+   abaixo — mais qualquer subdomínio de trindade-adventure.pages.dev (previews).
+   As chaves de teste da Cloudflare respondem com hostname "example.com" e sem
+   action, marcando metadata.result_with_testing_key; só nesse caso (impossível
+   com um segredo real) hostname e action não são exigidos. */
+const TURNSTILE_ACAO = "reserva";
+const TURNSTILE_HOSTS_PADRAO = ["trindadeadventury.com.br", "www.trindadeadventury.com.br", "trindade-adventure.pages.dev"];
+
+function hostTurnstileOk(host, env) {
+  const lista = String(env.TURNSTILE_HOSTNAMES || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+  const h = String(host || "").toLowerCase();
+  if (!h) return false;
+  if (lista.length) return lista.includes(h);
+  return TURNSTILE_HOSTS_PADRAO.includes(h) || h.endsWith(".trindade-adventure.pages.dev");
+}
+
+async function verificarTurnstile(token, ip, env, buscar = fetch) {
+  if (!env.TURNSTILE_SECRET) return { ok: false, motivo: "sem-segredo" };
+  if (typeof token !== "string" || token.length < 10 || token.length > 2048) return { ok: false, motivo: "sem-token" };
+  const form = new URLSearchParams({ secret: env.TURNSTILE_SECRET, response: token });
+  if (ip && ip !== "sem-ip") form.set("remoteip", ip);
+  let r;
+  try {
+    const resp = await buscar("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST", body: form, signal: AbortSignal.timeout(5000)
+    });
+    if (!resp.ok) return { ok: false, motivo: "indisponivel" };
+    r = await resp.json();
+  } catch (e) {
+    console.error("[turnstile] verificação fora do ar:", mascarar(e && e.message ? e.message : String(e)));
+    return { ok: false, motivo: "indisponivel" };
+  }
+  if (!r || r.success !== true) return { ok: false, motivo: "recusado" };
+  if (r.metadata && r.metadata.result_with_testing_key === true) return { ok: true, teste: true };
+  if (!hostTurnstileOk(r.hostname, env)) return { ok: false, motivo: "host" };
+  if (r.action !== TURNSTILE_ACAO) return { ok: false, motivo: "acao" };
+  return { ok: true };
 }
 
 /* ------------------------------ páginas e arquivos ------------------------------
@@ -280,7 +339,7 @@ async function servirPagina(request, env, url) {
   if (!pagina) h.set("cache-control", SEM_CACHE);
 
   const resposta = new Response(html, { status: pagina ? 200 : 404, headers: h });
-  return aplicarMetadados(resposta, meta, !pagina);
+  return aplicarMetadados(resposta, meta, !pagina, env);
 }
 
 /* Mesma regra do app.js (função metadadosDaPagina lá): imagem e canonical
@@ -300,7 +359,7 @@ function metadadosDaPagina(site, caminho, pagina) {
   };
 }
 
-function aplicarMetadados(resposta, m, naoEncontrada) {
+function aplicarMetadados(resposta, m, naoEncontrada, env) {
   const attr = (nome, valor) => ({ element(el) { el.setAttribute(nome, valor); } });
   let rw = new HTMLRewriter()
     .on("title", { element(el) { el.setInnerContent(m.titulo); } })
@@ -314,6 +373,11 @@ function aplicarMetadados(resposta, m, naoEncontrada) {
     .on('meta[name="twitter:title"]', attr("content", m.titulo))
     .on('meta[name="twitter:description"]', attr("content", m.descricao))
     .on('meta[name="twitter:image"]', attr("content", m.imagem));
+
+  // Sitekey pública do Turnstile: a do projeto (env.TURNSTILE_SITEKEY) vence a de teste que vem no index.html.
+  if (env && /^[0-9A-Za-z_-]{10,64}$/.test(String(env.TURNSTILE_SITEKEY || ""))) {
+    rw = rw.on('meta[name="turnstile-sitekey"]', attr("content", env.TURNSTILE_SITEKEY));
+  }
 
   if (m.canonical) {
     rw = rw
@@ -1214,4 +1278,4 @@ async function adminGravarConfig(request, env) {
 }
 
 // Exportadas só para os testes de testes/ (o Pages usa apenas o export default).
-export { expiraEm, normalizarTelefone, conferirData, validarReserva };
+export { expiraEm, normalizarTelefone, conferirData, validarReserva, verificarTurnstile };
