@@ -308,6 +308,10 @@ async function verificarTurnstile(token, ip, env, buscar = fetch) {
      "não encontrada", status 404, "noindex" e "no-cache".
    ----------------------------------------------------------------------------- */
 
+// A pescaria tinha duas URLs; fica só /pescaria e o endereço antigo responde 301. O app.js tem a mesma
+// tabela (REDIRECIONAMENTOS) para a navegação sem recarregar e para os links antigos com "#/".
+const REDIRECIONAMENTOS = Object.assign(Object.create(null), { "/passeios/fishing": "/pescaria" });
+
 const EXTENSAO = /\.[a-z0-9]{1,8}$/i;
 const SEM_CACHE = "no-cache";
 
@@ -318,6 +322,11 @@ async function servirSite(request, env, url) {
 
   // O painel tem página e login próprios (Cloudflare Access); passa direto.
   if (p === "/admin" || p.startsWith("/admin/") || p === "/admin.html") return env.ASSETS.fetch(request);
+
+  // Endereços que mudaram de lugar: 301 permanente, mantendo a query string. Vale com ou sem
+  // barra no fim (um salto só, sem passar pelo endereço sem barra).
+  const destino = REDIRECIONAMENTOS[p.length > 1 ? p.replace(/\/+$/, "") : p];
+  if (destino) return Response.redirect(url.origin + destino + url.search, 301);
 
   if (EXTENSAO.test(p) || p.startsWith("/assets/") || p.startsWith("/vendor/")) {
     return servirArquivo(request, env, p);

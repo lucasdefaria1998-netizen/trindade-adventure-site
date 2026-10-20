@@ -278,5 +278,30 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("E9  _worker.js: mesmo texto do client (Horário: … — saída …) e o cálculo (saidaApos) não mudou", worker.includes('"Horário: " + horaLabel(d.hora) + " — saída " + saidaLabel(d.hora, cfg)') && worker.includes("const t = Math.round(h * 60) + cfg.saidaApos;"), "");
 }
 
+
+// ---------- ETAPA 11 — Pescaria: uma URL só ----------
+{
+  for (const [caminho, esperado] of [["/passeios/fishing", "/pescaria"], ["/passeios/fishing/", "/pescaria"], ["/passeios/fishing?x=1", "/pescaria?x=1"], ["/passeios/fishing/?a=1&b=2", "/pescaria?a=1&b=2"]]) {
+    const r = await pegar(caminho); await r.arrayBuffer();
+    const loc = r.headers.get("location") || "";
+    checar(`E11 ${caminho} → 301 para ${esperado} (um salto só, sem loop)`, r.status === 301 && new URL(loc, BASE).pathname + new URL(loc, BASE).search === esperado && !loc.includes("fishing"), `${r.status} ${loc}`);
+  }
+  const head = await fetch(BASE + "/passeios/fishing", { method: "HEAD", redirect: "manual" });
+  checar("E11 HEAD /passeios/fishing → 301", head.status === 301, head.status);
+  const p = await pegar("/pescaria"); const doc = await p.text();
+  checar("E11 /pescaria → 200 com title/canonical próprios", p.status === 200 && /<link rel="canonical" href="[^"]*\/pescaria">/.test(doc) && /<title>[^<]*[Pp]escaria[^<]*<\/title>/.test(doc), `${p.status}`);
+  const xml = await (await pegar("/sitemap.xml")).text();
+  checar("E11 sitemap tem 15 URLs e nenhuma de fishing", (xml.match(/<loc>/g) || []).length === 15 && !xml.includes("fishing"), (xml.match(/<loc>/g) || []).length);
+  checar("E11 site-config sem /passeios/fishing", !Object.keys(SITE.paginas).includes("/passeios/fishing"));
+  const n404 = await pegar("/passeios/nao-existe"); await n404.arrayBuffer();
+  checar("E11 outras rotas inalteradas: /passeios/nao-existe → 404", n404.status === 404, n404.status);
+  const { execFileSync } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  let achados = "";
+  try { achados = execFileSync("git", ["-C", fileURLToPath(new URL("..", import.meta.url)), "grep", "-n", "passeios/fishing", "--", "site/index.html", "site/app.js", "site/_worker.js", "site/sitemap.xml", "site/404.html"], { encoding: "utf8" }); } catch (e) { achados = e.stdout || ""; }
+  const linhas = achados.trim().split("\n").filter(Boolean);
+  checar("E11 'passeios/fishing' só aparece na tabela de redirecionamentos (worker e app.js)", linhas.length === 2 && linhas.every(l => /^site\/(_worker|app)\.js:/.test(l)), achados.trim());
+}
+
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);
 process.exit(falhas ? 1 : 0);

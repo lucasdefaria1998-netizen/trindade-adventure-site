@@ -310,7 +310,14 @@ const SITE = (() => {
 })();
 
 const normalizarCaminho = c => (c.length > 1 ? c.replace(/\/+$/, "") : c) || "/";
-const ehPaginaDoSite = c => Object.prototype.hasOwnProperty.call(SITE.paginas, normalizarCaminho(c));
+
+// Endereços que mudaram de lugar (o servidor responde 301; aqui vale para a navegação sem recarregar
+// e para links antigos com "#/"). Mesma tabela do _worker.js (REDIRECIONAMENTOS).
+const REDIRECIONAMENTOS = { "/passeios/fishing": "/pescaria" };
+const ehPaginaDoSite = c => {
+  const n = normalizarCaminho(c);
+  return Object.prototype.hasOwnProperty.call(SITE.paginas, n) || Object.prototype.hasOwnProperty.call(REDIRECIONAMENTOS, n);
+};
 
 /* "#/passeios?plano=boat" → "/passeios/boat". Devolve true se trocou o endereço. */
 function migrarEnderecoAntigo() {
@@ -333,7 +340,11 @@ function migrarEnderecoAntigo() {
 }
 
 function lerRota() {
-  const caminho = normalizarCaminho(location.pathname);
+  let caminho = normalizarCaminho(location.pathname);
+  if (Object.prototype.hasOwnProperty.call(REDIRECIONAMENTOS, caminho)) {
+    caminho = REDIRECIONAMENTOS[caminho];
+    history.replaceState(null, "", caminho + location.search + location.hash);
+  }
   const params = new URLSearchParams(location.search);
   const pagina = SITE.paginas[caminho];
   if (!pagina) return { nome: SITE.naoEncontrada.secao, params, pagina: SITE.naoEncontrada, caminho, existe: false };
