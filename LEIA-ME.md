@@ -16,7 +16,9 @@ para o Cloudflare. `testes/` e este LEIA-ME ficam fora do deploy.
 | `index.html` | Todo o conteúdo do site: roteiros, preços, textos, perguntas frequentes, Termos do Passeio e Política de Privacidade. No `<head>`, a tabela `site-config` lista cada página (endereço, título, descrição, imagem de pré-visualização) e os dados da empresa. |
 | `404.html` | Página de erro de reserva. A existência dela é o que impede o Cloudflare de responder a página inicial para endereço que não existe — não apague. |
 | `estilo.css` | Cores, tipografia e layout. |
+| `boot.js` | Roda antes do primeiro desenho: marca JavaScript, tema e preferência de movimento, e ativa a fonte. Sem `defer`, no `<head>`. |
 | `app.js` | Comportamento do site público: navegação, tempo e mar ao vivo, montador de reserva, mapa, envio para a API. |
+| `motion.js`, `pescaria-galeria.js` | Acabamento: rolagem suave e revelação ao rolar; galeria da pescaria. O site funciona sem eles. |
 | `_worker.js` | O backend. Um arquivo só, porque o deploy por arraste-e-solta do Cloudflare não compila a pasta `/functions` — só aceita `_worker.js`. Responde `/api/*` (reservas, disponibilidade, painel), entrega cada página com título e metadados próprios e responde 404 de verdade para endereço ou arquivo que não existe. |
 | `admin.html` | O painel da operação (agenda, reservas, origem dos clientes, ajustes). Só abre para quem faz login — ver seção "Painel da operação" abaixo. |
 | `assets/` | Fotos. `og-v2.jpg` é a imagem que aparece quando alguém cola o link no WhatsApp. |
@@ -33,7 +35,8 @@ visitante continuar vendo a foto velha.
 
 ## Painel da operação
 
-**Endereço:** `https://trindade-adventure.pages.dev/admin`
+**Endereço:** `https://trindadeadventury.com.br/admin` (até o domínio entrar no ar: `https://trindade-adventure.pages.dev/admin`).
+Sem a variável `ACCESS_AUD` configurada o painel responde 403 — ver "Painel: checagem dupla" abaixo.
 
 O painel pede login por e-mail (Cloudflare Access) — sem senha para lembrar:
 você digita o e-mail, chega um código de 6 dígitos, você digita o código.
@@ -198,8 +201,8 @@ e, em outro terminal, na pasta do projeto:
 
     node testes/testar-http.mjs http://127.0.0.1:8788
 
-São ~150 verificações: 404, cache, título/descrição/canonical/OG de cada
-página, sitemap, e a regra de horários (inclusive reservas de teste no banco
+São ~580 verificações: 404, cache, headers de segurança e CSP, título/descrição/canonical/OG de cada
+página, JSON-LD, sitemap, textos legais, imagens, e a regra de horários (inclusive reservas de teste no banco
 local). Contra o site no ar (`node testes/testar-http.mjs https://trindade-adventure.pages.dev`)
 os testes que gravam reserva são pulados automaticamente.
 
@@ -207,6 +210,11 @@ Outro conjunto, só da API (portão dos POST, limite por IP, validação…), s�
 localhost — grava no D1 local e confere a contagem de linhas:
 
     node testes/testar-api.mjs
+    node testes/check-versao.mjs
+
+(`testar-api` tem ~250 verificações: portão dos POST, limite por IP, Turnstile, idempotência, painel com JWT de teste,
+`/api/csp-report`, redirecionamento de domínio.) Se rodar `testar-api` duas vezes em menos de 1 minuto, o worker
+ainda guarda os certificados de teste da rodada anterior (por até 60 s) e as chamadas do painel falham: espere.
 
 O teste ponta a ponta da reserva no navegador está em
 `testes/e2e-reserva.browser.js` (cole no console de http://127.0.0.1:8788/reservar;
@@ -250,7 +258,7 @@ site. Só mexa neles de novo se for trocar de banco ou de política de acesso.
 2. **As câmeras não existem.** A seção está marcada como demonstração. Quando
    houver câmera de verdade, ela precisa de uma URL de transmissão HLS e o
    quadro passa a exibir vídeo real. Enquanto isso, considere esconder a aba.
-3. **Domínio próprio — falta um passo no Registro.br.** O domínio é
+3. **Domínio próprio — falta um passo no Registro.br.** (O código já aponta para `https://trindadeadventury.com.br`; veja "Domínio oficial e e-mails" ao final e publique só com o domínio no ar.) O domínio é
    `trindadeadventury.com.br` (com *y*). Ele está cadastrado na Cloudflare,
    mas a zona continua **pendente**: o domínio ainda usa o DNS do Registro.br
    (`a.auto.dns.br` e `b.auto.dns.br`), então a Cloudflare não consegue provar
@@ -268,20 +276,15 @@ site. Só mexa neles de novo se for trocar de banco ou de política de acesso.
    registros de e-mail (MX, SPF, DMARC) já foram copiados para a Cloudflare, e
    hoje não existe nenhum site nem Worker respondendo nesse domínio.
 
-   Quando a Cloudflare mostrar a zona como **ativa**, faltam dois passos:
-   Pages → `trindade-adventure` → Custom domains → adicionar
-   `trindadeadventury.com.br`; e trocar as cinco ocorrências de
-   `trindade-adventure.pages.dev` em `index.html`, mais `robots.txt` e
-   `sitemap.xml`, republicando em seguida — senão a pré-visualização do
-   WhatsApp continua apontando para o endereço antigo.
-
-   O pacote `trindade-adventure-site-DOMINIO-PROPRIO.zip`, na pasta Downloads,
-   já está com essa troca feita. Depois que a zona ficar ativa, é só publicá-lo
-   no lugar do outro.
-4. **CNPJ e Cadastur.** O CNPJ 64.565.826/0001-80 está no rodapé e no JSON-LD
-   desde 05/10/2026. Faltam o número do **Cadastur** (é um registro próprio do
-   Ministério do Turismo, diferente do CNPJ) e, se quiser, a razão social:
-   preencha em `negocio`, na tabela `site-config`.
+   Quando a Cloudflare mostrar a zona como **ativa**, faltam: Pages →
+   `trindade-adventure` → Custom domains → adicionar `trindadeadventury.com.br` e
+   `www.trindadeadventury.com.br`; criar as caixas `contato@` e `suporte@`; e só então
+   publicar e ligar `REDIRECIONAR_PARA_DOMINIO=1` (tabela de variáveis). A troca de endereço no
+   `index.html`, `robots.txt` e `sitemap.xml` já está feita no repositório.
+4. **CNPJ, razão social e Cadastur** já estão em `negocio` (tabela `site-config`) e saem no rodapé
+   direto do servidor: 64.565.826 IGOR SANTIAGO FRAGA · CNPJ 64.565.826/0001-80 · Cadastur
+   64.565.826/0001-80 (conferidos no certificado do Cadastur e no cadastro público). Confira se a validade
+   do certificado (07/09/2026 a 07/09/2028) continua em dia.
 
 ## Parceiros reais no site
 
@@ -404,3 +407,25 @@ que o visitante recebe (para não expor a arquitetura). O que eles explicavam, e
 Código do pedido: quando o servidor responde, o código vem dele (formato `TA-XXXX-XXXX`). Se não responder, o
 `app.js` gera um provisório `TA-DDHHMM-XXXX` (4 caracteres aleatórios), que só serve para cliente e equipe
 citarem o mesmo pedido no WhatsApp.
+
+## Checklist antes de publicar (o que fica fora do repositório)
+
+1. **Variáveis do projeto** (Produção **e** Preview): `ORIGENS_PERMITIDAS`, `TURNSTILE_SITEKEY`,
+   `TURNSTILE_SECRET` (secret), `ACCESS_AUD`, e — só depois do domínio no ar — `REDIRECIONAR_PARA_DOMINIO=1`.
+   `ADMIN_KEY` fica **sem valor**. Opcional: `TURNSTILE_HOSTNAMES`.
+2. **Zero Trust:** conferir a cobertura do aplicativo do Access (lista na seção "Painel: checagem dupla").
+3. **Banco D1:** `migracoes/0001_rate_limit.sql` e `0002_pendente_e_idempotencia.sql` são opcionais (o worker
+   cria/ajusta as tabelas e colunas sozinho). No painel, em **Ajustes**, confira se o campo Instagram não guarda a
+   conta antiga (o correto é `trindadeadventure`).
+4. **Domínio:** nameservers no Registro.br, zona ativa, custom domains `trindadeadventury.com.br` e `www`,
+   "Always Use HTTPS", caixas `contato@` e `suporte@`; depois, ligar `REDIRECIONAR_PARA_DOMINIO`.
+5. **Google Search Console:** propriedade `https://trindadeadventury.com.br` + `sitemap.xml`.
+6. **Cloudflare WAF:** regra de rate limit extra para `/api/reservas` (defesa além da do worker); rever o HSTS
+   (`max-age=31536000; includeSubDomains`, sem `preload`) antes de qualquer `preload`.
+7. **Observar a CSP:** deixar a Report-Only rodando ~7 dias em produção (logs `[csp]`) antes de trocar para
+   "valendo" (Etapa 25 do plano — ainda não feita).
+8. **Decisões de texto ainda abertas** (nada foi escrito sobre elas): unidade do preço, duração, capacidade e
+   incluso da pescaria; número de paradas do Adventure; água inclusa x levar; desconto das pousadas na home;
+   "Hymbé Vila" x "Hymbé, na praia"; destino da página `/cameras`; dados dos passeios sob consulta; como se paga o
+   restante (70%) e o que acontece com o sinal no cancelamento; CEP para o JSON-LD; fotos em paisagem
+   (1200×630) para a pré-visualização de `/passeios/boat` e `/pousadas`.
