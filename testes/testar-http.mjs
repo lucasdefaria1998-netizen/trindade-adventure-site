@@ -190,7 +190,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     }
 
     if (LOCAL) {
-      const pedir = corpo => pegar("/api/reservas", { method: "POST", headers: { "content-type": "application/json" },
+      const pedir = corpo => pegar("/api/reservas", { method: "POST", headers: { "content-type": "application/json", origin: BASE, "cf-connecting-ip": "10." + Math.floor(Math.random() * 250) + "." + Math.floor(Math.random() * 250) + ".7" },
         body: JSON.stringify({ pax: 1, nome: "Teste Automatizado", telefone: TEL_TESTE, origem: "direto", sessao: "teste", ...corpo }) });
       const a15 = await pedir({ plano: "adventure", data: amanha, hora: 15 });
       const j15 = await a15.json();

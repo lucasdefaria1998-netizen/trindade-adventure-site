@@ -1187,6 +1187,12 @@ function ligarReserva() {
       torrada("Confira os dados — o servidor recusou algum campo.");
       return;
     }
+    // 403 (origem), 413 (tamanho), 415 (tipo), 429 (muitos pedidos) e erros 5xx: o
+    // pedido não foi gravado. A aba do WhatsApp já está aberta e segue pelo fluxo
+    // de sempre (abaixo), então a pessoa não fica sem resposta.
+    if ([403, 413, 415, 429].includes(resultado.status) || (resultado.status >= 500 && resultado.status !== 503)) {
+      torrada("Não deu para registrar no site agora. Seguimos pelo WhatsApp.");
+    }
 
     let dados;
     if (resultado.status === 200 && resultado.corpo && resultado.corpo.ok) {

@@ -27,8 +27,10 @@ const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache
 
 const ok = (dados, status = 200) =>
   new Response(JSON.stringify(dados), { status, headers: JSON_HEADERS });
-const erro = (mensagem, status = 400) =>
-  new Response(JSON.stringify({ ok: false, erro: mensagem }), { status, headers: JSON_HEADERS });
+const erro = (mensagem, status = 400, extra) =>
+  new Response(JSON.stringify({ ok: false, erro: mensagem }), { status, headers: extra ? { ...JSON_HEADERS, ...extra } : JSON_HEADERS });
+
+const ERRO_GENERICO = "Erro interno. Tente de novo ou fale no WhatsApp.";
 
 export default {
   async fetch(request, env) {
@@ -51,10 +53,144 @@ export default {
     try {
       return await rotearAPI(request, env, url);
     } catch (e) {
-      return erro("Erro interno: " + (e && e.message ? e.message : String(e)), 500);
+      // Nada de stack, mensagem de D1 ou SQL na resposta: o detalhe vai só
+      // para os logs do Worker, sem telefone nem e-mail inteiros.
+      console.error("[erro-api]", request.method, url.pathname, mascarar(e && e.message ? e.message : String(e)));
+      return erro(ERRO_GENERICO, 500);
     }
   }
 };
+
+/* Tira e-mail e sequências de dígitos (telefone) de um texto antes de ele ir
+   para o log. */
+function mascarar(texto) {
+  return String(texto)
+    .replace(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g, "[e-mail]")
+    .replace(/\d[\d\s().-]{6,}\d/g, "[número]")
+    .slice(0, 300);
+}
+
+/* ------------------------------ portão dos POST públicos ------------------------------
+
+   Todo POST público (reserva, evento de funil) passa por aqui, nesta ordem,
+   antes de qualquer leitura do banco:
+
+     1. método    só POST (senão 405 com "Allow: POST");
+     2. Origin    tem que estar na lista de origens do site (403);
+     3. conteúdo  Content-Type application/json (415);
+     4. tamanho   Content-Length e corpo lido com limite de verdade (413);
+     5. taxa      limite por IP em janela fixa, contado no D1 (429).
+
+   Sem isso, qualquer página de fora conseguia mandar reservas com um
+   formulário "text/plain" (que o navegador envia sem pedir permissão) e
+   esgotar as vagas.
+
+   Origens: env.ORIGENS_PERMITIDAS, separadas por vírgula. Aceita
+   "https://*.exemplo.com" para os endereços de preview do Pages. Sem a
+   variável, vale a lista de produção abaixo — assim um deploy sem a variável
+   configurada não derruba a reserva. */
+const ORIGENS_PADRAO = ["https://trindadeadventury.com.br", "https://trindade-adventure.pages.dev"];
+
+const ROTAS_PUBLICAS = {
+  "/api/reservas": { tipos: ["application/json"], maxBytes: 8 * 1024, limite: { max: 5, janelaS: 600 } },
+  "/api/eventos": { tipos: ["application/json"], maxBytes: 2 * 1024, limite: { max: 60, janelaS: 60 } }
+};
+
+function origensPermitidas(env) {
+  const lista = String(env.ORIGENS_PERMITIDAS || "").split(",").map(s => s.trim().replace(/\/+$/, "")).filter(Boolean);
+  return lista.length ? lista : ORIGENS_PADRAO;
+}
+
+function origemPermitida(origem, lista) {
+  let o;
+  try { o = new URL(origem); } catch { return false; }
+  if (o.origin !== origem.replace(/\/+$/, "")) return false; // com caminho, usuário ou "null"
+  for (const permitida of lista) {
+    if (permitida === o.origin) return true;
+    const curinga = /^(https?):\/\/\*\.(.+)$/.exec(permitida);
+    if (curinga && o.protocol === curinga[1] + ":" && o.hostname.endsWith("." + curinga[2]) && o.hostname.length > curinga[2].length + 1) return true;
+  }
+  return false;
+}
+
+async function lerCorpoLimitado(request, maxBytes) {
+  const declarado = Number(request.headers.get("content-length"));
+  if (Number.isFinite(declarado) && declarado > maxBytes) return { status: 413 };
+  if (!request.body) return { texto: "" };
+  const leitor = request.body.getReader();
+  const partes = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await leitor.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) { try { await leitor.cancel(); } catch {} return { status: 413 }; }
+    partes.push(value);
+  }
+  const buf = new Uint8Array(total);
+  let pos = 0;
+  for (const p of partes) { buf.set(p, pos); pos += p.byteLength; }
+  return { texto: new TextDecoder().decode(buf) };
+}
+
+/* Contador por IP em janela fixa, no D1 (um contador em memória do isolate não
+   serve: cada isolate teria o seu). A tabela se cria sozinha na primeira vez;
+   o mesmo SQL está em migracoes/0001_rate_limit.sql. Se o banco falhar aqui, a
+   reserva segue (melhor atender do que travar) e o erro vai para o log. */
+let tabelaRateLimitPronta = false;
+async function excedeuLimite(env, rota, ip, { max, janelaS }) {
+  try {
+    if (!tabelaRateLimitPronta) {
+      await env.DB.prepare(
+        "CREATE TABLE IF NOT EXISTS rate_limit (chave TEXT NOT NULL, janela INTEGER NOT NULL, n INTEGER NOT NULL, " +
+        "expira INTEGER NOT NULL, PRIMARY KEY (chave, janela))"
+      ).run();
+      tabelaRateLimitPronta = true;
+    }
+    const agora = Math.floor(Date.now() / 1000);
+    const janela = Math.floor(agora / janelaS);
+    const expira = (janela + 1) * janelaS;
+    const r = await env.DB
+      .prepare(
+        "INSERT INTO rate_limit (chave, janela, n, expira) VALUES (?1, ?2, 1, ?3) " +
+        "ON CONFLICT (chave, janela) DO UPDATE SET n = n + 1 RETURNING n"
+      )
+      .bind(rota + "|" + ip, janela, expira)
+      .first();
+    if (Math.random() < 0.02) await env.DB.prepare("DELETE FROM rate_limit WHERE expira < ?1").bind(agora).run();
+    return r && Number(r.n) > max ? Math.max(1, expira - agora) : 0;
+  } catch (e) {
+    console.error("[rate-limit]", mascarar(e && e.message ? e.message : String(e)));
+    return 0;
+  }
+}
+
+async function receberPostPublico(request, env, rota) {
+  const cfg = ROTAS_PUBLICAS[rota];
+
+  if (request.method !== "POST") return { resposta: erro("Método não permitido.", 405, { Allow: "POST" }) };
+
+  const origem = request.headers.get("origin");
+  const permitida = origem
+    ? origemPermitida(origem, origensPermitidas(env))
+    : request.headers.get("sec-fetch-site") === "same-origin";
+  if (!permitida) return { resposta: erro("Origem não permitida.", 403) };
+
+  const tipo = (request.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+  if (!cfg.tipos.includes(tipo)) return { resposta: erro("Tipo de conteúdo não aceito.", 415) };
+
+  const lido = await lerCorpoLimitado(request, cfg.maxBytes);
+  if (lido.status) return { resposta: erro("Pedido grande demais.", lido.status) };
+
+  const ip = request.headers.get("cf-connecting-ip") || "sem-ip";
+  const espera = await excedeuLimite(env, rota, ip, cfg.limite);
+  if (espera) return { resposta: erro("Muitos pedidos. Tente de novo em instantes.", 429, { "Retry-After": String(espera) }) };
+
+  let corpo;
+  try { corpo = JSON.parse(lido.texto); } catch { return { resposta: erro("Corpo inválido.", 400) }; }
+  if (!corpo || typeof corpo !== "object" || Array.isArray(corpo)) return { resposta: erro("Corpo inválido.", 400) };
+  return { corpo };
+}
 
 /* ------------------------------ páginas e arquivos ------------------------------
 
@@ -205,8 +341,12 @@ async function rotearAPI(request, env, url) {
   const metodo = request.method;
 
   if (p === "/api/disponibilidade" && metodo === "GET") return disponibilidade(env, url);
-  if (p === "/api/reservas" && metodo === "POST") return criarReserva(request, env);
-  if (p === "/api/eventos" && metodo === "POST") return registrarEvento(request, env);
+
+  if (ROTAS_PUBLICAS[p]) {
+    const entrada = await receberPostPublico(request, env, p);
+    if (entrada.resposta) return entrada.resposta;
+    return p === "/api/reservas" ? criarReserva(entrada.corpo, env) : registrarEvento(entrada.corpo, env);
+  }
 
   if (p.startsWith("/api/admin/")) {
     const auth = checarAdmin(request, env);
@@ -397,10 +537,7 @@ async function disponibilidade(env, url) {
 
 /* ------------------------------ criar reserva ------------------------------ */
 
-async function criarReserva(request, env) {
-  let b;
-  try { b = await request.json(); } catch { return erro("Corpo inválido."); }
-
+async function criarReserva(b, env) {
   const cfg = await lerConfig(env);
   const plano = PLANOS[b.plano];
   const e = {};
@@ -542,10 +679,7 @@ function montarMensagem(d) {
 
 /* ------------------------------ eventos de funil ------------------------------ */
 
-async function registrarEvento(request, env) {
-  let b;
-  try { b = await request.json(); } catch { return erro("Corpo inválido."); }
-
+async function registrarEvento(b, env) {
   const tipos = ["visita", "inicio_reserva", "envio_whatsapp"];
   if (!tipos.includes(b.tipo)) return erro("Tipo de evento inválido.");
 

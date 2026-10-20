@@ -155,6 +155,24 @@ página, sitemap, e a regra de horários (inclusive reservas de teste no banco
 local). Contra o site no ar (`node testes/testar-http.mjs https://trindade-adventure.pages.dev`)
 os testes que gravam reserva são pulados automaticamente.
 
+Outro conjunto, só da API (portão dos POST, limite por IP, validação…), só
+localhost — grava no D1 local e confere a contagem de linhas:
+
+    node testes/testar-api.mjs
+
+O teste ponta a ponta da reserva no navegador está em
+`testes/e2e-reserva.browser.js` (cole no console de http://127.0.0.1:8788/reservar;
+ele troca o `window.open` por um stub e nunca abre o WhatsApp).
+
+### Variáveis do projeto no Cloudflare Pages
+
+| Variável | Para quê | Se faltar |
+|---|---|---|
+| `ORIGENS_PERMITIDAS` | Origens que podem fazer POST em `/api/reservas` e `/api/eventos`, separadas por vírgula. Aceita `https://*.trindade-adventure.pages.dev` para os endereços de preview. Configure em **Produção** e em **Preview**. | Vale a lista de produção embutida no `_worker.js` (`trindadeadventury.com.br` e `trindade-adventure.pages.dev`): um preview recebe 403 no POST até a variável ser configurada. |
+
+O limite de pedidos por IP usa a tabela `rate_limit` do D1 (criada sozinha pelo
+`_worker.js`; o SQL está em `migracoes/0001_rate_limit.sql`).
+
 ## Publicar uma nova versão
 
 Cloudflare Pages → projeto `trindade-adventure` → **Create deployment** →
