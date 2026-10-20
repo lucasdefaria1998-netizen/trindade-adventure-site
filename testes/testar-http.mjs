@@ -12,6 +12,8 @@ const LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(BASE);
 const html = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
 const SITE = JSON.parse(html.match(/<script type="application\/json" id="site-config">([\s\S]*?)<\/script>/)[1]);
 
+// Telefone novo a cada execução: o worker limita 5 pedidos por telefone em 24 h, e o banco local acumula.
+const TEL_TESTE = "2499" + String(Math.floor(Math.random() * 1e7)).padStart(7, "0");
 let falhas = 0, total = 0;
 function checar(nome, ok, detalhe) {
   total++;
@@ -189,7 +191,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 
     if (LOCAL) {
       const pedir = corpo => pegar("/api/reservas", { method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ pax: 1, nome: "Teste Automatizado", telefone: "24999990000", origem: "direto", sessao: "teste", ...corpo }) });
+        body: JSON.stringify({ pax: 1, nome: "Teste Automatizado", telefone: TEL_TESTE, origem: "direto", sessao: "teste", ...corpo }) });
       const a15 = await pedir({ plano: "adventure", data: amanha, hora: 15 });
       const j15 = await a15.json();
       checar("T8  POST Adventure às 15:00 é recusado (422)", a15.status === 422 && j15.erros && j15.erros.hora, `${a15.status} ${JSON.stringify(j15)}`);
