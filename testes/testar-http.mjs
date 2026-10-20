@@ -271,7 +271,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     checar(`E9  ${c} não diz mais "saída única às 8h30/08:30"`, !/saída única às 0?8[h:]30/i.test(doc) && !/Saída única · 8h30/.test(doc), (doc.match(/.{30}saída única.{20}/i) || [""])[0]);
   }
   const boat = await (await pegar("/passeios/boat")).text();
-  checar("E9  /passeios/boat: card e meta dizem encontro 8h30 e saída 8h50", boat.includes("encontro às 8h30, saída às 8h50") && boat.includes("encontro às 8h30 e saída às 8h50, R$ 400"), "");
+  checar("E9  /passeios/boat: card e meta dizem encontro 8h30 e saída 8h50", boat.includes("encontro às 8h30, saída às 8h50") && boat.includes("encontro às 8h30, saída às 8h50, R$ 400"), "");
   checar("E9  /contato: Trindade Boat com encontro e saída", (await (await pegar("/contato")).text()).includes("encontro às 08:30, saída às 08:50"));
   checar("E9  Termos §4: encontro às 8h30 e saída às 8h50", (await (await pegar("/termos-do-passeio")).text()).includes("O Trindade Boat tem encontro às 8h30 e saída às 8h50."));
   const app = await (await pegar("/app.js?v=20261020-s09")).text();
@@ -390,6 +390,58 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     !/^\s*(prepararMapa|ligarReserva|desenharCameras|ligarRelogios)\(\);/m.test(iniciar) && /montarOsDemais\(\)/.test(iniciar) && /montar\(nome\)/.test(app));
   const html = await (await pegar("/")).text();
   checar("E15 index.html aponta app.js e motion.js para o ?v= da etapa", /\/app\.js\?v=[\w.-]+/.test(html) && html.includes("/motion.js?v=20261020-s15"));
+}
+
+
+// ---------- ETAPA 22 — domínio oficial, e-mails, SEO do <head>, JSON-LD por rota ----------
+{
+  const OFICIAL = "https://trindadeadventury.com.br";
+  const ANTIGO = "trindade-adventure" + ".pages.dev"; // montado por concatenação para este arquivo não aparecer no rg do domínio antigo
+  const locs = [...(await (await pegar("/sitemap.xml")).text()).matchAll(/<loc>([^<]*)<\/loc>/g)].map(m => m[1]);
+  checar("E22 sitemap: 15 <loc>, todos começam com o domínio oficial", locs.length === 15 && locs.every(l => l.startsWith(OFICIAL + "/") || l === OFICIAL + "/"), locs.filter(l => !l.startsWith(OFICIAL)).join(","));
+  const robots = await (await pegar("/robots.txt")).text();
+  checar("E22 robots.txt: Sitemap oficial e Disallow /admin e /api/", robots.includes(`Sitemap: ${OFICIAL}/sitemap.xml`) && /Disallow: \/admin/.test(robots) && /Disallow: \/api\//.test(robots) && !robots.includes(ANTIGO));
+  const dimJpg = rel => { const b = readFileSync(new URL("../site" + rel, import.meta.url)); let i = 2; while (i < b.length) { if (b[i] !== 0xff) { i++; continue; } const m = b[i + 1]; if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return [b.readUInt16BE(i + 7), b.readUInt16BE(i + 5)]; i += 2 + b.readUInt16BE(i + 2); } return null; };
+  const tabela = [];
+  for (const loc of locs) {
+    const caminho = new URL(loc).pathname;
+    const doc = await (await pegar(caminho)).text();
+    const get = re => (doc.match(re) || [])[1];
+    const titulo = get(/<title>([^<]*)<\/title>/), desc = get(/<meta name="description" content="([^"]*)"/);
+    const canon = get(/<link rel="canonical" href="([^"]*)"/), ogUrl = get(/<meta property="og:url" content="([^"]*)"/), ogImg = get(/<meta property="og:image" content="([^"]*)"/);
+    const w = Number(get(/<meta property="og:image:width" content="(\d+)"/)), h = Number(get(/<meta property="og:image:height" content="(\d+)"/));
+    checar(`E22 ${caminho}: canonical = og:url = ${OFICIAL}${caminho}; og:image no domínio oficial`, canon === OFICIAL + caminho && ogUrl === canon && ogImg.startsWith(OFICIAL + "/assets/"), `${canon} ${ogUrl} ${ogImg}`);
+    checar(`E22 ${caminho}: sem o domínio antigo no HTML servido`, !doc.includes(ANTIGO));
+    checar(`E22 ${caminho}: title ≤ 60 (${titulo.length}) e description ≤ 160 (${desc.length})`, titulo.length <= 60 && desc.length <= 160, `${titulo.length}/${desc.length}`);
+    const dim = ogImg.endsWith(".jpg") ? dimJpg(new URL(ogImg).pathname) : null;
+    checar(`E22 ${caminho}: og:image:width/height = dimensões reais do arquivo (${w}×${h})`, !!dim && dim[0] === w && dim[1] === h, JSON.stringify(dim));
+    const tipos = [];
+    for (const bloco of doc.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) {
+      let j; try { j = JSON.parse(bloco[1]); } catch (e) { checar(`E22 ${caminho}: JSON-LD é JSON válido`, false, e.message); continue; }
+      tipos.push(j["@type"]);
+      if (j["@type"] === "TravelAgency") checar(`E22 ${caminho}: TravelAgency com url, @id, e-mail, sameAs e image no domínio oficial`, j.url === OFICIAL + "/" && j["@id"] === OFICIAL + "/#empresa" && j.email === "contato@trindadeadventury.com.br" && j.image.startsWith(OFICIAL + "/") && JSON.stringify(j.sameAs) === JSON.stringify(["https://www.instagram.com/trindadeadventure/"]) && j.makesOffer.every(o => o.url.startsWith(OFICIAL + "/")), JSON.stringify(j).slice(0, 160));
+      if (j["@type"] === "TouristTrip") {
+        const preco = { "/passeios/essencial": "70", "/passeios/adventure": "150", "/passeios/boat": "400" }[caminho];
+        checar(`E22 ${caminho}: TouristTrip com Offer (preço ${preco} BRL, InStock) igual ao da página`, j.offers && j.offers.price === preco && j.offers.priceCurrency === "BRL" && j.offers.availability === "https://schema.org/InStock" && j.offers.url === OFICIAL + caminho && j.provider["@id"] === OFICIAL + "/#empresa" && doc.includes("R$ " + preco + " por pessoa"), JSON.stringify(j.offers));
+      }
+      if (j["@type"] === "BreadcrumbList") checar(`E22 ${caminho}: BreadcrumbList começa em Início e termina na própria rota`, j.itemListElement[0].item === OFICIAL + "/" && j.itemListElement.at(-1).item === OFICIAL + caminho && j.itemListElement.every((x, i) => x.position === i + 1), JSON.stringify(j.itemListElement));
+    }
+    if (caminho === "/pescaria" || caminho === "/passeios/mamangua") checar(`E22 ${caminho}: sem TouristTrip/Offer próprio (sem unidade de preço / sob consulta)`, !tipos.includes("TouristTrip"), tipos.join());
+    checar(`E22 ${caminho}: ${caminho === "/" ? "só o TravelAgency" : "BreadcrumbList presente"}`, caminho === "/" ? tipos.join() === "TravelAgency" : tipos.includes("BreadcrumbList"), tipos.join());
+    tabela.push(`${caminho.padEnd(26)} ${String(titulo.length).padStart(2)} ${String(desc.length).padStart(3)} ${w}x${h} ${tipos.join("+")}`);
+  }
+  console.log("\n  rota                        title desc  og:image  @types\n  " + tabela.join("\n  ") + "\n");
+  const nf = await (await pegar("/nao-existe")).text();
+  checar("E22 /nao-existe: sem BreadcrumbList nem TouristTrip, sem canonical", !/BreadcrumbList|TouristTrip/.test(nf) && !/rel="canonical"/.test(nf));
+  const contato = await (await pegar("/contato")).text(), home = await (await pegar("/")).text(), priv = await (await pegar("/politica-de-privacidade")).text(), termos = await (await pegar("/termos-do-passeio")).text();
+  checar("E22 mailto:contato@ no /contato e no rodapé", contato.includes('href="mailto:contato@trindadeadventury.com.br"') && home.includes('<li><a href="mailto:contato@trindadeadventury.com.br">contato@trindadeadventury.com.br</a></li>'));
+  checar("E22 mailto:suporte@ na Privacidade e nos Termos §12", priv.includes('href="mailto:suporte@trindadeadventury.com.br"') && termos.includes('href="mailto:suporte@trindadeadventury.com.br"'));
+  checar("E22 o placeholder do e-mail do cliente continua voce@email.com", home.includes('placeholder="voce@email.com"'));
+  const app = await (await pegar("/app.js?v=20261020-s22")).text();
+  checar("E22 app.js sem domínio antigo e com og:image:width/height na navegação", !app.includes(ANTIGO) && app.includes('og:image:width') && app.includes("imagensDim"));
+  // Sem política de redirect ativa no ambiente local: localhost nunca redireciona
+  const r = await pegar("/passeios?x=1"); await r.arrayBuffer();
+  checar("E22 localhost nunca redireciona (200), mesmo com a variável ligada ou não", r.status === 200, r.status);
 }
 
 

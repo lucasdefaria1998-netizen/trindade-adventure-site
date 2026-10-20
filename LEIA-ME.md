@@ -219,6 +219,7 @@ ele troca o `window.open` por um stub e nunca abre o WhatsApp).
 | `ORIGENS_PERMITIDAS` | Origens que podem fazer POST em `/api/reservas` e `/api/eventos`, separadas por vírgula. Aceita `https://*.trindade-adventure.pages.dev` para os endereços de preview. Configure em **Produção** e em **Preview**. | Vale a lista de produção embutida no `_worker.js` (`trindadeadventury.com.br` e `trindade-adventure.pages.dev`): um preview recebe 403 no POST até a variável ser configurada. |
 | `TURNSTILE_SITEKEY` | Sitekey **pública** do widget Turnstile (desafio anti-robô da reserva). O `_worker.js` coloca este valor no `<meta name="turnstile-sitekey">`; sem ela vale a chave de teste que vem no `index.html`. Hostnames do widget: `trindadeadventury.com.br`, `www.trindadeadventury.com.br`, `trindade-adventure.pages.dev`. | Widget de teste (sempre "passa"): com o segredo real, toda reserva online é recusada (403) e o site segue pelo WhatsApp. |
 | `TURNSTILE_SECRET` | Segredo do Turnstile (**Secret**, nunca no repositório nem no chat). Configure em Produção e em Preview, junto com a sitekey. | **Reserva online fechada** (503): o site cai sozinho no fluxo de WhatsApp, sem gravar no painel. Configure antes de publicar. |
+| `REDIRECIONAR_PARA_DOMINIO` | `1` liga o redirecionamento **301** de `trindade-adventure.pages.dev` e `www.trindadeadventury.com.br` para `https://trindadeadventury.com.br` (caminho e query preservados; só GET/HEAD). Ligue **só em Produção** e **só depois** de o domínio responder com HTTPS (DNS, certificado, custom domains `trindadeadventury.com.br` e `www`). Previews por hash/branch, localhost e o próprio domínio oficial nunca redirecionam. | Desligado: nada redireciona e o site responde nos dois endereços. |
 | `TURNSTILE_HOSTNAMES` | (Opcional) Hosts aceitos na verificação, separados por vírgula. | Vale a lista de produção e qualquer subdomínio de `trindade-adventure.pages.dev` (previews). |
 
 O limite de pedidos por IP usa a tabela `rate_limit` do D1 (criada sozinha pelo
@@ -339,3 +340,21 @@ empilhado. A correção geral está em `estilo.css`, perto do topo:
 `fieldset{min-width:0}`. Se um dia o problema voltar (elemento largo demais
 "vazando" pra fora da tela no celular), o primeiro suspeito é um `fieldset`
 ou outro elemento com essa mesma folga de tamanho mínimo automático.
+
+## Domínio oficial e e-mails
+
+O endereço canônico é **`https://trindadeadventury.com.br`** (apex, sem `www`; a grafia
+"adventury" está correta). Canonical, `og:url`, `og:image`, JSON-LD, `sitemap.xml` e
+`robots.txt` apontam para ele (a origem fica em `site-config.origem`).
+**Publique este commit só depois de o domínio estar ativo** — senão canonical e sitemap
+apontam para um endereço que ainda não resolve.
+
+E-mails publicados: `contato@trindadeadventury.com.br` (rodapé, `/contato`, JSON-LD) e
+`suporte@trindadeadventury.com.br` (Política de Privacidade e Termos §12). Crie as caixas
+(Email Routing/MX) **antes** de publicar.
+
+Cada rota também sai com JSON-LD próprio, montado pelo `_worker.js`: `BreadcrumbList` nas
+rotas internas e `TouristTrip` + `Offer` (preço da tabela `PLANOS`, BRL, `InStock`) em
+Essencial, Adventure e Boat. Passeios sob consulta e a pescaria não têm `Offer` (a pescaria
+ainda não tem a unidade do preço decidida). `og:image:width/height` vêm de
+`site-config.imagensDim` — ao trocar a imagem de uma página, atualize a medida ali.

@@ -385,6 +385,45 @@ const restamEm = async (dia, hora) => (await (await fetch(`${BASE}/api/disponibi
   checar("E6  verificação: resposta 5xx da Cloudflare → indisponível", http500.motivo === "indisponivel", JSON.stringify(http500));
 }
 
+// ---------- ETAPA 22 — redirecionamento para o domínio oficial (função pura) ----------
+{
+  const src = (await import("node:fs")).readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
+  const w = await import("data:text/javascript;base64," + Buffer.from(src).toString("base64"));
+  const ON = { REDIRECIONAR_PARA_DOMINIO: "1" };
+  const P = "trindade-adventure" + ".pages.dev";
+  const casos = [
+    ["GET pages.dev/passeios/boat?utm_source=x", `https://${P}/passeios/boat?utm_source=x`, "GET", ON, "https://trindadeadventury.com.br/passeios/boat?utm_source=x"],
+    ["GET www/ → apex", "https://www.trindadeadventury.com.br/", "GET", ON, "https://trindadeadventury.com.br/"],
+    ["HEAD igual ao GET", `https://${P}/pescaria`, "HEAD", ON, "https://trindadeadventury.com.br/pescaria"],
+    ["POST /api/reservas no pages.dev", `https://${P}/api/reservas`, "POST", ON, null],
+    ["PUT não redireciona", `https://${P}/x`, "PUT", ON, null],
+    ["preview por hash", `https://abc123.${P}/`, "GET", ON, null],
+    ["preview por branch", `https://fix-pre-lancamento.${P}/passeios`, "GET", ON, null],
+    ["apex (sem loop)", "https://trindadeadventury.com.br/", "GET", ON, null],
+    ["localhost", "http://localhost:8788/", "GET", ON, null],
+    ["127.0.0.1", "http://127.0.0.1:8788/", "GET", ON, null],
+    ["host parecido (evilpages)", `https://evil-${P}/`, "GET", ON, null],
+    ["host com o nome no caminho", `https://exemplo.com/${P}`, "GET", ON, null],
+    ["sem a variável", `https://${P}/passeios`, "GET", {}, null],
+    ["variável '0'", `https://${P}/passeios`, "GET", { REDIRECIONAR_PARA_DOMINIO: "0" }, null],
+    ["variável 'true' (só \"1\" vale)", `https://${P}/passeios`, "GET", { REDIRECIONAR_PARA_DOMINIO: "true" }, null],
+    ["env ausente", `https://${P}/passeios`, "GET", undefined, null],
+    ["raiz sem caminho", `https://${P}`, "GET", ON, "https://trindadeadventury.com.br/"],
+    ["query preservada com vários parâmetros", `https://${P}/reservar?plano=boat&fonte=ig`, "GET", ON, "https://trindadeadventury.com.br/reservar?plano=boat&fonte=ig"]
+  ];
+  console.log("\n  caso                                  resultado");
+  for (const [nome, url, metodo, env, esperado] of casos) {
+    const r = w.destinoRedirect(url, metodo, env);
+    console.log("  " + nome.padEnd(38) + (r === null ? "null" : r));
+    checar(`E22 redirect: ${nome}`, r === esperado, String(r));
+  }
+  checar("E22 redirect: também aceita um objeto URL", w.destinoRedirect(new URL(`https://${P}/a?b=1`), "GET", ON) === "https://trindadeadventury.com.br/a?b=1");
+  checar("E22 redirect: entrada inválida não lança erro", w.destinoRedirect("não é url", "GET", ON) === null);
+  console.log("");
+  const r301 = await fetch(BASE + "/passeios?x=1", { redirect: "manual" });
+  checar("E22 localhost (o ambiente local) responde 200 e não 301", r301.status === 200, r301.status);
+}
+
 // ---------- ETAPA 18 — /api/csp-report ----------
 {
   const relatorio = { "csp-report": { "document-uri": "http://127.0.0.1:8788/passeios/boat?plano=boat&nome=Maria", "effective-directive": "script-src-elem", "blocked-uri": "https://evil.example/x.js?token=segredo#frag", "violated-directive": "script-src-elem", "original-policy": "default-src 'self'", "source-file": "http://127.0.0.1:8788/app.js", "line-number": 10 } };

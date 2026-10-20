@@ -95,10 +95,33 @@ function comHeadersSeguranca(resp, { api = false, caminho = "" } = {}) {
   return r;
 }
 
+/* Domínio oficial. Os endereços antigos viram 301 para ele — mas SÓ em produção e SÓ depois de o
+   Lucas ligar a variável REDIRECIONAR_PARA_DOMINIO="1" (isto é, depois de o domínio responder com HTTPS;
+   com a variável desligada, nada redireciona e o site segue acessível pelos dois endereços).
+   Lista de hosts FIXA e exata: previews por hash/branch (abc123.trindade-adventure.pages.dev), localhost e
+   o próprio domínio oficial nunca redirecionam (nem loop, nem preview quebrado). Só GET e HEAD: um POST
+   da reserva viraria GET num redirect. Função pura, para testar sem deploy. */
+const DOMINIO_OFICIAL = "https://trindadeadventury.com.br";
+const HOSTS_REDIRECIONADOS = ["trindade-adventure.pages.dev", "www.trindadeadventury.com.br"];
+
+function destinoRedirect(url, metodo, env) {
+  if (!env || env.REDIRECIONAR_PARA_DOMINIO !== "1") return null;
+  if (metodo !== "GET" && metodo !== "HEAD") return null;
+  let u;
+  try { u = typeof url === "string" ? new URL(url) : url; } catch { return null; }
+  if (!u || !HOSTS_REDIRECIONADOS.includes(u.hostname)) return null;
+  return DOMINIO_OFICIAL + u.pathname + u.search;
+}
+
 export default {
   async fetch(request, env) {
+    const aqui = new URL(request.url);
+    const destino = destinoRedirect(aqui, request.method, env);
+    if (destino) {
+      return comHeadersSeguranca(new Response(null, { status: 301, headers: { location: destino, "cache-control": "public, max-age=3600" } }), { caminho: aqui.pathname });
+    }
     const resposta = await tratar(request, env);
-    const caminho = new URL(request.url).pathname;
+    const caminho = aqui.pathname;
     return comHeadersSeguranca(resposta, { api: caminho.startsWith("/api/"), caminho });
   }
 };
@@ -433,7 +456,34 @@ async function servirPagina(request, env, url) {
   if (!pagina) h.set("cache-control", SEM_CACHE);
 
   const resposta = new Response(html, { status: pagina ? 200 : 404, headers: h });
-  return aplicarMetadados(resposta, meta, !pagina, env, { secao: (pagina || site.naoEncontrada).secao, foco: (pagina && pagina.foco) || null, empresa: textoDaEmpresa(site.negocio) });
+  return aplicarMetadados(resposta, meta, !pagina, env, { secao: (pagina || site.naoEncontrada).secao, foco: (pagina && pagina.foco) || null, empresa: textoDaEmpresa(site.negocio), jsonld: jsonLdDaPagina(site, url.pathname, pagina, meta) });
+}
+
+/* JSON-LD próprio de cada rota, além do TravelAgency que já vem no index.html: BreadcrumbList nas rotas internas
+   e TouristTrip + Offer só nos passeios com agenda e preço publicado (Essencial, Adventure, Boat). O preço sai da
+   mesma tabela PLANOS que calcula a reserva — um só lugar. Passeio sob consulta e pescaria (sem a unidade do preço
+   decidida) ficam sem Offer. Só rotas que existem: o 404 não leva nada. */
+function jsonLdDaPagina(site, caminho, pagina, meta) {
+  if (!pagina || caminho === "/") return [];
+  const origem = site.origem;
+  const nome = p => String((site.paginas[p] || {}).titulo || "").split(" | ")[0];
+  const trilha = [["Início", "/"]];
+  if (caminho.startsWith("/passeios/")) trilha.push(["Passeios", "/passeios"]);
+  trilha.push([nome(caminho), caminho]);
+  const blocos = [{
+    "@context": "https://schema.org", "@type": "BreadcrumbList",
+    itemListElement: trilha.map(([n, c], i) => ({ "@type": "ListItem", position: i + 1, name: n, item: origem + c }))
+  }];
+  const id = caminho.startsWith("/passeios/") ? caminho.slice("/passeios/".length) : "";
+  const plano = Object.prototype.hasOwnProperty.call(PLANOS, id) ? PLANOS[id] : null;
+  if (plano) {
+    blocos.push({
+      "@context": "https://schema.org", "@type": "TouristTrip", name: plano.nome, description: pagina.descricao,
+      url: origem + caminho, image: meta.imagem, provider: { "@id": origem + "/#empresa" },
+      offers: { "@type": "Offer", price: String(plano.preco), priceCurrency: "BRL", availability: "https://schema.org/InStock", url: origem + caminho }
+    });
+  }
+  return blocos;
 }
 
 /* Dados legais do rodapé (razão social, CNPJ, Cadastur), a partir de "negocio" no site-config. Campo vazio
@@ -459,6 +509,8 @@ function metadadosDaPagina(site, caminho, pagina) {
     canonical: pagina ? site.origem + caminho : null,
     robots: indexar ? "index,follow" : "noindex,follow",
     imagem,
+    largura: ((site.imagensDim || {})[p.imagem || site.imagemPadrao] || [])[0],
+    altura: ((site.imagensDim || {})[p.imagem || site.imagemPadrao] || [])[1],
     imagemAlt: p.imagemAlt || site.imagemAltPadrao,
     tipo: p.tipoOg || "website"
   };
@@ -475,6 +527,8 @@ function aplicarMetadados(resposta, m, naoEncontrada, env, rota) {
     .on('meta[property="og:description"]', attr("content", m.descricao))
     .on('meta[property="og:image"]', attr("content", m.imagem))
     .on('meta[property="og:image:alt"]', attr("content", m.imagemAlt))
+    .on('meta[property="og:image:width"]', m.largura ? attr("content", String(m.largura)) : { element(el) { el.remove(); } })
+    .on('meta[property="og:image:height"]', m.altura ? attr("content", String(m.altura)) : { element(el) { el.remove(); } })
     .on('meta[name="twitter:title"]', attr("content", m.titulo))
     .on('meta[name="twitter:description"]', attr("content", m.descricao))
     .on('meta[name="twitter:image"]', attr("content", m.imagem));
@@ -499,6 +553,13 @@ function aplicarMetadados(resposta, m, naoEncontrada, env, rota) {
   // disputaria o LCP) com uma imagem que fica escondida.
   if (rota.secao !== "inicio") {
     rw = rw.on('link[rel="preload"][as="image"]', { element(el) { el.remove(); } });
+  }
+
+  // JSON-LD da rota (BreadcrumbList, TouristTrip). "<" escapado: nada de fechar o <script> por dentro.
+  if (rota.jsonld && rota.jsonld.length) {
+    rw = rw.on("head", { element(el) {
+      for (const b of rota.jsonld) el.append('<script type="application/ld+json">' + JSON.stringify(b).replace(/</g, "\\u003c") + "</script>", { html: true });
+    } });
   }
 
   // Dados da empresa no rodapé já no HTML (sem depender de JavaScript); sem dados, o parágrafo fica escondido.
@@ -1479,4 +1540,4 @@ async function adminGravarConfig(request, env) {
 }
 
 // Exportadas só para os testes de testes/ (o Pages usa apenas o export default).
-export { expiraEm, normalizarTelefone, conferirData, validarReserva, verificarTurnstile, resumirRelatorioCsp };
+export { expiraEm, normalizarTelefone, conferirData, validarReserva, verificarTurnstile, resumirRelatorioCsp, destinoRedirect };

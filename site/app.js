@@ -371,6 +371,9 @@ function aplicarMetadados(rota) {
   meta('meta[property="og:description"]', p.descricao);
   meta('meta[property="og:image"]', imagem);
   meta('meta[property="og:image:alt"]', p.imagemAlt || SITE.imagemAltPadrao);
+  const dim = (SITE.imagensDim || {})[p.imagem || SITE.imagemPadrao] || [];
+  meta('meta[property="og:image:width"]', dim[0] != null ? String(dim[0]) : null);
+  meta('meta[property="og:image:height"]', dim[1] != null ? String(dim[1]) : null);
   meta('meta[name="twitter:title"]', p.titulo);
   meta('meta[name="twitter:description"]', p.descricao);
   meta('meta[name="twitter:image"]', imagem);
