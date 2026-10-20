@@ -576,6 +576,43 @@ const ico = (k, s) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill=
 
 const numero = v => (typeof v === "number" && isFinite(v)) ? v : null;
 
+/* Saída segura no DOM: todo texto que NÃO é constante deste arquivo (resposta de
+   API, localStorage, parâmetro da URL) passa por esc() antes de ir para um
+   innerHTML, e número vindo de fora passa por numero()/inteiroSeguro(). */
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const inteiroSeguro = (v, padrao = 0) => { const n = Math.floor(Number(v)); return Number.isFinite(n) ? n : padrao; };
+const HHMM = /^\d{2}:\d{2}$/;
+const CODIGO_PEDIDO = /^TA-[A-Z0-9-]{4,32}$/;
+
+/* Só o link do WhatsApp da operação é aceito vindo do servidor (https://wa.me/<número fixo>);
+   qualquer outra coisa — javascript:, outro host, outro número — vira o link montado aqui. */
+function waHrefSeguro(href, alternativa) {
+  try {
+    const u = new URL(href);
+    if (u.protocol === "https:" && u.origin === "https://wa.me" && u.pathname === "/" + CFG.whatsapp && !u.username && !u.password) return u.href;
+  } catch (e) { /* URL inválida */ }
+  return alternativa;
+}
+
+/* Dados do clima, venham da API ou do localStorage (que qualquer um edita): reconstrói só com
+   número, textos conhecidos e horários HH:MM. O que não passa vira "sem dado". */
+function climaSeguro(d) {
+  if (!d || typeof d !== "object") return null;
+  const temp = numero(d.temp);
+  if (temp === null) return null;
+  const textosConhecidos = new Set([...Object.values(WMO).map(v => v[0]), "Tempo indefinido"]);
+  return {
+    temp,
+    sensacao: numero(d.sensacao), vento: numero(d.vento), dia: d.dia === true,
+    texto: textosConhecidos.has(d.texto) ? d.texto : "Tempo indefinido",
+    icone: Object.hasOwn(ICO, d.icone) ? d.icone : "nuvem",
+    chuvaProb: numero(d.chuvaProb), uv: numero(d.uv), maxima: numero(d.maxima), minima: numero(d.minima),
+    por: typeof d.por === "string" && HHMM.test(d.por) ? d.por : "",
+    onda: numero(d.onda),
+    hora: typeof d.hora === "string" && HHMM.test(d.hora) ? d.hora : ""
+  };
+}
+
 const Clima = {
   estado: "idle",
   dados: null,
@@ -588,8 +625,9 @@ const Clima = {
       const bruto = localStorage.getItem(this.CHAVE);
       if (!bruto) return null;
       const o = JSON.parse(bruto);
-      if (!o || !o.ts || Date.now() - o.ts > this.TTL) return null;
-      return o;
+      if (!o || typeof o.ts !== "number" || Date.now() - o.ts > this.TTL) return null;
+      const dados = climaSeguro(o.dados);
+      return dados ? { ts: o.ts, dados } : null;
     } catch (e) { return null; }
   },
 
@@ -646,7 +684,7 @@ const Clima = {
     const [txt, icone] = WMO[numero(c.weather_code)] || ["Tempo indefinido", "nuvem"];
     const m = (mar.status === "fulfilled" && mar.value && mar.value.current) ? mar.value.current : {};
 
-    this.dados = {
+    this.dados = climaSeguro({
       temp,
       sensacao: numero(c.apparent_temperature),
       vento: numero(c.wind_speed_10m),
@@ -659,7 +697,7 @@ const Clima = {
       por: Array.isArray(d.sunset) ? String(d.sunset[0] || "").slice(11, 16) : "",
       onda: numero(m.wave_height),
       hora: String(c.time || "").slice(11, 16)
-    };
+    });
     this.estado = "ok";
     try { localStorage.setItem(this.CHAVE, JSON.stringify({ ts: Date.now(), dados: this.dados })); } catch (e) {}
     this.pintar();
@@ -701,12 +739,12 @@ const Clima = {
 
     const d = this.dados;
     const [nivel, recado] = this.parecer(d);
-    const item = (k, valor, rot) => `<li>${ico(k, 14)}<b class="num">${valor}</b> ${rot}</li>`;
+    const item = (k, valor, rot) => `<li>${ico(k, 14)}<b class="num">${esc(valor)}</b> ${esc(rot)}</li>`;
 
     return `<div class="clima-faixa">
       <span class="clima-agora">${ico(d.icone, 18)}<b class="num">${Math.round(d.temp)}°</b>
-        <span>${d.texto}</span><span class="clima-local">· ${local} agora</span></span>
-      <span class="ponto-${nivel}">${recado}</span>
+        <span>${esc(d.texto)}</span><span class="clima-local">· ${esc(local)} agora</span></span>
+      <span class="ponto-${nivel}">${esc(recado)}</span>
       <ul class="clima-dados" aria-label="Detalhes do tempo e do mar">
         ${d.vento !== null ? item("vento", Math.round(d.vento) + " km/h", "vento") : ""}
         ${d.onda !== null ? item("onda", d.onda.toFixed(1).replace(".", ",") + " m", "onda") : ""}
@@ -715,7 +753,7 @@ const Clima = {
         ${d.maxima !== null && d.minima !== null ? item("termo", Math.round(d.minima) + "° / " + Math.round(d.maxima) + "°", "mín/máx") : ""}
         ${d.por ? item("porsol", d.por, "pôr do sol") : ""}
       </ul>
-      <span class="clima-meta" title="Fonte: Open-Meteo">${d.hora ? "às " + d.hora : ""}<button class="clima-acao" type="button" data-recarregar>Atualizar</button></span>
+      <span class="clima-meta" title="Fonte: Open-Meteo">${d.hora ? "às " + esc(d.hora) : ""}<button class="clima-acao" type="button" data-recarregar>Atualizar</button></span>
     </div>`;
   }
 };
@@ -797,7 +835,7 @@ function pintarHorarios() {
 
   alvo.innerHTML = horas.map(h => {
     const passou = ehHoje && h <= horaAtual;
-    const info = grade ? grade[String(h)] : null;
+    const info = grade ? grade[String(h)] : null; // já normalizada em atualizarDisponibilidade(): { restam: inteiro, bloqueado: booleano }
     const semVaga = !!(info && (info.bloqueado || info.restam <= 0));
     const off = passou || semVaga;
 
@@ -807,12 +845,14 @@ function pintarHorarios() {
         : info.restam <= 0 ? "esgotado"
         : info.restam + " vaga" + (info.restam > 1 ? "s" : "");
     }
+    const capacidade = inteiroSeguro(dispoCache && dispoCache.capacidade, CFG.capacidade) || CFG.capacidade;
+    const proporcao = info && !off ? Math.min(1, Math.max(0, info.restam / capacidade)) : 0;
 
-    return `<button type="button" class="hslot" data-hora="${h}" ${off ? "disabled" : ""}
+    return `<button type="button" class="hslot" data-hora="${Number(h)}" ${off ? "disabled" : ""}
       aria-pressed="${reserva.hora === h}">
-      <b>${horaLabel(h)}</b>
-      <span class="saida">${legenda}</span>
-      ${info ? `<span class="slot-capacity" aria-hidden="true"><span class="slot-capacity-fill" data-ratio="${off ? 0 : Math.min(1, Math.max(0, info.restam / (dispoCache.capacidade || CFG.capacidade)))}" style="--capacity-ratio:${off ? 0 : Math.min(1, Math.max(0, info.restam / (dispoCache.capacidade || CFG.capacidade)))}"></span></span>` : ""}
+      <b>${esc(horaLabel(h))}</b>
+      <span class="saida">${esc(legenda)}</span>
+      ${info ? `<span class="slot-capacity" aria-hidden="true"><span class="slot-capacity-fill" data-ratio="${proporcao}" style="--capacity-ratio:${proporcao}"></span></span>` : ""}
     </button>`;
   }).join("");
 
@@ -838,11 +878,22 @@ async function atualizarDisponibilidade() {
   const r = await chamarAPI("/api/disponibilidade?data=" + encodeURIComponent(dataAlvo));
   if (reserva.data !== dataAlvo) return; // a pessoa já trocou de data enquanto isso carregava
 
+  // A resposta da API vira dado simples antes de ir para a tela: só inteiros e booleanos.
+  const gradeSegura = {};
+  if (r.status === 200 && r.corpo && r.corpo.ok && r.corpo.grade && typeof r.corpo.grade === "object") {
+    for (const [h, info] of Object.entries(r.corpo.grade)) {
+      if (Number.isFinite(Number(h)) && info && typeof info === "object")
+        gradeSegura[String(Number(h))] = { restam: Math.max(0, inteiroSeguro(info.restam)), bloqueado: info.bloqueado === true };
+    }
+  }
   dispoCache = (r.status === 200 && r.corpo && r.corpo.ok)
-    ? { data: dataAlvo, grade: r.corpo.grade, capacidade: r.corpo.capacidade }
+    ? { data: dataAlvo, grade: gradeSegura, capacidade: Math.max(1, inteiroSeguro(r.corpo.capacidade, CFG.capacidade)) }
     : null;
-  if (dispoCache && r.corpo.horariosPorPlano) {
-    horariosDoServidor = r.corpo.horariosPorPlano;
+  if (dispoCache && r.corpo.horariosPorPlano && typeof r.corpo.horariosPorPlano === "object") {
+    const porPlano = {};
+    for (const [id, lista] of Object.entries(r.corpo.horariosPorPlano))
+      if (Array.isArray(lista)) porPlano[id] = lista.map(Number).filter(Number.isFinite);
+    horariosDoServidor = porPlano;
     // O servidor pode ter um limite de retorno diferente do padrão: um horário
     // escolhido antes pode não valer mais para este passeio.
     if (reserva.hora !== null && !horariosDoPlano(planoPor(reserva.plano)).includes(reserva.hora)) {
@@ -1093,6 +1144,10 @@ function mostrarConfirmacao(dados) {
   const voucher = p.voucher * reserva.pax;
   const alvo = $("#reservaFeita");
 
+  // Código e link vêm do servidor: o código só vale no formato do pedido e o link só se for o wa.me da operação.
+  const codigoSeguro = CODIGO_PEDIDO.test(String(dados.codigo)) ? String(dados.codigo) : codigoReserva();
+  const hrefSeguro = waHrefSeguro(dados.waHref, linkWA(mensagemWhatsApp(Object.assign({}, dados, { codigo: codigoSeguro }))));
+
   alvo.innerHTML = `
     <div class="caixa confirma">
       <div class="selo">
@@ -1105,18 +1160,18 @@ function mostrarConfirmacao(dados) {
       </div>
       <div class="codigo">
         <p>Código do pedido</p>
-        <p class="num">${dados.codigo}</p>
+        <p class="num">${esc(codigoSeguro)}</p>
       </div>
       <div class="linhas">
-        <div class="linha"><span>Passeio</span><b>${p.nome}</b></div>
-        <div class="linha"><span>Data e horário</span><b class="num">${dataBR(reserva.data)} · ${horaLabel(reserva.hora)}</b></div>
-        <div class="linha"><span>Saída efetiva</span><b class="num">${saidaLabel(reserva.hora)}</b></div>
-        <div class="linha"><span>Pessoas</span><b class="num">${reserva.pax}</b></div>
-        <div class="linha"><span>Total</span><b class="num">${BRL(total)}</b></div>
-        ${voucher ? `<div class="linha linha-ouro"><span>Voucher almoço incluso</span><b class="num">${BRL(voucher)}</b></div>` : ""}
+        <div class="linha"><span>Passeio</span><b>${esc(p.nome)}</b></div>
+        <div class="linha"><span>Data e horário</span><b class="num">${esc(dataBR(reserva.data))} · ${esc(horaLabel(reserva.hora))}</b></div>
+        <div class="linha"><span>Saída efetiva</span><b class="num">${esc(saidaLabel(reserva.hora))}</b></div>
+        <div class="linha"><span>Pessoas</span><b class="num">${inteiroSeguro(reserva.pax)}</b></div>
+        <div class="linha"><span>Total</span><b class="num">${esc(BRL(total))}</b></div>
+        ${voucher ? `<div class="linha linha-ouro"><span>Voucher almoço incluso</span><b class="num">${esc(BRL(voucher))}</b></div>` : ""}
       </div>
-      <p class="nota">Ponto de encontro: ${CFG.pontoEncontro}. Chegue 15 minutos antes, com protetor solar, água e calçado fechado.</p>
-      <a class="btn btn-primario btn-largo" id="btnAbrirWA" href="${dados.waHref || linkWA(mensagemWhatsApp(dados))}" target="_blank" rel="noopener">
+      <p class="nota">Ponto de encontro: ${esc(CFG.pontoEncontro)}. Chegue 15 minutos antes, com protetor solar, água e calçado fechado.</p>
+      <a class="btn btn-primario btn-largo" id="btnAbrirWA" href="${esc(hrefSeguro)}" target="_blank" rel="noopener">
         Reabrir o WhatsApp com o pedido
       </a>
       <button class="btn btn-secundario btn-largo" type="button" id="btnICS">Salvar no meu calendário</button>
@@ -1279,7 +1334,11 @@ function ligarReserva() {
     if (resultado.status === 200 && resultado.corpo && resultado.corpo.ok) {
       // Caminho normal: o servidor gravou a reserva, conferiu a vaga de
       // verdade e devolveu a mensagem pronta — já com a origem, pro dono ver.
-      dados = Object.assign({ codigo: resultado.corpo.codigo, waHref: resultado.corpo.whatsapp }, dadosForm);
+      // Código e link vêm do servidor, mas só entram se tiverem o formato esperado (S08): o código do
+      // pedido (TA-…) e um link https://wa.me/<número da operação>. Senão vale o que se monta aqui.
+      const codigoServidor = CODIGO_PEDIDO.test(String(resultado.corpo.codigo)) ? String(resultado.corpo.codigo) : codigoReserva();
+      dados = Object.assign({ codigo: codigoServidor }, dadosForm);
+      dados.waHref = waHrefSeguro(resultado.corpo.whatsapp, linkWA(mensagemWhatsApp(dados)));
       chaveEnvio = null;
     } else {
       // API fora do ar, ou o banco ainda não foi ligado ao projeto: volta ao
