@@ -910,6 +910,7 @@ function pintarHorarios() {
   if (p.horarioCombinado) {
     reserva.hora = null;
     alvo.innerHTML = "";
+    alvo.hidden = true; // sem grade de horários: não deixa o espaço reservado (min-height) em branco
     if (dicaSaida20) dicaSaida20.hidden = true;
     const aviso = $("#avisoHorario");
     if (aviso) aviso.textContent = "Horário combinado pelo WhatsApp, conforme as condições do tempo.";
@@ -919,6 +920,7 @@ function pintarHorarios() {
     return;
   }
   if (dicaSaida20) dicaSaida20.hidden = false;
+  alvo.hidden = false;
 
   const horas = horariosDoPlano(p);
 
