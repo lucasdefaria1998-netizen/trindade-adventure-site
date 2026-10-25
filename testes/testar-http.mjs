@@ -293,7 +293,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const p = await pegar("/pescaria"); const doc = await p.text();
   checar("E11 /pescaria → 200 com title/canonical próprios", p.status === 200 && /<link rel="canonical" href="[^"]*\/pescaria">/.test(doc) && /<title>[^<]*[Pp]escaria[^<]*<\/title>/.test(doc), `${p.status}`);
   const xml = await (await pegar("/sitemap.xml")).text();
-  checar("E11 sitemap tem 15 URLs e nenhuma de fishing", (xml.match(/<loc>/g) || []).length === 15 && !xml.includes("fishing"), (xml.match(/<loc>/g) || []).length);
+  checar("E11 sitemap tem 16 URLs e nenhuma de fishing", (xml.match(/<loc>/g) || []).length === 16 && !xml.includes("fishing"), (xml.match(/<loc>/g) || []).length);
   checar("E11 site-config sem /passeios/fishing", !Object.keys(SITE.paginas).includes("/passeios/fishing"));
   const n404 = await pegar("/passeios/nao-existe"); await n404.arrayBuffer();
   checar("E11 outras rotas inalteradas: /passeios/nao-existe → 404", n404.status === 404, n404.status);
@@ -339,7 +339,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     const visiveis = secoes.filter(s => !s.oculta).map(s => s.nome);
     const esperada = c === "/nao-existe" ? "nao-encontrada" : SITE.paginas[c].secao;
     tabela.push([c, visiveis.join(",")]);
-    checar(`E13 ${c} → exatamente 1 seção visível, a da rota (${esperada})`, secoes.length === 11 && visiveis.length === 1 && visiveis[0] === esperada, JSON.stringify(visiveis));
+    checar(`E13 ${c} → exatamente 1 seção visível, a da rota (${esperada})`, secoes.length === 12 && visiveis.length === 1 && visiveis[0] === esperada, JSON.stringify(visiveis));
   }
   for (const plano of ["essencial", "adventure", "boat"]) {
     const doc = await (await pegar("/passeios/" + plano)).text();
@@ -454,7 +454,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const OFICIAL = "https://trindadeadventury.com.br";
   const ANTIGO = "trindade-adventure" + ".pages.dev"; // montado por concatenação para este arquivo não aparecer no rg do domínio antigo
   const locs = [...(await (await pegar("/sitemap.xml")).text()).matchAll(/<loc>([^<]*)<\/loc>/g)].map(m => m[1]);
-  checar("E22 sitemap: 15 <loc>, todos começam com o domínio oficial", locs.length === 15 && locs.every(l => l.startsWith(OFICIAL + "/") || l === OFICIAL + "/"), locs.filter(l => !l.startsWith(OFICIAL)).join(","));
+  checar("E22 sitemap: 16 <loc>, todos começam com o domínio oficial", locs.length === 16 && locs.every(l => l.startsWith(OFICIAL + "/") || l === OFICIAL + "/"), locs.filter(l => !l.startsWith(OFICIAL)).join(","));
   const robots = await (await pegar("/robots.txt")).text();
   checar("E22 robots.txt: Sitemap oficial e Disallow /admin e /api/", robots.includes(`Sitemap: ${OFICIAL}/sitemap.xml`) && /Disallow: \/admin/.test(robots) && /Disallow: \/api\//.test(robots) && !robots.includes(ANTIGO));
   const dimJpg = rel => { const b = readFileSync(new URL("../site" + rel, import.meta.url)); let i = 2; while (i < b.length) { if (b[i] !== 0xff) { i++; continue; } const m = b[i + 1]; if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return [b.readUInt16BE(i + 7), b.readUInt16BE(i + 5)]; i += 2 + b.readUInt16BE(i + 2); } return null; };
@@ -540,7 +540,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("E21 Termos §2 e §3 com o sinal de 30% e até 15 pessoas", termos.includes("A vaga só fica garantida depois do pagamento do sinal de 30% via Pix e da confirmação da equipe pelo WhatsApp. Cada reserva tem até 15 pessoas.") &&
     termos.includes("Para confirmar a reserva, é pago um sinal de 30% do valor via Pix, combinado pelo WhatsApp. Não há pagamento pelo site."));
   checar("E21 nenhum texto antigo de pagamento no local/Pix combinado", !/no local, em dinheiro ou cartão, ou por pix|pagamento no local ou por pix/i.test(fonteTexto));
-  checar("E21 nada sobre o restante (70%) nem devolução do sinal (sem decisão)", !/70%|restante/i.test(termos + reservar) && !/(sinal)[^.]{0,60}(devol|crédito)/i.test(termos + reservar));
+  checar("E21 nada sobre o restante (70%) nem devolução do sinal (sem decisão)", !/70%|restante do valor|os outros 70/i.test(termos + reservar) && !/(sinal)[^.]{0,60}(devol|crédito)/i.test(termos + reservar));
   checar("E21 Boat: ninguém voltou a dizer 'saída única às 8h30'", !/saída única às 0?8[h:]30/i.test(fonteTexto));
   checar("E21 rodapé: 'Passeios sob consulta' aponta para /passeios#sob-consulta", home.includes('<a href="/passeios#sob-consulta">Passeios sob consulta</a>') && !home.includes('<a href="/mamangua"') );
   const pass = await (await pegar("/passeios")).text();
@@ -566,7 +566,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const todas = ["/", ...[...(await (await pegar("/sitemap.xml")).text()).matchAll(/<loc>([^<]*)<\/loc>/g)].map(m => new URL(m[1]).pathname)].filter((u, i, a) => a.indexOf(u) === i);
   let sujas = [];
   for (const u of todas) { const d = await (await pegar(u)).text(); if (/\bTODO\b|PREENCHER/.test(d)) sujas.push(u); }
-  checar(`E19 as ${todas.length} URLs do sitemap sem marcador TODO/PREENCHER`, todas.length === 15 && !sujas.length, sujas.join(","));
+  checar(`E19 as ${todas.length} URLs do sitemap sem marcador TODO/PREENCHER`, todas.length === 16 && !sujas.length, sujas.join(","));
 }
 
 
@@ -680,6 +680,76 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   } finally { rmSync(tmp, { recursive: true, force: true }); }
   const intacto = spawnSync(process.execPath, [script], { encoding: "utf8" });
   checar("E17 o repositório continua intacto depois da demonstração (check-versao passa)", intacto.status === 0, intacto.stderr);
+}
+
+// ---------- ETAPA 25 — categorias da home (add-only) ----------
+{
+  const { existsSync } = await import("node:fs");
+  const r = await pegar("/");
+  const doc = await r.text();
+  checar("E25 / responde 200", r.status === 200, r.status);
+
+  const ocorrencias = (doc.match(/id="categorias"/g) || []).length;
+  const idxHero = doc.indexOf('class="hero"');
+  const idxCategorias = doc.indexOf('id="categorias"');
+  const idxRoteiros = doc.indexOf('id="roteiros-inicio"');
+  checar("E25 #categorias aparece uma vez, depois do hero e antes do catálogo", ocorrencias === 1 && idxHero > -1 && idxHero < idxCategorias && idxCategorias < idxRoteiros, `hero=${idxHero} categorias=${idxCategorias} roteiros=${idxRoteiros} ocorrencias=${ocorrencias}`);
+
+  const fimBloco = doc.indexOf("</section>", idxCategorias);
+  const bloco = doc.slice(idxCategorias, fimBloco);
+
+  const ordem = [...bloco.matchAll(/data-categoria="([a-z-]+)"/g)].map(m => m[1]);
+  checar("E25 5 categorias, na ordem trilha, barco, parapente, pousada, city-tour", ordem.join(",") === "trilha,barco,parapente,pousada,city-tour", ordem.join(","));
+
+  const idxTrilha = bloco.indexOf('id="cat-trilha"');
+  const idxBarco = bloco.indexOf('id="cat-barco"');
+  const idxPousada = bloco.indexOf('id="cat-pousada"');
+  const painelTrilha = bloco.slice(idxTrilha, idxBarco);
+  const painelBarco = bloco.slice(idxBarco, idxPousada);
+  const painelPousada = bloco.slice(idxPousada);
+
+  checar("E25 painel trilha tem os links do Essencial e Adventure", ["/reservar?plano=essencial", "/reservar?plano=adventure", "/passeios/essencial", "/passeios/adventure"].every(s => painelTrilha.includes(s)));
+  checar("E25 painel barco tem os links do Boat, Saco Bravo e Mamanguá", ["/reservar?plano=boat", "/passeios/boat", "/passeios/saco-bravo", "/passeios/mamangua"].every(s => painelBarco.includes(s)));
+  checar("E25 painel pousada tem as 2 pousadas e o link /pousadas", ["Pousada Hymbé Trindade", "Casa de Madeira Trindade", "/pousadas"].every(s => painelPousada.includes(s)));
+
+  const existeParapente = !!SITE.paginas["/voo-de-parapente"];
+  if (existeParapente) {
+    checar("E25 /voo-de-parapente existe no site-config: cartão parapente é um <a href>", /<a class="categoria" data-categoria="parapente" href="\/voo-de-parapente">/.test(bloco));
+  } else {
+    checar("E25 /voo-de-parapente não existe no site-config: bloco não referencia a página", !bloco.includes('href="/voo-de-parapente"'));
+  }
+
+  const hrefsInternos = [...bloco.matchAll(/href="(\/(?!assets\/)[^"]*)"/g)].map(m => m[1].split(/[?#]/)[0]);
+  const paginasValidas = new Set(Object.keys(SITE.paginas));
+  const hrefsRuins = hrefsInternos.filter(h => !paginasValidas.has(h));
+  checar("E25 todo href interno do bloco é uma página do site-config", hrefsRuins.length === 0, hrefsRuins.join(", "));
+
+  const srcsAssets = [...new Set([...bloco.matchAll(/\/assets\/[A-Za-z0-9_.\-]+\.[A-Za-z0-9]+/g)].map(m => m[0]))];
+  const faltandoAssets = srcsAssets.filter(s => !existsSync(new URL("../site" + s, import.meta.url)));
+  checar(`E25 os ${srcsAssets.length} /assets/ citados no bloco existem no disco`, faltandoAssets.length === 0, faltandoAssets.join(", "));
+
+  const waNumeros = [...bloco.matchAll(/data-wa-numero="(\d+)"/g)].map(m => m[1]);
+  checar("E25 data-wa-numero aparece 1 vez, da Casa de Madeira", waNumeros.length === 1 && waNumeros[0] === "5524987873576", waNumeros.join(","));
+
+  const precos = [...bloco.matchAll(/R\$ (\d+)/g)].map(m => Number(m[1]));
+  const precosEsperados = new Set([70, 150, 400, 350, 60]);
+  const appjsTxt = readFileSync(new URL("../site/app.js", import.meta.url), "utf8");
+  const precosPlanos = Object.fromEntries([...appjsTxt.matchAll(/id:"(essencial|adventure|boat)".*?preco:(\d+)/g)].map(m => [m[1], Number(m[2])]));
+  checar("E25 preços do bloco só usam os valores já existentes", precos.every(p => precosEsperados.has(p)), precos.join(","));
+  checar("E25 preços do bloco batem com PLANOS do app.js (essencial 70, adventure 150, boat 400)", bloco.includes("R$ 70") && bloco.includes("R$ 150") && bloco.includes("R$ 400") && precosPlanos.essencial === 70 && precosPlanos.adventure === 150 && precosPlanos.boat === 400);
+
+  checar("E25 sem marcador de pendência, Uber nem app de transporte no bloco", !/PREENCHER|TODO|\[[A-ZÇÃÕÉ ]{3,}\]|Uber/.test(bloco) && !/\b99\b/.test(bloco));
+
+  checar("E25 home continua com o catálogo e os fatos originais", doc.includes("Sete passeios saindo de Trindade") && doc.includes("Ver os 7 passeios") && doc.includes("<dt>Passeios</dt><dd>7</dd>") && (doc.match(/<h1/g) || []).length === 1);
+
+  checar("E25 site-config: paginas continua com 17 entradas", Object.keys(SITE.paginas).length === 17, Object.keys(SITE.paginas).length);
+
+  checar("E25 #dadosEmpresa continua com Cadastur 64.565.826/0001-80", doc.includes("Cadastur 64.565.826/0001-80"));
+
+  checar("E25 sem style= inline no bloco novo", !bloco.includes("style="));
+
+  const trechoNovo = appjsTxt.slice(appjsTxt.indexOf("ligarCategorias"));
+  checar("E25 o JS novo não usa innerHTML", trechoNovo.length > 0 && !trechoNovo.includes("innerHTML"));
 }
 
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);

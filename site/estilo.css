@@ -881,3 +881,58 @@ html[data-motion="paused"] *,html[data-motion="paused"] *::before,html[data-moti
   :root:not([data-theme="light"]) .btn-claro:hover{box-shadow:0 10px 26px -14px rgb(213 239 173 / .5)}
 }
 :root[data-theme="dark"] .btn-claro:hover{box-shadow:0 10px 26px -14px rgb(213 239 173 / .5)}
+
+
+/* Voo de parapente (produção 20261021) */
+.parapente-capa{min-width:0;margin:0;border-radius:var(--r-lg);overflow:hidden;background:var(--surface-2)}
+.parapente-capa img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
+.incluso.incluso-uma{grid-template-columns:minmax(0,1fr)}
+.parapente-galeria{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.parapente-galeria figure{position:relative;margin:0;overflow:hidden;border-radius:var(--r);background:var(--surface-2)}
+.parapente-galeria .h{grid-column:span 2;aspect-ratio:16/9}
+.parapente-galeria .v{grid-row:span 2}
+.parapente-galeria img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.parapente-cta{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;margin-top:var(--espaco-bloco)}
+.parapente-cta p{font-size:17px;color:var(--ink-2)}
+.parapente-cta .btn{width:auto}
+@media(max-width:900px){.parapente-galeria{grid-template-columns:repeat(2,minmax(0,1fr))}.parapente-galeria .v{grid-row:auto;aspect-ratio:9/16}}
+
+/* ---------- categorias da home (acréscimo de 21/10/2026; só afeta #categorias) ---------- */
+.categorias{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+.categoria{display:flex;flex-direction:column;min-width:0;padding:0;text-align:left;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;cursor:pointer;text-decoration:none;transition:border-color .2s,box-shadow .3s var(--ease)}
+.categoria:hover{border-color:var(--line-2)}
+.categoria:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.categoria[aria-expanded="true"]{border-color:var(--accent);box-shadow:var(--sombra)}
+.categoria-foto{display:block;aspect-ratio:4/3;background:var(--surface-2);overflow:hidden}
+.categoria-foto img{width:100%;height:100%;object-fit:cover}
+.categoria-arte{display:grid;place-items:center;background:var(--green-800);color:#e8f0dd}
+.categoria-arte .arte-ondas,.categoria-arte .ico-categoria{width:56px;height:56px}
+.categoria-texto{display:flex;flex-direction:column;gap:4px;padding:14px 16px 16px}
+.categoria-nome{font-size:17px;font-weight:600;letter-spacing:-.01em}
+.categoria-sub{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13.5px;color:var(--muted)}
+.categoria-breve{cursor:default}
+a.categoria-breve{cursor:pointer}
+
+.categoria-painel{margin-top:22px;padding-top:22px;border-top:1px solid var(--line)}
+.js .categoria-painel:not(.is-aberta){display:none}
+.cat-painel-cabeca{margin-bottom:16px}
+.cat-painel-cabeca h3{font-size:22px;letter-spacing:-.02em}
+.cat-painel-cabeca p{margin-top:6px;color:var(--ink-2);font-size:15px}
+.cat-carrossel{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
+.cat-carrossel .tour h4{font-size:19px}
+.cat-dica{display:none}
+
+@media(max-width:1040px){.categorias{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:900px){
+  .cat-carrossel{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:14px;margin:0 calc(-1 * var(--gutter));padding:0 var(--gutter) 10px;scroll-padding-inline:var(--gutter);scrollbar-width:thin}
+  .cat-carrossel>.tour{flex:0 0 min(82%,320px);scroll-snap-align:start}
+  .cat-dica{display:block;margin:-6px 0 10px;font-size:13px;color:var(--muted)}
+}
+@media(max-width:600px){
+  .categorias{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .categorias>.categoria:last-child{grid-column:1/-1}
+  .categorias>.categoria:last-child .categoria-foto{aspect-ratio:16/5}
+  .categoria-texto{padding:12px 12px 14px}
+  .categoria-nome{font-size:15.5px}
+}
+@media(prefers-reduced-motion:reduce){.categoria{transition:none}}

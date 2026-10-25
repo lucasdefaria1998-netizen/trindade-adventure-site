@@ -1881,3 +1881,34 @@ function iniciar() {
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar);
 else iniciar();
+
+/* ------------------- categorias da home (acréscimo de 21/10/2026) -------------------
+   Cada cartão de categoria abre o seu painel logo abaixo da grade e fecha os outros;
+   tocar de novo fecha. Sem JavaScript, os painéis ficam todos abertos (o CSS só os
+   esconde com a classe "js" no <html>). Reserva e WhatsApp não passam por aqui:
+   os links do bloco usam /reservar?plano=... e data-wa, como o resto do site. */
+(function ligarCategorias() {
+  const bloco = $("#categorias");
+  if (!bloco) return;
+  const botoes = $$("button.categoria[aria-controls]", bloco);
+  const fecharTodos = exceto => botoes.forEach(b => {
+    if (b === exceto) return;
+    b.setAttribute("aria-expanded", "false");
+    document.getElementById(b.getAttribute("aria-controls"))?.classList.remove("is-aberta");
+  });
+  botoes.forEach(botao => {
+    botao.addEventListener("click", () => {
+      const painel = document.getElementById(botao.getAttribute("aria-controls"));
+      if (!painel) return;
+      const abrir = botao.getAttribute("aria-expanded") !== "true";
+      fecharTodos(botao);
+      botao.setAttribute("aria-expanded", String(abrir));
+      painel.classList.toggle("is-aberta", abrir);
+      if (abrir) {
+        const carrossel = painel.querySelector(".cat-carrossel");
+        if (carrossel) carrossel.scrollLeft = 0;
+        requestAnimationFrame(() => rolarAte(painel));
+      }
+    });
+  });
+})();

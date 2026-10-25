@@ -4,8 +4,8 @@
     "sha256": "4759b0358431d0b5902fc8de4ef12f4101a176cfe18784df1d897c47a54cc821"
   },
   "app.js": {
-    "v": "20261020-s24",
-    "sha256": "86545ee8f998f1e77753e363ceeda5aacde4e3a4318054d76d4c9945b6a0f505"
+    "v": "20261023-cat-foto",
+    "sha256": "e3015dfb1d09936450f9467c4a8048d7288416e0216dfd487d1f9e229998ddf6"
   },
   "motion.js": {
     "v": "20261020-s15",
@@ -16,7 +16,7 @@
     "sha256": "fd0e859e0fbfd486f8840402c3eb610a3dbf71504af0469ef34c44c4cca9c183"
   },
   "estilo.css": {
-    "v": "20261020-s26",
-    "sha256": "9fd7c220bee610c4e429e415726fcc297d50602b73dbaaa3f9c2c65f76afea3e"
+    "v": "20261023-cat-foto",
+    "sha256": "230d8443977bab5ff78677391d796a0a4b7e796022b83f4a5e002efcf689d6ab"
   }
 }
