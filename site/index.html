@@ -43,7 +43,11 @@
        "indexar": false pede para o Google não indexar.
      Endereço fora da tabela = página não encontrada (404).
      negocio: dados legais exibidos no rodapé. Campo vazio não aparece para o
-       visitante. Preencha aqui quando o dado existir — nunca invente. -->
+       visitante. Preencha aqui quando o dado existir — nunca invente.
+     TODO(cadastur): o número Cadastur novo entra em site-config → negocio.cadastur.
+       Vazio = não aparece no rodapé nem no JSON-LD. Não usar o CNPJ (eram o mesmo
+       número por engano; o Cadastur publicado na busca pública é de outra empresa
+       homônima, por isso o campo ficou vazio em 24/10/2026 até chegar o número certo). -->
 <script type="application/json" id="site-config">
 {
   "origem": "https://trindadeadventury.com.br",
@@ -112,7 +116,7 @@
         "plano": "boat"
       },
       "titulo": "Passeio de barco Trindade Boat | Trindade Adventure",
-      "descricao": "Trilha e barco por cinco paradas na costa da Trindade, com snorkel e almoço. Cerca de 8 horas, encontro às 8h30, saída às 8h50, R$ 400 por pessoa.",
+      "descricao": "Trilha e barco por cinco paradas na costa da Trindade, com snorkel e almoço. Cerca de 8h, encontro às 8h30 ou 11h (saída 20 min depois), R$ 400 por pessoa.",
       "imagem": "/assets/costa-trindade.jpg",
       "imagemAlt": "Costa de Trindade, com a mata descendo até o mar"
     },
@@ -189,6 +193,11 @@
       "descricao": "Voo duplo de parapente com Alef Magno, da Voar Parapente, saindo da pista de pouso de Trindade. 5 a 15 min no ar, com traslado, fotos e vídeo. R$ 350 por voo.",
       "imagem": "/assets/parapente-og.jpg",
       "imagemAlt": "Passageira rindo em voo duplo de parapente sobre uma praia com vila, com o mar verde-azulado ao fundo"
+    },
+    "/creditos-das-fotos": {
+      "secao": "creditos",
+      "titulo": "Créditos das fotos | Trindade Adventure",
+      "descricao": "Autor, licença e origem das fotos de terceiros usadas no site, com os créditos exigidos pela licença Creative Commons."
     }
   },
   "naoEncontrada": {
@@ -200,7 +209,7 @@
     "nome": "Trindade Adventure",
     "razaoSocial": "64.565.826 IGOR SANTIAGO FRAGA",
     "cnpj": "64.565.826/0001-80",
-    "cadastur": "64.565.826/0001-80"
+    "cadastur": ""
   }
 }
 </script>
@@ -221,8 +230,8 @@
      na fonte do sistema, com métricas parecidas. -->
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap"></noscript>
-<link rel="stylesheet" href="/estilo.css?v=20261023-cat-foto">
-<link rel="preload" as="image" href="/assets/og-v2-800.webp" imagesrcset="/assets/og-v2-480.webp 480w, /assets/og-v2-800.webp 800w, /assets/og-v2-1200.webp 1200w" imagesizes="(max-width: 720px) 100vw, 1240px" fetchpriority="high">
+<link rel="stylesheet" href="/estilo.css?v=20261024-home-nova">
+<link rel="preload" as="image" href="/assets/parapente-voo-01-praia-vila-1280.webp" imagesrcset="/assets/parapente-voo-01-praia-vila-480.webp 480w, /assets/parapente-voo-01-praia-vila-960.webp 960w, /assets/parapente-voo-01-praia-vila-1280.webp 1280w" imagesizes="(max-width: 720px) 100vw, 1240px" fetchpriority="high">
 
 <!-- Dados estruturados (schema.org) para o Google: quem é a empresa, onde fica
      o ponto de encontro e o preço de cada roteiro com agenda. Só entra aqui o
@@ -266,6 +275,10 @@
       "url": "https://trindadeadventury.com.br/passeios/boat",
       "description": "Trilha e passeio de barco por cinco paradas na costa da Trindade, com mergulho de snorkel na piscina natural, água mineral inclusa e almoço no Restaurante Hymbé. Cerca de 8 horas.",
       "price": "400", "priceCurrency": "BRL" },
+    { "@type": "Offer", "name": "Voo de Parapente duplo",
+      "url": "https://trindadeadventury.com.br/voo-de-parapente",
+      "description": "Voo duplo de parapente com o piloto Alef Magno, da Voar Parapente, saindo da pista de pouso de Trindade. De 5 a 15 minutos no ar, com traslado, fotos e vídeo.",
+      "price": "350", "priceCurrency": "BRL" },
     { "@type": "Offer", "name": "Fishing Experience — pescaria em alto mar",
       "url": "https://trindadeadventury.com.br/pescaria",
       "description": "Saída de barco de Trindade para pescaria em alto mar, com acompanhamento de um guia experiente. Valor fixo.",
@@ -345,7 +358,6 @@
       <a href="/pescaria" data-rota="pescaria">Pescaria</a>
       <a href="/historia" data-rota="historia">História</a>
       <a href="/contato" data-rota="contato">Contato</a>
-      <a class="so-menu" href="/cameras" data-rota="cameras">Câmeras</a>
       <a class="nav-cta" href="/reservar" data-rota="reservar">Reservar</a>
     </nav>
 
@@ -359,6 +371,10 @@
   </div>
 </header>
 <div class="menu-fundo" id="menuFundo" hidden></div>
+
+<!-- Botão fixo de WhatsApp no celular (ver estilo.css, só <= 760px). Escondido em /reservar pela
+     classe que app.js aplica em <html data-rota-atual>, pra não cobrir a barra fixa de envio. -->
+<a class="wa-flutuante" href="https://wa.me/5524993337247" data-wa="Olá! Vim pelo site da Trindade Adventure e quero informações sobre os passeios. Data: ___ · Pessoas: ___" target="_blank" rel="noopener" aria-label="Falar no WhatsApp com a Trindade Adventure"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg></a>
 
 <main id="conteudo">
 
@@ -384,357 +400,181 @@
 <section class="secao" id="inicio" data-secao="inicio">
   <div class="hero">
     <figure class="hero-foto">
-      <img src="/assets/og-v2-800.webp" srcset="/assets/og-v2-480.webp 480w, /assets/og-v2-800.webp 800w, /assets/og-v2-1200.webp 1200w" sizes="(max-width: 720px) 100vw, 1240px" width="1200" height="630" alt="Enseada de Trindade vista do alto, com a Mata Atlântica descendo até a praia" fetchpriority="high" decoding="async">
+      <img src="/assets/parapente-voo-01-praia-vila-1280.webp" srcset="/assets/parapente-voo-01-praia-vila-480.webp 480w, /assets/parapente-voo-01-praia-vila-960.webp 960w, /assets/parapente-voo-01-praia-vila-1280.webp 1280w" sizes="(max-width: 720px) 100vw, 1240px" width="1280" height="720" alt="Passageira rindo em voo duplo de parapente sobre uma praia com vila, com o mar verde-azulado ao fundo" fetchpriority="high" decoding="async">
     </figure>
     <div class="hero-texto">
-      <h1 data-titulo class="hero-titulo" aria-label="Entre o mar e o extraordinário."><span class="hero-linha" aria-hidden="true"><span>Entre o mar</span></span><span class="hero-linha" aria-hidden="true"><span>e o <em>extraordinário.</em></span></span></h1>
-      <p class="hero-lede">Praias paradisíacas, natureza preservada, piscinas naturais e trilhas na Mata Atlântica. Viva Trindade com quem realmente conhece e ama esse lugar.</p>
+      <h1 data-titulo class="hero-titulo" aria-label="Passeios e voo de parapente saindo de Trindade, de hora em hora, a partir de R$ 70."><span class="hero-linha" aria-hidden="true"><span>Passeios e parapente</span></span><span class="hero-linha" aria-hidden="true"><span>saindo de <em>Trindade.</em></span></span></h1>
+      <p class="hero-lede">Trilha até a Piscina Natural do Cachadaço, passeio de barco pela costa e voo duplo de parapente — de hora em hora, a partir de R$ 70. Encontro na Praia do Meio.</p>
       <div class="hero-acoes">
-        <a class="btn btn-claro" href="/?catalogo" data-rolar="roteiros-inicio">Ver os 7 passeios</a>
-        <a class="btn btn-contorno-claro" href="https://wa.me/5524993337247" data-wa="Olá! Vim pelo site da Trindade Adventure e quero informações sobre os passeios." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Fale no WhatsApp</a>
+        <a class="btn btn-claro" href="/reservar">Reservar meu passeio</a>
+        <a class="btn btn-contorno-claro" href="https://wa.me/5524993337247" data-wa="Olá! Vim pelo site da Trindade Adventure e quero informações sobre os passeios. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Tirar dúvida no WhatsApp</a>
       </div>
-      <dl class="hero-fatos">
-        <div><dt>Passeios</dt><dd>7</dd></div>
-        <div><dt>Pessoas por reserva</dt><dd>até 15</dd></div>
-        <div><dt>Saídas</dt><dd>8h às 15h</dd></div>
-        <div><dt>A partir de</dt><dd>R$ 70</dd></div>
-      </dl>
     </div>
   </div>
 
-  <!-- ======================= CATEGORIAS (home) =======================
-       Acrescentado em 21/10/2026, a pedido do Igor: o visitante escolhe a
-       categoria e vê só os passeios dela. Os textos dos passeios são cópia
-       literal dos cartões do catálogo logo abaixo: se mudar um preço ou uma
-       descrição lá, mude aqui também. A reserva usa o montador que já existe
-       (/reservar?plano=...) e o WhatsApp usa data-wa, como no resto do site.
-       Pousadas: só as 2 parceiras reais da seção #pousadas. City tour em
-       Paraty: "Em breve" até existir roteiro, preço e foto; nada inventado.
-       Parapente: a página /voo-de-parapente já existe no site-config, então
-       o cartão é um link com a foto -480 da capa da seção #parapente. -->
-  <section class="bloco bloco-categorias" id="categorias" aria-labelledby="titulo-categorias">
+  <!-- ======================= 4 CARTÕES (home nova) =======================
+       Reescrito em 24/10/2026: substitui a seção de categorias e o catálogo
+       duplicado "Sete passeios" (que viraram texto grande demais no celular).
+       Preço, duração e inclusos são cópia dos cartões de /passeios — mude os
+       dois juntos se algo mudar. O parapente não tem horário fixo (ver app.js
+       PLANOS, plano "parapente"), por isso o WhatsApp dele também pede peso. -->
+  <section class="bloco" id="mais-procurados" aria-labelledby="titulo-mais-procurados">
     <header class="cabeca">
-      <h2 id="titulo-categorias">O que você quer fazer em Trindade?</h2>
-      <p>Escolha uma categoria para ver as opções.</p>
+      <h2 id="titulo-mais-procurados">Escolha o passeio</h2>
+      <p>Preço, duração e o que está incluso — sem letra miúda.</p>
     </header>
-
-    <div class="categorias">
-      <button type="button" class="categoria" data-categoria="trilha" aria-expanded="false" aria-controls="cat-trilha">
-        <span class="categoria-foto"><img src="/assets/cat-trilha-praia-480.webp" width="480" height="640" alt="" loading="lazy" decoding="async"></span>
-        <span class="categoria-texto"><span class="categoria-nome">Trilha guiada</span><span class="categoria-sub">2 roteiros · a partir de R$ 70</span></span>
-      </button>
-
-      <button type="button" class="categoria" data-categoria="barco" aria-expanded="false" aria-controls="cat-barco">
-        <span class="categoria-foto"><img src="/assets/foto-costa-trindade-480.webp" width="480" height="504" alt="" loading="lazy" decoding="async"></span>
-        <span class="categoria-texto"><span class="categoria-nome">Passeio de barco</span><span class="categoria-sub">3 passeios</span></span>
-      </button>
-
-      <a class="categoria" data-categoria="parapente" href="/voo-de-parapente">
-        <span class="categoria-foto"><img src="/assets/parapente-voo-01-praia-vila-480.webp" width="480" height="270" alt="" loading="lazy" decoding="async"></span>
-        <span class="categoria-texto"><span class="categoria-nome">Parapente</span><span class="categoria-sub">Voo duplo · R$ 350 por voo</span></span>
-      </a>
-
-      <button type="button" class="categoria" data-categoria="pousada" aria-expanded="false" aria-controls="cat-pousada">
-        <span class="categoria-foto"><img src="/assets/pousada-hymbe-5-480.webp" width="480" height="597" alt="" loading="lazy" decoding="async"></span>
-        <span class="categoria-texto"><span class="categoria-nome">Pousadas</span><span class="categoria-sub">2 pousadas parceiras</span></span>
-      </button>
-
-      <a class="categoria categoria-breve" data-categoria="city-tour" href="https://wa.me/5524993337247" data-wa="Olá! Quero saber sobre o city tour em Paraty da Trindade Adventure." target="_blank" rel="noopener">
-        <span class="categoria-foto categoria-arte"><svg class="ico-categoria" aria-hidden="true"><use href="#i-pin"/></svg></span>
-        <span class="categoria-texto"><span class="categoria-nome">City tour em Paraty</span><span class="categoria-sub"><span class="pill">Em breve</span> Fale com a equipe</span></span>
-      </a>
-    </div>
-
-    <!-- Painel: Trilha guiada (cópia literal dos cartões Essencial e Adventure do catálogo) -->
-    <div class="categoria-painel" id="cat-trilha" role="region" aria-labelledby="titulo-cat-trilha">
-      <div class="cat-painel-cabeca">
-        <h3 id="titulo-cat-trilha">Trilha guiada</h3>
-        <p>Escolha o roteiro e reserve. A reserva é confirmada pela equipe no WhatsApp.</p>
-      </div>
-      <p class="cat-dica" aria-hidden="true">Arraste para o lado</p>
-      <div class="cat-carrossel" data-lenis-prevent>
-        <article class="tour tour-compacto">
-          <div class="tour-media"><img src="/assets/vista-trindade-1-480.webp" width="480" height="867" alt="Vista da trilha por entre a mata, com a praia ao fundo" loading="lazy" decoding="async" class="foco-62"><span class="tag">Iniciante</span></div>
-          <div class="tour-corpo">
-            <h4>Trindade Essencial</h4>
-            <p class="tour-desc">Trilha guiada pela Mata Atlântica até a piscina natural do Cachadaço, com água mineral inclusa.</p>
-            <p class="tour-meta"><svg class="ico" aria-hidden="true"><use href="#i-relogio"/></svg>≈ 3h · saídas <span data-faixa-horarios="essencial" data-formato="h">das 8h às 15h</span></p>
-            <p class="tour-preco"><b>R$ 70</b><span>por pessoa</span></p>
-            <div class="tour-acoes"><a class="btn btn-primario" href="/reservar?plano=essencial">Reservar</a><a class="btn btn-secundario" href="/passeios/essencial">Ver roteiro</a></div>
-          </div>
-        </article>
-        <article class="tour tour-compacto">
-          <div class="tour-media"><img src="/assets/piscina-v2-480.webp" width="480" height="319" alt="Piscina natural de água transparente entre pedras de granito" loading="lazy" decoding="async"><span class="tag">Roteiro completo</span></div>
-          <div class="tour-corpo">
-            <h4>Trindade Adventure</h4>
-            <p class="tour-desc">Roteiro completo com snorkel na piscina natural, retorno pela Pedra que Engole e almoço no Restaurante Hymbé.</p>
-            <p class="tour-meta"><svg class="ico" aria-hidden="true"><use href="#i-relogio"/></svg>≈ 6h · saídas <span data-faixa-horarios="adventure" data-formato="h">das 8h às 12h</span></p>
-            <p class="tour-preco"><b>R$ 150</b><span>por pessoa</span></p>
-            <p class="tour-nota"><svg class="ico" aria-hidden="true"><use href="#i-prato"/></svg>Voucher de R$ 60 no almoço, já incluso no valor</p>
-            <div class="tour-acoes"><a class="btn btn-primario" href="/reservar?plano=adventure">Reservar</a><a class="btn btn-secundario" href="/passeios/adventure">Ver roteiro</a></div>
-          </div>
-        </article>
-      </div>
-    </div>
-
-    <!-- Painel: Passeio de barco (Boat com agenda; Saco Bravo e Mamanguá sob consulta, textos e mensagens iguais aos do catálogo) -->
-    <div class="categoria-painel" id="cat-barco" role="region" aria-labelledby="titulo-cat-barco">
-      <div class="cat-painel-cabeca">
-        <h3 id="titulo-cat-barco">Passeio de barco</h3>
-        <p>O Trindade Boat tem agenda no site. Saco Bravo e Mamanguá são sob consulta: data e detalhes combinados pelo WhatsApp.</p>
-      </div>
-      <p class="cat-dica" aria-hidden="true">Arraste para o lado</p>
-      <div class="cat-carrossel" data-lenis-prevent>
-        <article class="tour tour-compacto">
-          <div class="tour-media"><img src="/assets/foto-costa-trindade-480.webp" width="480" height="504" alt="Costa de Trindade, com a mata descendo até o mar" loading="lazy" decoding="async"><span class="tag">Encontro 8h30 · saída 8h50</span></div>
-          <div class="tour-corpo">
-            <h4>Trindade Boat</h4>
-            <p class="tour-desc">Trilha pela Trindade e passeio de barco por cinco paradas na costa, com snorkel na piscina natural e almoço no Restaurante Hymbé.</p>
-            <p class="tour-meta"><svg class="ico" aria-hidden="true"><use href="#i-relogio"/></svg>≈ 8h · encontro às 8h30, saída às 8h50</p>
-            <p class="tour-preco"><b>R$ 400</b><span>por pessoa</span></p>
-            <p class="tour-nota"><svg class="ico" aria-hidden="true"><use href="#i-prato"/></svg>Voucher de R$ 60 no almoço, já incluso no valor</p>
-            <div class="tour-acoes"><a class="btn btn-primario" href="/reservar?plano=boat">Reservar</a><a class="btn btn-secundario" href="/passeios/boat">Ver roteiro</a></div>
-          </div>
-        </article>
-        <article class="tour tour-compacto">
-          <div class="tour-media"><img src="/assets/foto-saco-bravo-480.webp" width="480" height="249" alt="Cachoeira do Saco Bravo encontrando o mar entre as pedras" loading="lazy" decoding="async"></div>
-          <div class="tour-corpo">
-            <h4>Saco Bravo Adventure</h4>
-            <p class="tour-desc">Barco pela Praia do Sono até Ponta Negra e trilha até a Cachoeira do Saco Bravo.</p>
-            <p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p>
-            <div class="tour-acoes"><a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Saco Bravo Adventure da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar</a><a class="btn btn-secundario" href="/passeios/saco-bravo">Detalhes</a></div>
-          </div>
-        </article>
-        <article class="tour tour-compacto">
-          <div class="tour-media tour-arte"><svg class="arte-ondas" aria-hidden="true"><use href="#i-ondas"/></svg><strong>Mamanguá</strong><span>Van, barco e trilha</span></div>
-          <div class="tour-corpo">
-            <h4>Mamanguá Adventure</h4>
-            <p class="tour-desc">Saída de Trindade para o Saco do Mamanguá e a trilha do Pico do Pão de Açúcar. Dia inteiro de aventura.</p>
-            <p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p>
-            <div class="tour-acoes"><a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Mamanguá Adventure da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar</a><a class="btn btn-secundario" href="/passeios/mamangua">Detalhes</a></div>
-          </div>
-        </article>
-      </div>
-    </div>
-
-    <!-- Painel: Pousadas (só as 2 parceiras reais de #pousadas; textos e mensagens iguais aos de lá) -->
-    <div class="categoria-painel" id="cat-pousada" role="region" aria-labelledby="titulo-cat-pousada">
-      <div class="cat-painel-cabeca">
-        <h3 id="titulo-cat-pousada">Pousadas</h3>
-        <p>Pousadas parceiras em Trindade. <a class="link-seta" href="/pousadas">Ver fotos e comodidades<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a></p>
-      </div>
-      <p class="cat-dica" aria-hidden="true">Arraste para o lado</p>
-      <div class="cat-carrossel" data-lenis-prevent>
-        <article class="tour tour-compacto">
-          <div class="tour-media"><img src="/assets/pousada-hymbe-5-480.webp" width="480" height="597" alt="Área comum da Pousada Hymbé com vista para a serra" loading="lazy" decoding="async"><span class="tag">−10% pelo site</span></div>
-          <div class="tour-corpo">
-            <h4>Pousada Hymbé Trindade</h4>
-            <p class="tour-desc">Rua Dr. Pinto Sobral, 2299 — a poucos metros da praia · Pousada e restaurante</p>
-            <p class="tour-preco tour-preco-consulta"><b>Diária sob consulta</b></p>
-            <div class="tour-acoes"><a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre a Pousada Hymbé Trindade. Vim pelo site Trindade Adventure e quero usar o desconto de 10% (cupom TRINDADE10)." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar</a><a class="btn btn-secundario" href="/pousadas">Ver pousada</a></div>
-          </div>
-        </article>
-        <article class="tour tour-compacto">
-          <div class="tour-media"><img src="/assets/pousada-madeira-1-480.webp" width="480" height="469" alt="Casa de Madeira Trindade — varanda com rede e quintal" loading="lazy" decoding="async"></div>
-          <div class="tour-corpo">
-            <h4>Casa de Madeira Trindade</h4>
-            <p class="tour-desc">Trindade · Paraty · RJ</p>
-            <p class="tour-preco tour-preco-consulta"><b>Diária sob consulta</b></p>
-            <div class="tour-acoes"><a class="btn btn-primario" href="https://wa.me/5524987873576" data-wa="Olá! Quero informações sobre a Casa de Madeira Trindade. Vim pelo site Trindade Adventure." data-wa-numero="5524987873576" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Falar</a><a class="btn btn-secundario" href="/pousadas">Ver pousada</a></div>
-          </div>
-        </article>
-        <article class="tour tour-compacto">
-          <div class="tour-media tour-arte"><svg class="arte-ondas" aria-hidden="true"><use href="#i-ondas"/></svg><strong>Outras hospedagens</strong><span>Pelo WhatsApp</span></div>
-          <div class="tour-corpo">
-            <h4>Outras pousadas em Trindade</h4>
-            <p class="tour-desc">Procurando outra opção de hospedagem? Fale com a equipe da Trindade Adventure.</p>
-            <div class="tour-acoes"><a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero saber sobre pousadas em Trindade." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Perguntar no WhatsApp</a></div>
-          </div>
-        </article>
-      </div>
-    </div>
-  </section>
-
-  <section class="bloco bloco-catalogo" aria-labelledby="roteiros-inicio">
-    <header class="cabeca">
-      <h2 id="roteiros-inicio">Sete passeios saindo de Trindade</h2>
-      <p>Trilhas, barco e expedições pela costa de Paraty. Nos roteiros com agenda, grupos de até 15 pessoas por reserva.</p>
-    </header>
-
-    <div class="tours tours-agenda" id="catalogoPasseios">
+    <div class="tours tours-consulta">
       <article class="tour" data-revelar>
-        <div class="tour-media"><img src="/assets/vista-trindade-1-720.webp" srcset="/assets/vista-trindade-1-480.webp 480w, /assets/vista-trindade-1-720.webp 720w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 400px" width="720" height="1301" alt="Vista da trilha por entre a mata, com a praia ao fundo" loading="lazy" decoding="async" class="foco-62"><span class="tag">Iniciante</span></div>
+        <div class="tour-media"><img src="/assets/lugar-trilha-480.webp" srcset="/assets/lugar-trilha-480.webp 480w, /assets/lugar-trilha-720.webp 720w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 300px" width="1200" height="1600" alt="Trilha estreita dentro da Mata Atlântica" loading="lazy" decoding="async"></div>
         <div class="tour-corpo">
           <h3>Trindade Essencial</h3>
-          <p class="tour-desc">Trilha guiada pela Mata Atlântica até a piscina natural do Cachadaço, com água mineral inclusa.</p>
-          <p class="tour-meta"><svg class="ico" aria-hidden="true"><use href="#i-relogio"/></svg>≈ 3h · saídas <span data-faixa-horarios="essencial" data-formato="h">das 8h às 15h</span></p>
           <p class="tour-preco"><b>R$ 70</b><span>por pessoa</span></p>
-          <div class="tour-acoes"><a class="btn btn-primario" href="/reservar?plano=essencial">Reservar</a><a class="btn btn-secundario" href="/passeios/essencial">Ver roteiro</a></div>
-        </div>
-      </article>
-
-      <article class="tour" data-revelar>
-        <div class="tour-media"><img src="/assets/piscina-v2-800.webp" srcset="/assets/piscina-v2-480.webp 480w, /assets/piscina-v2-800.webp 800w, /assets/piscina-v2-1155.webp 1155w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 400px" width="1155" height="768" alt="Piscina natural de água transparente entre pedras de granito" loading="lazy" decoding="async"><span class="tag">Roteiro completo</span></div>
-        <div class="tour-corpo">
-          <h3>Trindade Adventure</h3>
-          <p class="tour-desc">Roteiro completo com snorkel na piscina natural, retorno pela Pedra que Engole e almoço no Restaurante Hymbé.</p>
-          <p class="tour-meta"><svg class="ico" aria-hidden="true"><use href="#i-relogio"/></svg>≈ 6h · saídas <span data-faixa-horarios="adventure" data-formato="h">das 8h às 12h</span></p>
-          <p class="tour-preco"><b>R$ 150</b><span>por pessoa</span></p>
-          <p class="tour-nota"><svg class="ico" aria-hidden="true"><use href="#i-prato"/></svg>Voucher de R$ 60 no almoço, já incluso no valor</p>
-          <div class="tour-acoes"><a class="btn btn-primario" href="/reservar?plano=adventure">Reservar</a><a class="btn btn-secundario" href="/passeios/adventure">Ver roteiro</a></div>
+          <p class="tour-meta"><svg class="ico" aria-hidden="true"><use href="#i-relogio"/></svg>≈ 3h</p>
+          <ul class="lista-check tour-inclusos">
+            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Guia local</li>
+            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Trilha até a Piscina Natural do Cachadaço</li>
+            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Água mineral durante o passeio</li>
+          </ul>
+          <p class="tour-garantia">Cancelamento gratuito até 12 h antes da saída</p>
+          <div class="tour-acoes">
+            <a class="btn btn-primario" href="/reservar?plano=essencial">Reservar</a>
+            <a class="btn btn-secundario" href="https://wa.me/5524993337247" data-wa="Olá! Quero reservar o Trindade Essencial. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>WhatsApp</a>
+          </div>
         </div>
       </article>
 
       <article class="tour tour-destaque" data-revelar>
-        <div class="tour-media"><img src="/assets/foto-costa-trindade-720.webp" srcset="/assets/foto-costa-trindade-480.webp 480w, /assets/foto-costa-trindade-720.webp 720w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 400px" width="720" height="756" alt="Costa de Trindade, com a mata descendo até o mar" loading="lazy" decoding="async"><span class="tag">Encontro 8h30 · saída 8h50</span></div>
+        <div class="tour-media"><img src="/assets/piscina-v2-480.webp" srcset="/assets/piscina-v2-480.webp 480w, /assets/piscina-v2-800.webp 800w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 300px" width="1155" height="768" alt="Piscina natural de água transparente entre pedras de granito" loading="lazy" decoding="async"><span class="tag">Mais completo</span></div>
+        <div class="tour-corpo">
+          <h3>Trindade Adventure</h3>
+          <p class="tour-preco"><b>R$ 150</b><span>por pessoa</span></p>
+          <p class="tour-meta"><svg class="ico" aria-hidden="true"><use href="#i-relogio"/></svg>≈ 6h</p>
+          <ul class="lista-check tour-inclusos">
+            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Mergulho de snorkel na piscina natural</li>
+            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Cachoeira da Pedra que Engole</li>
+            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Voucher de R$ 60 no almoço</li>
+          </ul>
+          <p class="tour-garantia">Cancelamento gratuito até 12 h antes da saída</p>
+          <div class="tour-acoes">
+            <a class="btn btn-primario" href="/reservar?plano=adventure">Reservar</a>
+            <a class="btn btn-secundario" href="https://wa.me/5524993337247" data-wa="Olá! Quero reservar o Trindade Adventure. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>WhatsApp</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="tour" data-revelar>
+        <div class="tour-media"><img src="/assets/foto-costa-trindade-480.webp" srcset="/assets/foto-costa-trindade-480.webp 480w, /assets/foto-costa-trindade-720.webp 720w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 300px" width="720" height="756" alt="Costa de Trindade, com a mata descendo até o mar" loading="lazy" decoding="async"></div>
         <div class="tour-corpo">
           <h3>Trindade Boat</h3>
-          <p class="tour-desc">Trilha pela Trindade e passeio de barco por cinco paradas na costa, com snorkel na piscina natural e almoço no Restaurante Hymbé.</p>
-          <p class="tour-meta"><svg class="ico" aria-hidden="true"><use href="#i-relogio"/></svg>≈ 8h · encontro às 8h30, saída às 8h50</p>
           <p class="tour-preco"><b>R$ 400</b><span>por pessoa</span></p>
-          <p class="tour-nota"><svg class="ico" aria-hidden="true"><use href="#i-prato"/></svg>Voucher de R$ 60 no almoço, já incluso no valor</p>
-          <div class="tour-acoes"><a class="btn btn-primario" href="/reservar?plano=boat">Reservar</a><a class="btn btn-secundario" href="/passeios/boat">Ver roteiro</a></div>
-        </div>
-      </article>
-    </div>
-
-    <div class="tours-consulta-cabeca">
-      <h3>Sob consulta pelo WhatsApp</h3>
-      <p>Data e detalhes combinados direto com a equipe.</p>
-    </div>
-    <div class="tours tours-consulta">
-      <article class="tour tour-compacto" data-revelar>
-        <div class="tour-media tour-arte"><svg class="arte-ondas" aria-hidden="true"><use href="#i-ondas"/></svg><strong>Mamanguá</strong><span>Van, barco e trilha</span></div>
-        <div class="tour-corpo">
-          <h3>Mamanguá Adventure</h3>
-          <p class="tour-desc">Saída de Trindade para o Saco do Mamanguá e a trilha do Pico do Pão de Açúcar. Dia inteiro de aventura.</p>
-          <p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p>
-          <div class="tour-acoes"><a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Mamanguá Adventure da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar</a><a class="btn btn-secundario" href="/passeios/mamangua">Detalhes</a></div>
+          <p class="tour-meta"><svg class="ico" aria-hidden="true"><use href="#i-relogio"/></svg>≈ 8h</p>
+          <ul class="lista-check tour-inclusos">
+            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Barco — 5 paradas na costa</li>
+            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Mergulho de snorkel na piscina natural</li>
+            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Voucher de R$ 60 no almoço</li>
+          </ul>
+          <p class="tour-garantia">Cancelamento gratuito até 12 h antes da saída</p>
+          <div class="tour-acoes">
+            <a class="btn btn-primario" href="/reservar?plano=boat">Reservar</a>
+            <a class="btn btn-secundario" href="https://wa.me/5524993337247" data-wa="Olá! Quero reservar o Trindade Boat. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>WhatsApp</a>
+          </div>
         </div>
       </article>
 
-      <article class="tour tour-compacto" data-revelar>
-        <div class="tour-media tour-arte tour-arte-mar"><svg class="arte-ondas" aria-hidden="true"><use href="#i-ondas"/></svg><strong>Alto mar</strong><span>Pesca embarcada</span></div>
+      <article class="tour" data-revelar>
+        <div class="tour-media"><img src="/assets/parapente-voo-04-costao-mar-480.webp" srcset="/assets/parapente-voo-04-costao-mar-480.webp 480w, /assets/parapente-voo-04-costao-mar-960.webp 960w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 300px" width="960" height="540" alt="Passageiro sorrindo em voo duplo de parapente, com a vela azul ao lado, sobre costão de mata, praia e mar" loading="lazy" decoding="async"></div>
         <div class="tour-corpo">
-          <h3>Fishing Experience</h3>
-          <p class="tour-desc">Saída de barco de Trindade para uma pescaria em alto mar, com acompanhamento de um guia experiente.</p>
-          <p class="tour-preco"><b>R$ 500</b><span>valor fixo</span></p>
-          <div class="tour-acoes"><a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Fishing Experience da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar</a><a class="btn btn-secundario" href="/pescaria">Detalhes</a></div>
-        </div>
-      </article>
-
-      <article class="tour tour-compacto" data-revelar>
-        <div class="tour-media"><img src="/assets/foto-saco-bravo-480.webp" srcset="/assets/foto-saco-bravo-480.webp 480w, /assets/foto-saco-bravo-960.webp 960w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 300px" width="1280" height="664" alt="Cachoeira do Saco Bravo encontrando o mar entre as pedras" loading="lazy" decoding="async"></div>
-        <div class="tour-corpo">
-          <h3>Saco Bravo Adventure</h3>
-          <p class="tour-desc">Barco pela Praia do Sono até Ponta Negra e trilha até a Cachoeira do Saco Bravo.</p>
-          <p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p>
-          <div class="tour-acoes"><a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Saco Bravo Adventure da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar</a><a class="btn btn-secundario" href="/passeios/saco-bravo">Detalhes</a></div>
-        </div>
-      </article>
-
-      <article class="tour tour-compacto" data-revelar>
-        <div class="tour-media"><img src="/assets/foto-praia-antigos-480.webp" srcset="/assets/foto-praia-antigos-480.webp 480w, /assets/foto-praia-antigos-960.webp 960w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 300px" width="1280" height="663" alt="Praia dos Antigos, com areia clara e pedras no canto" loading="lazy" decoding="async"></div>
-        <div class="tour-corpo">
-          <h3>Costa da Juatinga</h3>
-          <p class="tour-desc">Praia Brava, Galheta, mergulho na piscina natural, Praia dos Antigos e almoço na Praia do Sono.</p>
-          <p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p>
-          <div class="tour-acoes"><a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Costa da Juatinga da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar</a><a class="btn btn-secundario" href="/passeios/juatinga">Detalhes</a></div>
+          <h3>Voo de Parapente</h3>
+          <p class="tour-preco"><b>R$ 350</b><span>por voo</span></p>
+          <p class="tour-meta"><svg class="ico" aria-hidden="true"><use href="#i-relogio"/></svg>5–15 min</p>
+          <ul class="lista-check tour-inclusos">
+            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Traslado</li>
+            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Fotos e vídeo do voo</li>
+            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Imagens em 360° (GoPro Max)</li>
+          </ul>
+          <p class="tour-garantia">Sinal de R$ 50 · se o tempo não permitir, o voo é remarcado</p>
+          <div class="tour-acoes">
+            <a class="btn btn-primario" href="/reservar?plano=parapente">Reservar</a>
+            <a class="btn btn-secundario" href="https://wa.me/5524993337247" data-wa="Olá! Quero agendar o Voo de Parapente (R$ 350). Data: ___ · Pessoas: ___ · Peso aprox. de cada pessoa: ___ kg" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>WhatsApp</a>
+          </div>
         </div>
       </article>
     </div>
   </section>
 
-  <section class="bloco" aria-labelledby="titulo-dia">
-    <header class="cabeca cabeca-linha">
-      <div>
-        <h2 id="titulo-dia">Um dia no Trindade Adventure</h2>
-        <p>Da primeira trilha ao almoço na praia. O guia pode ajustar a ordem das paradas conforme a maré e as condições do dia.</p>
-      </div>
-      <a class="link-seta" href="/reservar?plano=adventure">Reservar Adventure<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
+  <section class="bloco" aria-labelledby="titulo-sob-consulta-home">
+    <h2 id="titulo-sob-consulta-home" class="sr">Passeios sob consulta</h2>
+    <div class="links-consulta">
+      <span>Sob consulta pelo WhatsApp:</span>
+      <a class="link-seta" href="/passeios/mamangua">Mamanguá<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
+      <a class="link-seta" href="/passeios/saco-bravo">Saco Bravo<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
+      <a class="link-seta" href="/passeios/juatinga">Costa da Juatinga<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
+      <a class="link-seta" href="/pescaria">Pescaria<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
+    </div>
+  </section>
+
+  <section class="bloco" aria-labelledby="titulo-prova">
+    <header class="cabeca">
+      <h2 id="titulo-prova">Voos de verdade, clientes de verdade</h2>
+      <p>Registros de voos de parapente com a Voar Parapente, parceira da Trindade Adventure.</p>
     </header>
-    <ol class="paradas" data-lenis-prevent>
-      <li class="parada" data-revelar>
-        <figure><img src="/assets/foto-praia-meio-480.webp" srcset="/assets/foto-praia-meio-480.webp 480w, /assets/foto-praia-meio-960.webp 960w" sizes="(max-width: 720px) 72vw, 240px" width="960" height="980" alt="Praia do Meio, com as pedras e a mata ao fundo" loading="lazy" decoding="async"></figure>
-        <span class="parada-num">1</span>
-        <h3>Praia do Meio</h3>
-        <p>O encontro com o guia, a apresentação do roteiro e a preparação para a trilha.</p>
-      </li>
-      <li class="parada" data-revelar>
-        <figure><img src="/assets/foto-cachadaco-480.webp" srcset="/assets/foto-cachadaco-480.webp 480w, /assets/foto-cachadaco-960.webp 960w" sizes="(max-width: 720px) 72vw, 240px" width="1280" height="676" alt="Praia do Cachadaço, com o mar aberto e a mata na encosta" loading="lazy" decoding="async"></figure>
-        <span class="parada-num">2</span>
-        <h3>Praia do Cachadaço</h3>
-        <p>O caminho segue pela sombra da Mata Atlântica. Vá no seu ritmo, com o guia.</p>
-      </li>
-      <li class="parada" data-revelar>
-        <figure><img src="/assets/piscina-v2-480.webp" srcset="/assets/piscina-v2-480.webp 480w, /assets/piscina-v2-800.webp 800w" sizes="(max-width: 720px) 72vw, 240px" width="1155" height="768" alt="Piscina natural entre pedras de granito" loading="lazy" decoding="async"></figure>
-        <span class="parada-num">3</span>
-        <h3>Piscina Natural</h3>
-        <p>Pedras de granito protegem a piscina. Tempo para explorar a água com snorkel.</p>
-      </li>
-      <li class="parada" data-revelar>
-        <figure><img src="/assets/trilha-v2-480.webp" srcset="/assets/trilha-v2-480.webp 480w, /assets/trilha-v2-800.webp 800w" sizes="(max-width: 720px) 72vw, 240px" width="1024" height="768" alt="Trecho de trilha dentro da mata; imagem ilustrativa do caminho" loading="lazy" decoding="async"><figcaption>Imagem ilustrativa</figcaption></figure>
-        <span class="parada-num">4</span>
-        <h3>Pedra que Engole</h3>
-        <p>O retorno passa pelo Rio dos Codós e pela cachoeira. O guia orienta a visita conforme o dia.</p>
-      </li>
-      <li class="parada" data-revelar>
-        <figure><img src="/assets/restaurante-hymbe-2-480.webp" srcset="/assets/restaurante-hymbe-2-480.webp 480w, /assets/restaurante-hymbe-2-720.webp 720w" sizes="(max-width: 720px) 72vw, 240px" width="720" height="440" alt="Espreguiçadeiras do Restaurante Hymbé na areia da praia" loading="lazy" decoding="async"></figure>
-        <span class="parada-num">5</span>
-        <h3>Restaurante Hymbé</h3>
-        <p>Almoço na praia, com voucher de R$ 60 por pessoa já incluso no Adventure.</p>
-      </li>
+    <div class="parapente-galeria" data-revelar>
+      <figure class="h"><img src="/assets/parapente-voo-02-mata-sorriso-960.webp" srcset="/assets/parapente-voo-02-mata-sorriso-480.webp 480w, /assets/parapente-voo-02-mata-sorriso-960.webp 960w" sizes="(max-width: 900px) 92vw, 560px" width="960" height="540" alt="Passageira sorrindo ao lado do piloto, em voo duplo de parapente sobre a Mata Atlântica, com o mar ao fundo" loading="lazy" decoding="async"></figure>
+      <figure class="v"><img src="/assets/parapente-voo-06-vertical-praia-vila-720.webp" srcset="/assets/parapente-voo-06-vertical-praia-vila-360.webp 360w, /assets/parapente-voo-06-vertical-praia-vila-720.webp 720w" sizes="(max-width: 900px) 46vw, 270px" width="720" height="1280" alt="Passageira rindo em voo duplo de parapente sobre praia e vila, em imagem vertical com a vela azul no alto" loading="lazy" decoding="async"></figure>
+      <figure class="v"><img src="/assets/parapente-voo-07-vertical-costa-720.webp" srcset="/assets/parapente-voo-07-vertical-costa-360.webp 360w, /assets/parapente-voo-07-vertical-costa-720.webp 720w" sizes="(max-width: 900px) 46vw, 270px" width="720" height="1280" alt="Passageiro fazendo sinal de paz em voo duplo de parapente, sobre uma costa de mata e mar, com a vela azul no alto" loading="lazy" decoding="async"></figure>
+      <figure class="h"><img src="/assets/parapente-voo-03-mata-selfie-960.webp" srcset="/assets/parapente-voo-03-mata-selfie-480.webp 480w, /assets/parapente-voo-03-mata-selfie-960.webp 960w" sizes="(max-width: 900px) 92vw, 560px" width="960" height="540" alt="Piloto e passageira em voo duplo de parapente, fazendo selfie sobre a mata, com enseada e morros ao fundo" loading="lazy" decoding="async"></figure>
+    </div>
+    <p class="nota-rodape">Fotos: Voar Parapente. Registros de voos de clientes.</p>
+  </section>
+
+  <section class="bloco" aria-labelledby="titulo-como-funciona">
+    <header class="cabeca">
+      <h2 id="titulo-como-funciona">Como funciona</h2>
+    </header>
+    <ol class="rota" data-revelar>
+      <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-relogio"/></svg></span><div><h3>1. Escolha</h3><p>Escolha o passeio e o horário no site.</p></div></li>
+      <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-wa"/></svg></span><div><h3>2. Envie o pedido</h3><p>O pedido vai direto para o WhatsApp da equipe.</p></div></li>
+      <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-check"/></svg></span><div><h3>3. Confirmação</h3><p>A equipe confirma a vaga e pede o sinal de 30% via Pix (voo de parapente: sinal de R$ 50).</p></div></li>
+      <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-pin"/></svg></span><div><h3>4. Encontro</h3><p>Praia do Meio — placa das trilhas. Concentração no horário cheio, saída 20 minutos depois.</p></div></li>
     </ol>
   </section>
 
-  <dl class="fatos" data-revelar>
-    <div><dt>Ponto de encontro</dt><dd>Praia do Meio — placa das trilhas, Trindade/Paraty.</dd></div>
-    <div><dt>Saída</dt><dd>Concentração no horário cheio, saída 20 minutos depois — a reserva das 08:00 sai às 08:20.</dd></div>
-    <div><dt>Cancelamento</dt><dd>Gratuito até 12 h antes da saída. Em caso de mar grosso ou chuva forte, a operação remarca sem custo.</dd></div>
-  </dl>
+  <section class="bloco faq" aria-labelledby="titulo-faq-home">
+    <h2 id="titulo-faq-home">Perguntas frequentes</h2>
+    <details><summary>E se chover?</summary><p>Chuva fraca não cancela. Em chuva forte, mar grosso ou risco na trilha, a operação remarca sem custo.</p></details>
+    <details><summary>Crianças podem ir?</summary><p>Sim, a partir de 6 anos na trilha, sempre acompanhadas de um responsável. Avise a idade nas observações da reserva.</p></details>
+    <details><summary>Posso cancelar?</summary><p>O cancelamento é gratuito até 12 horas antes da saída. As condições específicas de cancelamento e reagendamento fora desse prazo serão informadas no momento da confirmação.</p></details>
+    <details><summary>O que levar?</summary><p>Calçado fechado com solado de borracha e protetor solar, que são obrigatórios. A água mineral do passeio é por nossa conta. Recomendado: repelente, boné, roupa de banho por baixo, toalha leve e dinheiro para o quiosque da praia.</p></details>
+  </section>
 
-  <section class="bloco" aria-labelledby="titulo-lugares">
+  <section class="bloco" aria-labelledby="titulo-quem-guia">
     <header class="cabeca">
-      <h2 id="titulo-lugares">Cinco praias e três cachoeiras</h2>
-      <p>A vila fica entre a serra e o mar, dentro do Parque Nacional da Serra da Bocaina. Tudo abaixo se alcança a pé — as distâncias são de caminhada, não de carro.</p>
+      <h2 id="titulo-quem-guia">Quem leva você</h2>
+      <p>Guias locais — quem realmente conhece e ama esse lugar. O voo de parapente é com o piloto Alef Magno, da Voar Parapente, parceira da Trindade Adventure.</p>
     </header>
-    <div class="lugares-fotos" data-revelar>
-      <img src="/assets/lugar-trilha-480.webp" srcset="/assets/lugar-trilha-480.webp 480w, /assets/lugar-trilha-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="1200" height="1600" alt="Trilha estreita dentro da Mata Atlântica" loading="lazy" decoding="async">
-      <img src="/assets/lugar-praia-pedras-480.webp" srcset="/assets/lugar-praia-pedras-480.webp 480w, /assets/lugar-praia-pedras-960.webp 960w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="1155" height="768" alt="Praia de água transparente com pedras arredondadas e a mata ao fundo" loading="lazy" decoding="async">
-      <img src="/assets/lugar-praia-areia-480.webp" srcset="/assets/lugar-praia-areia-480.webp 480w, /assets/lugar-praia-areia-960.webp 960w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="1155" height="768" alt="Praia de areia clara e mar aberto, com a montanha coberta de mata" loading="lazy" decoding="async">
-      <img src="/assets/lugar-piscina-480.webp" srcset="/assets/lugar-piscina-480.webp 480w, /assets/lugar-piscina-960.webp 960w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="1155" height="768" alt="Piscina natural de água calma protegida por grandes pedras de granito" loading="lazy" decoding="async">
-      <img src="/assets/lugar-vista-baia-480.webp" srcset="/assets/lugar-vista-baia-480.webp 480w, /assets/lugar-vista-baia-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="960" alt="Vista do alto de uma pedra: baía de águas turquesa cercada de mata, com ilhotas, barcos e casas na orla" class="foco-65" loading="lazy" decoding="async">
-      <img src="/assets/lugar-pedras-agua-480.webp" srcset="/assets/lugar-pedras-agua-480.webp 480w, /assets/lugar-pedras-agua-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="960" alt="Pedras na água clara de uma enseada, uma delas coberta de vegetação, com ilhas e montanhas ao fundo" class="foco-60" loading="lazy" decoding="async">
-      <img src="/assets/lugar-banco-areia-480.webp" srcset="/assets/lugar-banco-areia-480.webp 480w, /assets/lugar-banco-areia-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="960" alt="Banco de areia e águas calmas sob céu azul, com morros cobertos de mata ao fundo" class="foco-65" loading="lazy" decoding="async">
-      <img src="/assets/lugar-riacho-mata-480.webp" srcset="/assets/lugar-riacho-mata-480.webp 480w, /assets/lugar-riacho-mata-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="892" alt="Riacho na mata com pedras e uma pequena queda d'água, cercado de vegetação densa" class="foco-65" loading="lazy" decoding="async">
-      <img src="/assets/lugar-amanhecer-pedras-480.webp" srcset="/assets/lugar-amanhecer-pedras-480.webp 480w, /assets/lugar-amanhecer-pedras-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="960" alt="Pedras grandes na areia ao amanhecer, com ondas, morros ao fundo e céu nublado" class="foco-75" loading="lazy" decoding="async">
-      <img src="/assets/lugar-enseada-palmeira-480.webp" srcset="/assets/lugar-enseada-palmeira-480.webp 480w, /assets/lugar-enseada-palmeira-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="960" alt="Vista do alto de uma enseada com ondas e morros, por entre folhas de palmeira" class="foco-70" loading="lazy" decoding="async">
-      <img src="/assets/lugar-banco-areia-veleiro-480.webp" srcset="/assets/lugar-banco-areia-veleiro-480.webp 480w, /assets/lugar-banco-areia-veleiro-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="1009" alt="Banco de areia e águas calmas ao sol, com uma ilha e um veleiro ao fundo" class="foco-70" loading="lazy" decoding="async">
-      <img src="/assets/lugar-baia-ilhas-480.webp" srcset="/assets/lugar-baia-ilhas-480.webp 480w, /assets/lugar-baia-ilhas-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="960" alt="Vista do alto de uma baía de águas turquesa com ilhas e montanhas ao longe" class="foco-70" loading="lazy" decoding="async">
-    </div>
-    <ul class="lugares">
-      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia do Cepilho</h3><p>A praia do surf. Ondas grandes e formadas, logo na chegada da vila, com o acesso mais fácil de todas. Mar forte: não é praia de criança pequena.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3445124,-44.7145693" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
-      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia Brava</h3><p>Uma das mais preservadas da região, com faixa larga de areia e um rio no canto direito. Chega-se por trilha, o que a mantém vazia mesmo na alta temporada.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3384041,-44.7054969" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
-      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia do Meio</h3><p>A mais fotografada de Trindade: uma ponta de pedras divide a areia em duas. É daqui que saem os nossos passeios — o ponto de encontro fica na placa das trilhas.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3535628,-44.7264128" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
-      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia dos Ranchos</h3><p>A praia dos bares e restaurantes, de mar calmo. É onde a vila almoça e onde a maioria das famílias fica o dia inteiro.</p></li>
-      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia do Cachadaço</h3><p>Areia branca e mar aberto, no fim da trilha. Ao lado dela fica a Piscina Natural do Cachadaço, protegida por pedras de granito — o ponto alto dos nossos roteiros.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3568484,-44.7309172" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
-      <li class="lugar" data-revelar><span class="lugar-tipo lugar-tipo-agua">Cachoeira</span><h3>Cachoeira da Pedra que Engole</h3><p>A mais conhecida da vila. O rio passa por uma fresta entre duas rochas e o banhista escorrega para dentro dela, saindo do outro lado. Fica a 15–20 minutos de caminhada do fim da Praia do Meio.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3508269,-44.7306156" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
-      <li class="lugar" data-revelar><span class="lugar-tipo lugar-tipo-agua">Cachoeira</span><h3>Cachoeira dos Codós</h3><p>Também chamada de Chuveiro. É o primeiro atrativo da trilha: um bloco de rocha divide a queda em duas e forma um poço raso, de cerca de um metro.</p></li>
-      <li class="lugar" data-revelar><span class="lugar-tipo lugar-tipo-agua">Cachoeira</span><h3>Poço das Duas Paredes</h3><p>Poço de água doce clara e fria entre dois paredões de pedra, na mesma trilha. É a melhor parada para tirar o sal e o calor da caminhada.</p></li>
-    </ul>
-    <p class="nota-rodape">Praia dos Ranchos, Cachoeira dos Codós e Poço das Duas Paredes ainda não têm ponto cadastrado no mapa aberto — chegue por elas com o guia ou pergunte na vila.</p>
   </section>
 
-  <section class="bloco" aria-labelledby="titulo-pousadas-inicio">
-    <header class="cabeca cabeca-linha">
+  <section class="bloco" aria-labelledby="titulo-cta-final">
+    <div class="caixa cta-final">
       <div>
-        <h2 id="titulo-pousadas-inicio">Onde dormir</h2>
-        <p><b>10% de desconto</b> nas pousadas parceiras para quem reserva passeio pelo site. Apresente o cupom <b class="num">TRINDADE10</b> ao fechar a diária.</p>
+        <h2 id="titulo-cta-final">Ponto de encontro: Praia do Meio</h2>
+        <p>Placa das trilhas, Trindade/Paraty. Concentração no horário cheio, saída 20 minutos depois.</p>
+        <a class="link-seta" href="https://www.google.com/maps/search/?api=1&amp;query=-23.35356,-44.72641" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a>
       </div>
-      <a class="link-seta" href="/pousadas">Ver pousadas<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
-    </header>
-    <div class="pousadas" id="pousadasInicio"></div>
+      <div class="cta-final-acoes">
+        <a class="btn btn-primario btn-largo" href="/reservar">Reservar meu passeio</a>
+        <a class="btn btn-secundario btn-largo" href="https://wa.me/5524993337247" data-wa="Olá! Vim pelo site da Trindade Adventure e quero informações sobre os passeios. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>WhatsApp</a>
+      </div>
+    </div>
   </section>
+
+  <nav class="bloco links-home" aria-label="Mais sobre Trindade">
+    <a class="link-seta" href="/pousadas">Pousadas<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
+    <a class="link-seta" href="/historia#titulo-lugares">Praias e lugares<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
+    <a class="link-seta" href="/historia">História de Trindade<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
+    <a class="link-seta" href="/pescaria">Pescaria<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
+    <a class="link-seta" href="/passeios/adventure">Um dia completo no Adventure<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
+  </nav>
 </section>
 
 <!-- ======================= PASSEIOS ======================= -->
@@ -835,7 +675,7 @@
         <div class="roteiro-foto"><img src="/assets/foto-costa-trindade-720.webp" srcset="/assets/foto-costa-trindade-480.webp 480w, /assets/foto-costa-trindade-720.webp 720w" sizes="(max-width: 860px) 92vw, 600px" width="720" height="756" alt="Costa de Trindade ao entardecer, com a mata descendo até o mar" loading="lazy" decoding="async"></div>
         <div class="roteiro-info">
           <div class="roteiro-titulo"><h2 data-titulo-foco>Trindade Boat</h2><p class="tour-preco"><b>R$ 400</b><span>por pessoa</span></p></div>
-          <p class="roteiro-meta">≈ 8h · encontro às 08:30, saída às 08:50</p>
+          <p class="roteiro-meta">≈ 8h · encontro às 8h30 ou às 11h (saída 20 min depois)</p>
           <p>Trilha pela Trindade e passeio de barco por cinco paradas na costa da Trindade, com almoço no Restaurante Hymbé.</p>
           <p class="nota nota-ouro"><b>Voucher de R$ 60 por pessoa</b> para usar no Restaurante Hymbé, na praia — já incluso no valor.</p>
           <div class="incluso">
@@ -859,7 +699,7 @@
       <div class="roteiro-dia">
         <h3>Roteiro do dia · 7 paradas</h3>
         <ol class="rota">
-          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-pin"/></svg></span><div><h4>1. Praia do Meio <span class="pill">Saída</span></h4><p>Encontro às 8:30, briefing e trilha curta pela Trindade antes do embarque.</p></div></li>
+          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-pin"/></svg></span><div><h4>1. Praia do Meio <span class="pill">Saída</span></h4><p>Encontro no horário reservado (8h30 ou 11h), briefing e trilha curta pela Trindade antes do embarque.</p></div></li>
           <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-onda"/></svg></span><div><h4>2. Praia das Galhetas <span class="pill">Parada 1</span></h4><p>Primeira parada do barco, na costa da Trindade.</p></div></li>
           <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-mergulho"/></svg></span><div><h4>3. Piscina natural das Galhetas <span class="pill">Parada 2</span></h4><p>Água calma e transparente — parada para snorkel.</p></div></li>
           <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-praia"/></svg></span><div><h4>4. Praia do Sono <span class="pill">Parada 3</span></h4><p>Comunidade caiçara e 1 km de areia. Parada mais longa do dia.</p></div></li>
@@ -872,6 +712,27 @@
     </div>
   </div>
 
+  <section class="bloco" aria-labelledby="titulo-parapente-roteiros">
+    <header class="cabeca">
+      <h2 id="titulo-parapente-roteiros">Voo de Parapente</h2>
+      <p>Voo duplo com o piloto Alef Magno, da Voar Parapente, parceira da Trindade Adventure.</p>
+    </header>
+    <div class="pescaria-grid">
+      <figure class="parapente-capa">
+        <img src="/assets/parapente-voo-01-praia-vila-960.webp" srcset="/assets/parapente-voo-01-praia-vila-480.webp 480w, /assets/parapente-voo-01-praia-vila-960.webp 960w, /assets/parapente-voo-01-praia-vila-1280.webp 1280w" sizes="(max-width: 860px) 92vw, 600px" width="1280" height="720" alt="Passageira rindo em voo duplo de parapente sobre uma praia com vila, com o mar verde-azulado ao fundo" loading="lazy" decoding="async">
+      </figure>
+      <div class="pescaria-info">
+        <p>De 5 a 15 minutos no ar, conforme as condições do dia. Traslado, fotos, vídeo e imagens em 360° (GoPro Max) inclusos.</p>
+        <div class="pescaria-preco"><span>Por voo</span><strong>R$ 350</strong></div>
+        <p class="pescaria-dica">Sinal de R$ 50 para agendar; o restante é pago antes da decolagem, por Pix, dinheiro ou cartão. Data, horário e ponto de encontro são combinados pelo WhatsApp.</p>
+        <div class="tour-acoes">
+          <a class="btn btn-primario btn-largo" href="/reservar?plano=parapente">Reservar voo</a>
+          <a class="btn btn-secundario btn-largo" href="/voo-de-parapente">Ver detalhes</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <section class="bloco" id="sob-consulta" aria-labelledby="titulo-consulta">
     <header class="cabeca">
       <h2 id="titulo-consulta">Passeios sob consulta</h2>
@@ -879,6 +740,12 @@
     </header>
     <div class="consultas">
       <article class="consulta" id="consulta-mamangua" data-revelar>
+        <div class="consulta-fotos">
+          <figure><img src="/assets/mamangua-vista-pico-960.webp" srcset="/assets/mamangua-vista-pico-480.webp 480w, /assets/mamangua-vista-pico-960.webp 960w, /assets/mamangua-vista-pico-1600.webp 1600w" sizes="(max-width: 860px) 31vw, 180px" width="1600" height="1200" alt="Vista do sul do Saco do Mamanguá, a partir do Pico do Mamanguá" loading="lazy" decoding="async"></figure>
+          <figure><img src="/assets/mamangua-barco-960.webp" srcset="/assets/mamangua-barco-480.webp 480w, /assets/mamangua-barco-960.webp 960w, /assets/mamangua-barco-1600.webp 1600w" sizes="(max-width: 860px) 31vw, 180px" width="1600" height="1195" alt="Barco no Saco do Mamanguá" loading="lazy" decoding="async"></figure>
+          <figure><img src="/assets/mamangua-pao-de-acucar-960.webp" srcset="/assets/mamangua-pao-de-acucar-480.webp 480w, /assets/mamangua-pao-de-acucar-960.webp 960w, /assets/mamangua-pao-de-acucar-1600.webp 1600w" sizes="(max-width: 860px) 31vw, 180px" width="1600" height="874" alt="Pico do Pão de Açúcar no Saco do Mamanguá, com a Serra da Bocaina ao longe" loading="lazy" decoding="async"></figure>
+        </div>
+        <p class="credito">Fotos: Ygaray, TMbux e Pedrogabrielmaciel / <a href="https://commons.wikimedia.org" target="_blank" rel="noopener">Wikimedia Commons</a>, <a href="https://creativecommons.org/licenses/by-sa/3.0" target="_blank" rel="noopener">CC BY-SA 3.0</a> — <a href="/creditos-das-fotos">créditos completos</a></p>
         <div class="consulta-topo"><div><h3 data-titulo-foco>Mamanguá Adventure</h3><p class="consulta-sub">Pico do Pão de Açúcar · van, barco e trilha</p></div><p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p></div>
         <p>Uma experiência completa saindo de Trindade para conhecer um dos cenários mais impressionantes de Paraty.</p>
         <ul class="lista-check">
@@ -887,7 +754,7 @@
           <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Trilha do Pico do Pão de Açúcar</li>
           <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Dia inteiro de aventura</li>
         </ul>
-        <a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Mamanguá Adventure da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar no WhatsApp</a>
+        <a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Mamanguá Adventure. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar no WhatsApp</a>
       </article>
 
       <article class="consulta" id="consulta-fishing" data-revelar>
@@ -898,7 +765,7 @@
           <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Valor fixo de R$ 500</li>
           <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Consulte os detalhes e a data com a equipe</li>
         </ul>
-        <div class="consulta-acoes"><a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Fishing Experience da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar no WhatsApp</a><a class="btn btn-secundario" href="/pescaria">Página da pescaria</a></div>
+        <div class="consulta-acoes"><a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Fishing Experience. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar no WhatsApp</a><a class="btn btn-secundario" href="/pescaria">Página da pescaria</a></div>
       </article>
 
       <article class="consulta" id="consulta-saco-bravo" data-revelar>
@@ -910,7 +777,7 @@
           <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Trilha em cenários preservados</li>
           <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Cachoeira do Saco Bravo</li>
         </ul>
-        <a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Saco Bravo Adventure da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar no WhatsApp</a>
+        <a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Saco Bravo Adventure. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar no WhatsApp</a>
       </article>
 
       <article class="consulta" id="consulta-juatinga" data-revelar>
@@ -927,7 +794,7 @@
           <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Praia dos Antigos e Praia do Sono</li>
           <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Almoço na Praia do Sono</li>
         </ul>
-        <a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Costa da Juatinga da Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar no WhatsApp</a>
+        <a class="btn btn-primario" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Costa da Juatinga. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar no WhatsApp</a>
       </article>
     </div>
   </section>
@@ -965,7 +832,7 @@
 <section class="secao" id="reservar" data-secao="reservar">
   <header class="pagina-cabeca">
     <h1 data-titulo>Reservar horário</h1>
-    <p>Monte o pedido aqui e envie em um toque. A reserva é confirmada pela equipe no WhatsApp, com o guia do dia — sem cadastro e sem pagamento online.</p>
+    <p>Escolha o passeio, a data e o horário, preencha nome e WhatsApp e envie. A equipe confirma pelo WhatsApp, com o guia do dia — sem cadastro e sem pagamento online.</p>
   </header>
 
   <!-- Sem JavaScript, o formulário não tem como montar a mensagem. Em vez de
@@ -977,17 +844,17 @@
     </div>
   </noscript>
 
-  <form id="formReserva" class="reserva" novalidate hidden>
+  <form id="formReserva" class="reserva" novalidate>
     <div class="reserva-passos">
-      <fieldset class="passo" id="passoPasseio">
+      <fieldset class="passo passo-compacto" id="passoPasseio">
         <legend class="sr">Passeio</legend>
         <h2 class="passo-titulo"><span>1</span>Escolha o passeio</h2>
         <div class="planos-opcoes" id="escolhaPlano"></div>
         <p class="passo-extra">Mamanguá Adventure, Saco Bravo Adventure, Costa da Juatinga e Fishing Experience são combinados pelo WhatsApp:
-          <a href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Mamanguá Adventure da Trindade Adventure." target="_blank" rel="noopener">Mamanguá</a>,
-          <a href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Saco Bravo Adventure da Trindade Adventure." target="_blank" rel="noopener">Saco Bravo</a>,
-          <a href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Costa da Juatinga da Trindade Adventure." target="_blank" rel="noopener">Juatinga</a> e
-          <a href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Fishing Experience da Trindade Adventure." target="_blank" rel="noopener">Fishing</a>.</p>
+          <a href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Mamanguá Adventure. Data: ___ · Pessoas: ___" target="_blank" rel="noopener">Mamanguá</a>,
+          <a href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Saco Bravo Adventure. Data: ___ · Pessoas: ___" target="_blank" rel="noopener">Saco Bravo</a>,
+          <a href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Costa da Juatinga. Data: ___ · Pessoas: ___" target="_blank" rel="noopener">Juatinga</a> e
+          <a href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre o passeio Fishing Experience. Data: ___ · Pessoas: ___" target="_blank" rel="noopener">Fishing</a>.</p>
       </fieldset>
 
       <fieldset class="passo" id="passoData">
@@ -1004,7 +871,7 @@
         <legend class="sr">Horário</legend>
         <div class="passo-linha">
           <h2 class="passo-titulo"><span>3</span>Horário <span class="passo-data" id="rotuloData"></span></h2>
-          <p class="passo-dica">saída 20 min após</p>
+          <p class="passo-dica" id="dicaSaida20">saída 20 min após</p>
         </div>
         <div class="horarios" id="listaHorarios"></div>
         <p class="passo-dica" id="avisoHorario"></p>
@@ -1027,8 +894,12 @@
             <input id="fEmail" name="email" type="email" placeholder="voce@email.com" inputmode="email" autocomplete="email" maxlength="254">
             <span class="err" id="errEmail" hidden></span>
           </label>
-          <label class="field">Pessoas
+          <label class="field"><span id="rotuloPax">Pessoas</span>
             <select id="fPax" name="pax"></select>
+          </label>
+          <label class="field campo-peso" id="campoPeso" hidden>Peso de cada passageiro (kg) <span class="hint">entre 50 e 120 kg por pessoa</span>
+            <input id="fPeso" name="peso" placeholder="Ex.: 70, 82" maxlength="60">
+            <span class="err" id="errPeso" hidden></span>
           </label>
         </div>
         <label class="field">Observações <span class="hint">restrição alimentar, criança, mobilidade</span>
@@ -1044,9 +915,8 @@
         <p class="err" id="errAceite" hidden></p>
       </fieldset>
 
-      <fieldset class="passo">
-        <legend class="sr">Como conheceu e Instagram</legend>
-        <h2 class="passo-titulo"><span>5</span>Só mais duas coisas <span class="hint">opcional</span></h2>
+      <details class="passo passo-opcional">
+        <summary>Opcional: como conheceu e Instagram</summary>
         <label class="field">Como você conheceu a Trindade Adventure?
           <select id="fComoConheceu">
             <option value="">Prefiro não dizer</option>
@@ -1069,7 +939,7 @@
           <input type="checkbox" id="fSeguiu">
           <span>Já sigo ou acabei de seguir @trindadeadventure.</span>
         </label>
-      </fieldset>
+      </details>
     </div>
 
     <aside class="resumo" aria-label="Resumo da reserva">
@@ -1081,13 +951,20 @@
       <div class="linha linha-sep"><span id="rsCalculo">—</span><b class="num" id="rsSubtotal">—</b></div>
       <div class="linha linha-ouro" id="rsVoucherLinha" hidden><span>Voucher almoço</span><b class="num" id="rsVoucher">—</b></div>
       <div class="linha linha-total"><span>Total</span><b class="num" id="rsTotal">—</b></div>
+      <div class="linha"><span>Sinal</span><b class="num" id="rsSinal">—</b></div>
       <div id="turnstileBox" class="turnstile-box"></div>
       <button class="btn btn-primario btn-largo" type="submit"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Enviar reserva no WhatsApp</button>
-      <p class="resumo-nota">Até 15 pessoas por reserva. A reserva é confirmada pela equipe no WhatsApp, após o pagamento de um sinal de 30% via Pix.</p>
+      <p class="passo-dica resumo-garantia" id="rsGarantia"></p>
+      <p class="resumo-nota" id="resumoNota">Até 15 pessoas por reserva. A reserva é confirmada pela equipe no WhatsApp.</p>
     </aside>
   </form>
 
   <div id="reservaFeita" hidden></div>
+
+  <div class="barra-fixa-reserva" id="barraFixaReserva">
+    <span>Total <b class="num" id="bfTotal">—</b></span>
+    <button class="btn btn-primario" type="submit" form="formReserva">Enviar pedido</button>
+  </div>
 </section>
 
 <!-- ======================= POUSADAS ======================= -->
@@ -1111,7 +988,7 @@
           <div><b>Diária sob consulta</b><span><span data-canal-contato>Atendimento pela Trindade Adventure</span> · cupom <b class="num">TRINDADE10</b></span></div>
           <div class="parceira-acoes">
             <a class="btn btn-secundario btn-sm" href="https://instagram.com/pousadahymbetrindade" target="_blank" rel="noopener" aria-label="Instagram da Pousada Hymbé">Instagram</a>
-            <a class="btn btn-primario btn-sm" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre a Pousada Hymbé Trindade. Vim pelo site Trindade Adventure e quero usar o desconto de 10% (cupom TRINDADE10)." target="_blank" rel="noopener" aria-label="Consultar disponibilidade da Pousada Hymbé com a Trindade Adventure pelo WhatsApp"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar</a>
+            <a class="btn btn-primario btn-sm" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre a Pousada Hymbé Trindade. Vim pelo site Trindade Adventure e quero usar o desconto de 10% (cupom TRINDADE10). Datas: ___ · Pessoas: ___" target="_blank" rel="noopener" aria-label="Consultar disponibilidade da Pousada Hymbé com a Trindade Adventure pelo WhatsApp"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar</a>
           </div>
         </div>
       </div>
@@ -1129,7 +1006,7 @@
           <div><b>Diária sob consulta</b><span data-canal-contato>Direto com a pousada</span></div>
           <div class="parceira-acoes">
             <a class="btn btn-secundario btn-sm" href="https://instagram.com/demadeiratrindade" target="_blank" rel="noopener" aria-label="Instagram da Casa de Madeira">Instagram</a>
-            <a class="btn btn-primario btn-sm" href="https://wa.me/5524987873576" data-wa="Olá! Quero informações sobre a Casa de Madeira Trindade. Vim pelo site Trindade Adventure." data-wa-numero="5524987873576" target="_blank" rel="noopener" aria-label="Falar com a Casa de Madeira no WhatsApp"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Falar</a>
+            <a class="btn btn-primario btn-sm" href="https://wa.me/5524987873576" data-wa="Olá! Quero informações sobre a Casa de Madeira Trindade. Vim pelo site Trindade Adventure. Datas: ___ · Pessoas: ___" data-wa-numero="5524987873576" target="_blank" rel="noopener" aria-label="Falar com a Casa de Madeira no WhatsApp"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Falar</a>
           </div>
         </div>
       </div>
@@ -1166,7 +1043,7 @@
       <p>A decolagem sai da pista de pouso de Trindade. De 5 a 15 minutos no ar, conforme as condições do dia. Traslado, fotos, vídeo e imagens em 360° inclusos.</p>
       <div class="pescaria-preco"><span>Por voo</span><strong>R$ 350</strong></div>
       <p class="pescaria-dica">Sinal de R$ 50 para agendar; o restante é pago antes da decolagem, por Pix, dinheiro ou cartão. Data, horário e ponto de encontro são combinados pelo WhatsApp.</p>
-      <a class="btn btn-primario btn-largo" href="https://wa.me/5524993337247" data-wa="Olá! Quero agendar um Voo de Parapente com a Voar Parapente, pela Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Agendar voo no WhatsApp</a>
+      <a class="btn btn-primario btn-largo" href="https://wa.me/5524993337247" data-wa="Olá! Quero agendar o Voo de Parapente (R$ 350). Data: ___ · Pessoas: ___ · Peso aprox. de cada pessoa: ___ kg" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Agendar voo no WhatsApp</a>
     </div>
   </div>
 
@@ -1240,7 +1117,7 @@
 
   <div class="caixa parapente-cta">
     <p><b>R$ 350 por voo</b> · sinal de R$ 50 para agendar</p>
-    <a class="btn btn-primario btn-largo" href="https://wa.me/5524993337247" data-wa="Olá! Quero agendar um Voo de Parapente com a Voar Parapente, pela Trindade Adventure." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Agendar voo no WhatsApp</a>
+    <a class="btn btn-primario btn-largo" href="https://wa.me/5524993337247" data-wa="Olá! Quero agendar o Voo de Parapente (R$ 350). Data: ___ · Pessoas: ___ · Peso aprox. de cada pessoa: ___ kg" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Agendar voo no WhatsApp</a>
   </div>
 </section>
 
@@ -1259,7 +1136,7 @@
         <div><dt>Ponto de encontro</dt><dd>Praia do Meio — placa das trilhas, Trindade/Paraty</dd></div>
         <div><dt>Saídas</dt><dd>08h às 15h, de hora em hora</dd></div>
         <div><dt>Trindade Adventure</dt><dd>última saída <span data-faixa-horarios="adventure" data-formato="ultima">às 12:00</span>, pela duração do roteiro</dd></div>
-        <div><dt>Trindade Boat</dt><dd>encontro às 08:30, saída às 08:50</dd></div>
+        <div><dt>Trindade Boat</dt><dd>encontro às 8h30 ou às 11h (saída 20 min depois)</dd></div>
         <div><dt>Grupo máximo</dt><dd>15 pessoas por reserva</dd></div>
       </dl>
       <a class="link-seta" href="https://www.google.com/maps/search/?api=1&amp;query=-23.35356,-44.72641" target="_blank" rel="noopener">Abrir o ponto de encontro no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a>
@@ -1312,7 +1189,7 @@
       <p>Viva uma experiência de pescaria em alto mar com o acompanhamento de um guia experiente, em Trindade.</p>
       <div class="pescaria-preco"><span>Valor fixo</span><strong>R$ 500</strong></div>
       <p class="pescaria-dica">Converse com a equipe para combinar a data e conhecer os detalhes do passeio.</p>
-      <a class="btn btn-primario btn-largo" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre a Pescaria em Alto Mar, com guia experiente e valor fixo de R$ 500." target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar pescaria no WhatsApp</a>
+      <a class="btn btn-primario btn-largo" href="https://wa.me/5524993337247" data-wa="Olá! Quero informações sobre a Pescaria em Alto Mar, com guia experiente e valor fixo de R$ 500. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar pescaria no WhatsApp</a>
     </div>
   </div>
 
@@ -1356,6 +1233,42 @@
     <figure data-revelar><a href="https://paraty.com.br/fotos-de-trindade-decada-de-70/" target="_blank" rel="noopener" aria-label="Ver álbum histórico de Trindade no Portal Paraty"><img src="/assets/historia-trindade-03.jpg" alt="Duas pessoas com um violão, em fotografia em preto e branco do álbum antigo de Trindade" width="380" height="250" loading="lazy" decoding="async"></a><figcaption><p>Música e convivência. Trindade, década de 1970 segundo o álbum de origem; pessoas não identificadas.</p><a class="credito" href="https://paraty.com.br/fotos-de-trindade-decada-de-70/" target="_blank" rel="noopener">Fonte: Portal Paraty · ver acervo</a></figcaption></figure>
   </div>
   <p class="nota-rodape historia-nota">Registros de época, preservados no enquadramento original. O álbum informa a década, mas não o ano exato nem a autoria de cada fotografia. As imagens não são apresentadas como registros do acordo de 1982.</p>
+
+  <!-- Movido da home em 24/10/2026 (home nova, mais curta): era "Cinco praias e três cachoeiras" em
+       #inicio. Único lugar do site com essa lista e essas fotos — por isso mudou de página em vez de
+       ser apagado. A home linka para cá (#titulo-lugares). -->
+  <section class="bloco" aria-labelledby="titulo-lugares">
+    <header class="cabeca">
+      <h2 id="titulo-lugares">Cinco praias e três cachoeiras</h2>
+      <p>A vila fica entre a serra e o mar, dentro do Parque Nacional da Serra da Bocaina. Tudo abaixo se alcança a pé — as distâncias são de caminhada, não de carro.</p>
+    </header>
+    <div class="lugares-fotos" data-revelar>
+      <img src="/assets/lugar-trilha-480.webp" srcset="/assets/lugar-trilha-480.webp 480w, /assets/lugar-trilha-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="1200" height="1600" alt="Trilha estreita dentro da Mata Atlântica" loading="lazy" decoding="async">
+      <img src="/assets/lugar-praia-pedras-480.webp" srcset="/assets/lugar-praia-pedras-480.webp 480w, /assets/lugar-praia-pedras-960.webp 960w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="1155" height="768" alt="Praia de água transparente com pedras arredondadas e a mata ao fundo" loading="lazy" decoding="async">
+      <img src="/assets/lugar-praia-areia-480.webp" srcset="/assets/lugar-praia-areia-480.webp 480w, /assets/lugar-praia-areia-960.webp 960w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="1155" height="768" alt="Praia de areia clara e mar aberto, com a montanha coberta de mata" loading="lazy" decoding="async">
+      <img src="/assets/lugar-piscina-480.webp" srcset="/assets/lugar-piscina-480.webp 480w, /assets/lugar-piscina-960.webp 960w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="1155" height="768" alt="Piscina natural de água calma protegida por grandes pedras de granito" loading="lazy" decoding="async">
+      <img src="/assets/lugar-vista-baia-480.webp" srcset="/assets/lugar-vista-baia-480.webp 480w, /assets/lugar-vista-baia-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="960" alt="Vista do alto de uma pedra: baía de águas turquesa cercada de mata, com ilhotas, barcos e casas na orla" class="foco-65" loading="lazy" decoding="async">
+      <img src="/assets/lugar-pedras-agua-480.webp" srcset="/assets/lugar-pedras-agua-480.webp 480w, /assets/lugar-pedras-agua-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="960" alt="Pedras na água clara de uma enseada, uma delas coberta de vegetação, com ilhas e montanhas ao fundo" class="foco-60" loading="lazy" decoding="async">
+      <img src="/assets/lugar-banco-areia-480.webp" srcset="/assets/lugar-banco-areia-480.webp 480w, /assets/lugar-banco-areia-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="960" alt="Banco de areia e águas calmas sob céu azul, com morros cobertos de mata ao fundo" class="foco-65" loading="lazy" decoding="async">
+      <img src="/assets/lugar-riacho-mata-480.webp" srcset="/assets/lugar-riacho-mata-480.webp 480w, /assets/lugar-riacho-mata-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="892" alt="Riacho na mata com pedras e uma pequena queda d'água, cercado de vegetação densa" class="foco-65" loading="lazy" decoding="async">
+      <img src="/assets/lugar-amanhecer-pedras-480.webp" srcset="/assets/lugar-amanhecer-pedras-480.webp 480w, /assets/lugar-amanhecer-pedras-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="960" alt="Pedras grandes na areia ao amanhecer, com ondas, morros ao fundo e céu nublado" class="foco-75" loading="lazy" decoding="async">
+      <img src="/assets/lugar-enseada-palmeira-480.webp" srcset="/assets/lugar-enseada-palmeira-480.webp 480w, /assets/lugar-enseada-palmeira-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="960" alt="Vista do alto de uma enseada com ondas e morros, por entre folhas de palmeira" class="foco-70" loading="lazy" decoding="async">
+      <img src="/assets/lugar-banco-areia-veleiro-480.webp" srcset="/assets/lugar-banco-areia-veleiro-480.webp 480w, /assets/lugar-banco-areia-veleiro-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="1009" alt="Banco de areia e águas calmas ao sol, com uma ilha e um veleiro ao fundo" class="foco-70" loading="lazy" decoding="async">
+      <img src="/assets/lugar-baia-ilhas-480.webp" srcset="/assets/lugar-baia-ilhas-480.webp 480w, /assets/lugar-baia-ilhas-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="960" alt="Vista do alto de uma baía de águas turquesa com ilhas e montanhas ao longe" class="foco-70" loading="lazy" decoding="async">
+    </div>
+    <ul class="lugares">
+      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia do Cepilho</h3><p>A praia do surf. Ondas grandes e formadas, logo na chegada da vila, com o acesso mais fácil de todas. Mar forte: não é praia de criança pequena.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3445124,-44.7145693" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
+      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia Brava</h3><p>Uma das mais preservadas da região, com faixa larga de areia e um rio no canto direito. Chega-se por trilha, o que a mantém vazia mesmo na alta temporada.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3384041,-44.7054969" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
+      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia do Meio</h3><p>A mais fotografada de Trindade: uma ponta de pedras divide a areia em duas. É daqui que saem os nossos passeios — o ponto de encontro fica na placa das trilhas.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3535628,-44.7264128" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
+      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia dos Ranchos</h3><p>A praia dos bares e restaurantes, de mar calmo. É onde a vila almoça e onde a maioria das famílias fica o dia inteiro.</p></li>
+      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia do Cachadaço</h3><p>Areia branca e mar aberto, no fim da trilha. Ao lado dela fica a Piscina Natural do Cachadaço, protegida por pedras de granito — o ponto alto dos nossos roteiros.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3568484,-44.7309172" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
+      <li class="lugar" data-revelar><span class="lugar-tipo lugar-tipo-agua">Cachoeira</span><h3>Cachoeira da Pedra que Engole</h3><p>A mais conhecida da vila. O rio passa por uma fresta entre duas rochas e o banhista escorrega para dentro dela, saindo do outro lado. Fica a 15–20 minutos de caminhada do fim da Praia do Meio.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3508269,-44.7306156" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
+      <li class="lugar" data-revelar><span class="lugar-tipo lugar-tipo-agua">Cachoeira</span><h3>Cachoeira dos Codós</h3><p>Também chamada de Chuveiro. É o primeiro atrativo da trilha: um bloco de rocha divide a queda em duas e forma um poço raso, de cerca de um metro.</p></li>
+      <li class="lugar" data-revelar><span class="lugar-tipo lugar-tipo-agua">Cachoeira</span><h3>Poço das Duas Paredes</h3><p>Poço de água doce clara e fria entre dois paredões de pedra, na mesma trilha. É a melhor parada para tirar o sal e o calor da caminhada.</p></li>
+    </ul>
+    <p class="nota-rodape">Praia dos Ranchos, Cachoeira dos Codós e Poço das Duas Paredes ainda não têm ponto cadastrado no mapa aberto — chegue por elas com o guia ou pergunte na vila.</p>
+  </section>
+
   <aside class="fontes historia-fontes" aria-labelledby="titulo-fontes-historia"><h2 id="titulo-fontes-historia">Para conhecer essa história</h2><ul><li><a href="https://www.gov.br/icmbio/pt-br/assuntos/biodiversidade/unidade-de-conservacao/unidades-de-biomas/marinho/lista-de-ucs/apa-de-cairucu/povos-e-comunidades-tradicionais-2/trindade" target="_blank" rel="noopener">ICMBio — Comunidade de Trindade</a></li><li><a href="https://www.ppgcspa.uema.br/wp-content/uploads/2017/04/04-boletim-trindade_web.pdf" target="_blank" rel="noopener">Boletim da comunidade caiçara de Trindade — história e depoimentos</a></li></ul></aside>
 </section>
 
@@ -1439,7 +1352,7 @@
     <p>Os valores por pessoa são os informados na página de cada passeio. No Trindade Adventure e no Trindade Boat, o valor já inclui um voucher de R$ 60 por pessoa para o almoço no Restaurante Hymbé. Para confirmar a reserva, é pago um sinal de 30% do valor via Pix, combinado pelo WhatsApp. Não há pagamento pelo site.</p>
 
     <h2>4. Horário e ponto de encontro</h2>
-    <p>A concentração é no horário reservado, na Praia do Meio, junto à placa das trilhas. A saída acontece 20 minutos depois — a reserva das 08:00 sai às 08:20. O Trindade Boat tem encontro às 8h30 e saída às 8h50. Chegue 15 minutos antes.</p>
+    <p>A concentração é no horário reservado, na Praia do Meio, junto à placa das trilhas. A saída acontece 20 minutos depois — a reserva das 08:00 sai às 08:20. O Trindade Boat tem encontro às 8h30 ou às 11h (saída 20 min depois). Chegue 15 minutos antes.</p>
 
     <h2>5. Atrasos</h2>
     <p>Se você for se atrasar, avise a equipe pelo WhatsApp assim que puder. A possibilidade de seguir em outro horário depende de vaga e é combinada com a equipe.</p>
@@ -1472,6 +1385,34 @@
   </article>
 </section>
 
+<!-- ======================= CRÉDITOS DAS FOTOS =======================
+     Criada em 24/10/2026: as 3 fotos do Saco do Mamanguá vieram do Wikimedia
+     Commons, sob CC BY-SA 3.0, que exige crédito ao autor, a licença e a
+     origem. Ver CREDITOS-FOTOS.md (raiz do repo) para os metadados completos. -->
+<section class="secao" id="creditos" data-secao="creditos" aria-labelledby="titulo-creditos">
+  <header class="pagina-cabeca">
+    <h1 data-titulo id="titulo-creditos">Créditos das fotos</h1>
+    <p>Autor, licença e origem das fotos de terceiros usadas no site. As demais fotos são da equipe Trindade Adventure, de parceiros ou da Voar Parapente.</p>
+  </header>
+  <article class="texto-legal">
+    <h2>Fotos do Saco do Mamanguá (Wikimedia Commons)</h2>
+    <div class="tabela-wrap">
+      <table class="tabela-creditos">
+        <thead><tr><th>Foto</th><th>Autor</th><th>Licença</th><th>Origem</th></tr></thead>
+        <tbody>
+          <tr><td>Vista do Pico do Mamanguá</td><td>Ygaray</td><td><a href="https://creativecommons.org/licenses/by-sa/3.0" target="_blank" rel="noopener">CC BY-SA 3.0</a></td><td><a href="https://commons.wikimedia.org/wiki/File:Vista_do_Saco_do_Mamangu%C3%A1_a_partir_do_Pico_do_Mamangu%C3%A1.JPG" target="_blank" rel="noopener">Wikimedia Commons</a></td></tr>
+          <tr><td>Barco no Saco do Mamanguá</td><td>TMbux</td><td><a href="https://creativecommons.org/licenses/by-sa/3.0" target="_blank" rel="noopener">CC BY-SA 3.0</a></td><td><a href="https://commons.wikimedia.org/wiki/File:Barco_-_Saco_do_Mamangu%C3%A1_-_Paraty,_RJ_-_panoramio.jpg" target="_blank" rel="noopener">Wikimedia Commons</a></td></tr>
+          <tr><td>Pico do Pão de Açúcar no Saco do Mamanguá</td><td>Pedrogabrielmaciel</td><td><a href="https://creativecommons.org/licenses/by-sa/3.0" target="_blank" rel="noopener">CC BY-SA 3.0</a></td><td><a href="https://commons.wikimedia.org/wiki/File:Pico_do_P%C3%A3o_de_A%C3%A7ucar_no_Saco_do_Mamangu%C3%A1,_Paraty-Rj._Serra_da_Bocaina_ao_longo.jpg" target="_blank" rel="noopener">Wikimedia Commons</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Modificação feita nas três fotos: só redimensionamento e conversão para WebP (480, 960 e 1600 px), sem corte nem edição de cor. As versões redimensionadas seguem sob a mesma licença, CC BY-SA 3.0, que permite uso comercial desde que se dê o crédito ao autor, se indique a licença e as versões modificadas sejam distribuídas sob a mesma licença.</p>
+
+    <h2>Outras fotos do site</h2>
+    <p>Todas as outras fotos são da equipe Trindade Adventure, dos parceiros (Pousada Hymbé, Casa de Madeira Trindade, Restaurante Hymbé) ou da Voar Parapente (fotos do voo de parapente, com o crédito também na página <a class="link-texto" href="/voo-de-parapente">Voo de Parapente</a>).</p>
+  </article>
+</section>
+
 </main>
 
 <footer class="rodape">
@@ -1500,7 +1441,7 @@
       <ul>
         <li><a href="/historia">História de Trindade</a></li>
         <li><a href="/pousadas">Pousadas parceiras</a></li>
-        <li><a href="/cameras">Câmeras (em preparação)</a></li>
+        <li><a href="/creditos-das-fotos">Créditos das fotos</a></li>
       </ul>
     </div>
     <div>
@@ -1549,7 +1490,7 @@
 
 <!-- Leaflet é servido pelo próprio site e só carrega quando o mapa se aproxima
      da tela. Se ainda assim faltar, o app.js mostra a lista de pontos. -->
-<script src="/app.js?v=20261023-cat-foto" defer></script>
+<script src="/app.js?v=20261024-home-nova" defer></script>
 <script src="/vendor/lenis-1.3.11.min.js" defer></script>
 <script src="/motion.js?v=20261020-s15" defer></script>
 <script src="/pescaria-galeria.js?v=20261005-rotas" defer></script>

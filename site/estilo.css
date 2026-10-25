@@ -120,35 +120,26 @@ fieldset{min-width:0;border:0;padding:0;margin:0}
 .caixa{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:24px}
 
 /* ---------- tempo e mar ---------- */
-#climaBar{background:var(--surface);border-bottom:1px solid var(--line);min-height:66px}
+/* Barra global (todas as páginas): uma linha só, até ~40px, só temperatura e mar de agora — sem
+   aviso nem recomendação de ida (isso é decisão do guia no dia, não da barra). */
+#climaBar{background:var(--surface);border-bottom:1px solid var(--line);min-height:40px}
 html:not(.js) #climaBar{display:none}
-/* Grade fixa: a altura final é conhecida antes de os dados chegarem, então a
-   página não pula quando a previsão responde. */
-.clima-faixa{max-width:var(--wrap);margin:0 auto;padding:9px var(--gutter);display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:4px 20px;font-size:13px;line-height:1.4;color:var(--ink-2)}
-.clima-agora{display:inline-flex;align-items:center;gap:6px;color:var(--accent);white-space:nowrap}
-.clima-agora b{font-size:15px;font-weight:600;color:var(--ink)}
+.clima-faixa{max-width:var(--wrap);margin:0 auto;padding:8px var(--gutter);display:flex;align-items:center;gap:6px 18px;font-size:13px;line-height:1.3;color:var(--ink-2);overflow:hidden;white-space:nowrap}
+.clima-agora{display:inline-flex;align-items:center;gap:6px;color:var(--accent)}
+.clima-agora b{font-size:14.5px;font-weight:600;color:var(--ink)}
 .clima-agora span{color:var(--ink-2)}
 .clima-local{color:var(--muted)!important}
-.clima-dados{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:2px 16px;list-style:none;padding:0}
-.clima-dados li{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
-.clima-dados svg{color:var(--muted)}
-.clima-dados b{font-weight:600;color:var(--ink)}
-.clima-meta{grid-column:3;grid-row:1;display:inline-flex;align-items:center;gap:10px;color:var(--muted);font-size:12.5px;white-space:nowrap}
+.clima-onda{display:inline-flex;align-items:center;gap:5px;color:var(--muted)}
+.clima-onda b{font-weight:600;color:var(--ink)}
+.clima-meta{margin-left:auto;display:inline-flex;align-items:center;gap:10px;color:var(--muted);font-size:12.5px}
 .clima-acao{color:var(--accent);text-decoration:underline;text-underline-offset:2px;font-size:12.5px;min-height:24px}
-.ponto-ok,.ponto-warn,.ponto-bad{display:inline-flex;align-items:center;gap:7px;font-weight:500}
-.ponto-ok::before,.ponto-warn::before,.ponto-bad::before{content:"";width:8px;height:8px;border-radius:50%;flex:none}
-.ponto-ok{color:var(--ok)} .ponto-ok::before{background:var(--ok)}
-.ponto-warn{color:var(--warn)} .ponto-warn::before{background:var(--warn)}
-.ponto-bad{color:var(--bad)} .ponto-bad::before{background:var(--bad)}
-.clima-skeleton{max-width:var(--wrap);margin:0 auto;padding:13px var(--gutter);display:flex;gap:14px}
+.clima-skeleton{max-width:var(--wrap);margin:0 auto;padding:13px var(--gutter);display:flex;gap:14px;min-height:40px;box-sizing:border-box}
 .clima-skeleton span:not(.sr){display:block;height:14px;width:120px;border-radius:7px;background:var(--line)}
 .clima-skeleton span:nth-child(3){width:220px}
 @media(max-width:720px){
-  #climaBar{min-height:104px}
-  .clima-faixa{grid-template-columns:minmax(0,1fr) auto;gap:3px 12px;font-size:12.5px}
-  .clima-meta{grid-column:2}
-  [class^="ponto-"]{grid-column:1/-1}
-  .clima-dados{gap:1px 12px}
+  .clima-faixa{gap:5px 12px;font-size:12.5px}
+  .clima-onda,.clima-local{display:none}
+  .clima-skeleton span:nth-child(3){display:none}
 }
 
 /* ---------- topo e navegação ---------- */
@@ -256,7 +247,6 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 }
 
 /* ---------- catálogo de passeios ---------- */
-.bloco-catalogo{margin-top:clamp(56px,7vw,96px)}
 .tours{display:grid;gap:20px}
 .tours-agenda{grid-template-columns:repeat(3,minmax(0,1fr))}
 .tours-consulta{grid-template-columns:repeat(4,minmax(0,1fr))}
@@ -283,6 +273,24 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 .tour-nota{display:flex;align-items:center;gap:7px;font-size:14px;color:var(--gold)}
 .tour-acoes{display:flex;gap:8px;margin-top:6px}
 .tour-acoes .btn{flex:1 1 0;min-width:0;padding-inline:14px}
+.tour-inclusos{margin:2px 0}
+.tour-inclusos li{font-size:13.5px}
+.tour-garantia{font-size:12.5px;color:var(--muted)}
+
+/* Home nova (24/10/2026): links de texto para os passeios sob consulta, logo abaixo dos 4 cartões. */
+.links-consulta{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;font-size:15px}
+.links-consulta>span{color:var(--muted)}
+
+/* CTA final da home, com o ponto de encontro e os dois botões de sempre. */
+.cta-final{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:20px}
+.cta-final h2{font-size:clamp(24px,2.8vw,32px);font-weight:500;letter-spacing:-.03em}
+.cta-final p{margin-top:8px;color:var(--ink-2)}
+.cta-final-acoes{display:flex;flex-wrap:wrap;gap:10px}
+.cta-final-acoes .btn{width:auto}
+
+/* Links para as páginas próprias (Pousadas, Praias e lugares, História, Pescaria…), no lugar das
+   seções longas que a home nova não repete mais. */
+.links-home{display:flex;flex-wrap:wrap;gap:10px 24px}
 
 .tour-compacto .tour-media{aspect-ratio:3/2}
 .tour-compacto .tour-corpo{padding:20px}
@@ -426,7 +434,7 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 .ponto{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;border:1px solid var(--line-2);background:var(--surface);color:var(--accent)}
 .ico-parada{width:21px;height:21px}
 .ponto-ouro{border-color:var(--gold);color:var(--gold)}
-.rota h4{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;font-size:16px;letter-spacing:-.01em;padding-top:8px}
+.rota h4,.rota h3{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;font-size:16px;letter-spacing:-.01em;padding-top:8px}
 .rota p{margin-top:4px;font-size:14.5px;color:var(--muted)}
 .roteiro-dia .nota{margin-top:4px}
 @media(max-width:900px){.roteiro{grid-template-columns:minmax(0,1fr)}}
@@ -483,6 +491,16 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 @media(max-width:720px){#mapaWrap{min-height:420px}#mapaLeaflet,.mapa-loading{height:340px}}
 
 /* ---------- reserva ---------- */
+/* Sem JavaScript o formulário não monta nada (ver <noscript> no HTML): fica escondido só nesse caso.
+   Com JavaScript (html.js, marcado pelo boot.js antes do primeiro desenho) ele já nasce visível, em
+   vez de "hidden" até o app.js terminar — isso evita o salto de layout (CLS) de aparecer tudo de
+   uma vez depois da primeira pintura. Os containers que o JS preenche (passo 1, datas, horários)
+   reservam uma altura mínima parecida com a do conteúdo final, para a página quase não se mover
+   enquanto o JS desenha. */
+html:not(.js) #formReserva{display:none}
+#escolhaPlano{min-height:112px}
+.datas-rolagem{min-height:84px}
+#listaHorarios{min-height:74px}
 .reserva{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:24px;align-items:start}
 .reserva-passos{display:flex;flex-direction:column;gap:16px;min-width:0}
 .passo{padding:24px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);scroll-margin-top:calc(var(--topo) + 16px)}
@@ -506,6 +524,14 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 .plano-preco b{font-size:21px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .plano-preco span{font-size:13.5px;color:var(--muted)}
 .plano-info{font-size:13.5px;color:var(--muted)}
+@media(max-width:700px){.passo-compacto .plano-opcao{padding:12px 14px;gap:2px}.passo-compacto .plano-nome{font-size:14.5px}.passo-compacto .plano-preco b{font-size:18px}.passo-compacto .plano-info{display:none}}
+
+.passo-opcional{cursor:default}
+.passo-opcional>summary{cursor:pointer;list-style:none;font-size:15px;font-weight:500;color:var(--ink-2)}
+.passo-opcional>summary::-webkit-details-marker{display:none}
+.passo-opcional>summary::after{content:"";display:inline-block;width:8px;height:8px;margin-left:8px;border-right:1.6px solid var(--ink-2);border-bottom:1.6px solid var(--ink-2);transform:translateY(-2px) rotate(45deg);transition:transform .25s var(--ease)}
+.passo-opcional[open]>summary::after{transform:translateY(1px) rotate(-135deg)}
+.passo-opcional[open]>summary{margin-bottom:16px}
 
 .outra-data{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--muted)}
 .outra-data input{min-height:42px;padding:8px 10px;border:1px solid var(--line-2);border-radius:var(--r-sm);background:var(--bg);color:var(--ink);font-size:15px}
@@ -555,6 +581,7 @@ label.field{display:flex;flex-direction:column;gap:6px;font-size:14.5px;font-wei
 .linha-total span{font-size:16px;font-weight:600;color:var(--ink)}
 .linha-total b{font-size:28px;font-weight:600;letter-spacing:-.03em}
 .resumo-nota{font-size:13px;color:var(--muted);text-align:center}
+.resumo-garantia{text-align:center;padding:10px 12px;border-radius:var(--r-sm);background:var(--surface-2)}
 @media(max-width:960px){
   .reserva{grid-template-columns:minmax(0,1fr)}
   .resumo{position:static}
@@ -564,6 +591,32 @@ label.field{display:flex;flex-direction:column;gap:6px;font-size:14.5px;font-wei
   .passo{padding:20px}
   .datas-rolagem{margin:0 -20px;padding-inline:20px;scroll-padding-inline:20px}
   .campos-instagram{grid-template-columns:minmax(0,1fr)}
+}
+
+/* Botão fixo de WhatsApp no celular, acima da tabbar (ou do rodapé, onde não há tabbar). Escondido
+   em /reservar (html[data-rota-atual="reservar"]) para não cobrir a barra fixa "Total · Enviar pedido". */
+.wa-flutuante{display:none}
+@media(max-width:760px){
+  .wa-flutuante{display:flex;align-items:center;justify-content:center;
+    position:fixed;right:16px;bottom:calc(var(--tabbar-h,0px) + env(safe-area-inset-bottom) + 16px);z-index:28;
+    width:52px;height:52px;border-radius:50%;background:#25D366;color:#fff;
+    box-shadow:0 10px 24px -10px rgb(6 42 22 / .5)}
+  .wa-flutuante .ico{width:26px;height:26px}
+  html[data-rota-atual="reservar"] .wa-flutuante{display:none}
+}
+
+/* Barra fixa do /reservar no celular: total + enviar, sempre à mão, acima da tabbar. O botão dispara
+   o submit do #formReserva de longe (atributo form="formReserva"), sem duplicar nenhuma validação. */
+.barra-fixa-reserva{display:none}
+@media(max-width:760px){
+  #reservar .barra-fixa-reserva{display:flex;align-items:center;justify-content:space-between;gap:12px;
+    position:fixed;left:0;right:0;bottom:var(--tabbar-h,0px);z-index:29;
+    padding:10px 16px calc(10px + env(safe-area-inset-bottom));
+    background:var(--bg);border-top:1px solid var(--line);box-shadow:0 -6px 20px -16px rgb(6 42 22 / .35)}
+  #reservar .barra-fixa-reserva span{font-size:13px;color:var(--muted)}
+  #reservar .barra-fixa-reserva b{display:block;font-size:19px;font-weight:600;letter-spacing:-.02em;color:var(--ink)}
+  #reservar .barra-fixa-reserva .btn{min-height:44px;padding-inline:20px}
+  #reservar{padding-bottom:78px}
 }
 
 /* confirmação */
@@ -705,6 +758,12 @@ html[data-motion="running"] .rec{animation:pisca 1.8s infinite}
 .texto-legal ul{display:grid;gap:10px;margin:10px 0 0;padding-left:22px}
 .texto-legal b{color:var(--ink);font-weight:600}
 .texto-legal-links{margin-top:36px;padding-top:20px;border-top:1px solid var(--line)}
+
+/* ---------- tabela de créditos ---------- */
+.tabela-wrap{overflow-x:auto;margin-top:10px}
+.tabela-creditos{width:100%;border-collapse:collapse;font-size:15px;min-width:460px}
+.tabela-creditos th,.tabela-creditos td{padding:10px 14px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+.tabela-creditos th{font-weight:600;color:var(--ink);white-space:nowrap}
 .link-texto{font-weight:500;text-decoration:underline}
 .check .link-texto{position:relative;z-index:1}
 .nota-aceite{margin-top:6px;padding-left:30px}
@@ -897,42 +956,3 @@ html[data-motion="paused"] *,html[data-motion="paused"] *::before,html[data-moti
 .parapente-cta .btn{width:auto}
 @media(max-width:900px){.parapente-galeria{grid-template-columns:repeat(2,minmax(0,1fr))}.parapente-galeria .v{grid-row:auto;aspect-ratio:9/16}}
 
-/* ---------- categorias da home (acréscimo de 21/10/2026; só afeta #categorias) ---------- */
-.categorias{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
-.categoria{display:flex;flex-direction:column;min-width:0;padding:0;text-align:left;font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;cursor:pointer;text-decoration:none;transition:border-color .2s,box-shadow .3s var(--ease)}
-.categoria:hover{border-color:var(--line-2)}
-.categoria:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.categoria[aria-expanded="true"]{border-color:var(--accent);box-shadow:var(--sombra)}
-.categoria-foto{display:block;aspect-ratio:4/3;background:var(--surface-2);overflow:hidden}
-.categoria-foto img{width:100%;height:100%;object-fit:cover}
-.categoria-arte{display:grid;place-items:center;background:var(--green-800);color:#e8f0dd}
-.categoria-arte .arte-ondas,.categoria-arte .ico-categoria{width:56px;height:56px}
-.categoria-texto{display:flex;flex-direction:column;gap:4px;padding:14px 16px 16px}
-.categoria-nome{font-size:17px;font-weight:600;letter-spacing:-.01em}
-.categoria-sub{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13.5px;color:var(--muted)}
-.categoria-breve{cursor:default}
-a.categoria-breve{cursor:pointer}
-
-.categoria-painel{margin-top:22px;padding-top:22px;border-top:1px solid var(--line)}
-.js .categoria-painel:not(.is-aberta){display:none}
-.cat-painel-cabeca{margin-bottom:16px}
-.cat-painel-cabeca h3{font-size:22px;letter-spacing:-.02em}
-.cat-painel-cabeca p{margin-top:6px;color:var(--ink-2);font-size:15px}
-.cat-carrossel{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}
-.cat-carrossel .tour h4{font-size:19px}
-.cat-dica{display:none}
-
-@media(max-width:1040px){.categorias{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:900px){
-  .cat-carrossel{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:14px;margin:0 calc(-1 * var(--gutter));padding:0 var(--gutter) 10px;scroll-padding-inline:var(--gutter);scrollbar-width:thin}
-  .cat-carrossel>.tour{flex:0 0 min(82%,320px);scroll-snap-align:start}
-  .cat-dica{display:block;margin:-6px 0 10px;font-size:13px;color:var(--muted)}
-}
-@media(max-width:600px){
-  .categorias{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-  .categorias>.categoria:last-child{grid-column:1/-1}
-  .categorias>.categoria:last-child .categoria-foto{aspect-ratio:16/5}
-  .categoria-texto{padding:12px 12px 14px}
-  .categoria-nome{font-size:15.5px}
-}
-@media(prefers-reduced-motion:reduce){.categoria{transition:none}}

@@ -50,14 +50,31 @@ const CFG = {
 /* duracaoMin: duração aproximada, contada da saída — entra na regra do
    horário-limite de retorno e no fim do evento do calendário (.ics).
    horarios: saídas fixas (8.5 = 08:30); null = grade geral de hora em hora.
-   ultimaSaida (opcional): corta a grade num horário anterior a slotFim. */
+   ultimaSaida (opcional): corta a grade num horário anterior a slotFim.
+   semCorteRetorno (opcional): a lista fixa de "horarios" não passa pela regra
+   do horário-limite de retorno (ver horariosDoPlano) — horários decididos
+   pela operação, não calculados pela duração. Mesmo campo do _worker.js.
+   soWhatsApp / horarioCombinado (parapente): sem agenda nem vaga
+   compartilhada com os passeios — a reserva não chama a API, só abre o
+   WhatsApp. Ver o passo "Horário" em pintarHorarios() e o envio em
+   ligarReserva(). Não existe um campo "pede peso" à parte: hoje só o
+   parapente tem soWhatsApp, e é esse mesmo flag que mostra o campo de peso. */
 const PLANOS = [
   { id:"essencial", nome:"Trindade Essencial", preco:70,  voucher:0,  dur:"≈ 3h", duracaoMin:180, horarios:null,
     resumo:"Trilha guiada pela Mata Atlântica até a piscina natural do Cachadaço, com água mineral." },
   { id:"adventure", nome:"Trindade Adventure", preco:150, voucher:60, dur:"≈ 6h", duracaoMin:360, horarios:null,
     resumo:"Mergulho de snorkel na piscina natural, Pedra que Engole, água mineral e almoço." },
-  { id:"boat",      nome:"Trindade Boat",      preco:400, voucher:60, dur:"≈ 8h", duracaoMin:480, horarios:[8.5],
-    resumo:"Barco por cinco paradas na costa da Trindade, snorkel na piscina natural e almoço." }
+  // Horários fixos definidos pela operação em 24/10/2026: 08:30 ou 11:00 (saída 20 min depois). A
+  // concentração das 11h não passa pelo horário-limite de retorno padrão (semCorteRetorno) — mesmo
+  // comentário do _worker.js, que é quem vale de verdade.
+  { id:"boat",      nome:"Trindade Boat",      preco:400, voucher:60, dur:"≈ 8h", duracaoMin:480, horarios:[8.5, 11], semCorteRetorno:true,
+    resumo:"Barco por cinco paradas na costa da Trindade, snorkel na piscina natural e almoço." },
+  // Voo de Parapente: não tem horário nem vaga compartilhada com os passeios (a decolagem depende do
+  // tempo e é combinada pelo WhatsApp) — por isso fica fora de PLANOS no _worker.js. Aqui ele entra só
+  // para aparecer como opção selecionável no passo 1 do /reservar; o envio não passa pela API.
+  { id:"parapente", nome:"Voo de Parapente", preco:350, voucher:0, dur:"5–15 min", duracaoMin:15, horarios:null,
+    soWhatsApp:true, horarioCombinado:true, sinalFixo:50, unidade:"por voo", unidadePessoas:"voos",
+    resumo:"Voo duplo com o piloto Alef Magno, da Voar Parapente. Traslado, fotos, vídeo e imagens em 360° inclusos." }
 ];
 
 const planoPor = id => PLANOS.find(p => p.id === id) || PLANOS[1];
@@ -118,6 +135,8 @@ function horariosDoPlano(p) {
   const base = p.horarios
     ? p.horarios.slice()
     : Array.from({ length: CFG.slotFim - CFG.slotInicio + 1 }, (_, i) => CFG.slotInicio + i);
+  // Lista fixa marcada semCorteRetorno: horários decididos pela operação, não pela regra de duração.
+  if (p.semCorteRetorno) return base.sort((a, b) => a - b);
   const limite = minutosDe(CFG.retornoLimite);
   return base
     .filter(h => (p.ultimaSaida == null || h <= p.ultimaSaida) &&
@@ -451,6 +470,7 @@ function aplicarRota(rolarTopo) {
   window.dispatchEvent(new Event("trindade:before-route"));
 
   $$("[data-secao]").forEach(s => { s.hidden = s.dataset.secao !== nome; });
+  document.documentElement.dataset.rotaAtual = nome;
   ajustarH1(rota);
   $$("[data-rota]").forEach(a => {
     if (a.dataset.rota === nome) a.setAttribute("aria-current", "page");
@@ -479,14 +499,13 @@ function aplicarRota(rolarTopo) {
   window.dispatchEvent(new Event("trindade:route"));
 
   // Links que apontam para um ponto da página: o passo de data da reserva,
-  // a aba do roteiro, um passeio sob consulta ou o catálogo da abertura.
+  // a aba do roteiro ou um passeio sob consulta.
   let alvo = null;
   if (plano && planoPor(plano).id === plano) {
     if (nome === "reservar") alvo = "passoData";
     if (nome === "passeios") alvo = "roteiro-" + plano;
   }
   if (nome === "passeios" && params.get("passeio")) alvo = "consulta-" + params.get("passeio");
-  if (nome === "inicio" && params.has("catalogo")) alvo = "roteiros-inicio";
   // Âncora no endereço (ex.: /passeios#sob-consulta): só id simples, e só se existir na seção aberta.
   const ancora = location.hash.slice(1);
   if (!alvo && /^[A-Za-z][\w-]*$/.test(ancora) && document.querySelector('[data-secao="' + nome + '"] #' + ancora)) alvo = ancora;
@@ -779,15 +798,6 @@ const Clima = {
     this.pintar();
   },
 
-  /* Indicação para o visitante. Não decide nada: quem decide é o guia no dia. */
-  parecer(d) {
-    if (d.onda !== null && d.onda >= 2.0) return ["bad", "Mar grosso — barco provavelmente não sai"];
-    if (d.chuvaProb !== null && d.chuvaProb >= 80) return ["warn", "Chance alta de chuva — confirme antes de sair de casa"];
-    if (d.vento !== null && d.vento >= 45) return ["warn", "Vento forte — o guia pode alterar o roteiro"];
-    if (d.onda !== null && d.onda >= 1.4) return ["warn", "Mar mexido — parada de snorkel pode mudar"];
-    return ["ok", "Condição boa para trilha e barco"];
-  },
-
   pintar() {
     const el = $("#climaBar");
     if (!el) return;
@@ -798,8 +808,8 @@ const Clima = {
     if (b) b.onclick = () => this.carregar(true);
   },
 
-  /* Faixa de rodapé: uma linha só, discreta. É informação de apoio para quem
-     está decidindo o dia — não precisa competir com a chamada da página. */
+  /* Faixa global (todas as páginas, não só a home): uma linha só, compacta — só temperatura e mar
+     de agora, sem aviso nem recomendação (isso cabe ao guia decidir no dia, não à barra). */
   markup() {
     const local = CFG.clima.local;
 
@@ -814,21 +824,11 @@ const Clima = {
     }
 
     const d = this.dados;
-    const [nivel, recado] = this.parecer(d);
-    const item = (k, valor, rot) => `<li>${ico(k, 14)}<b class="num">${esc(valor)}</b> ${esc(rot)}</li>`;
 
     return `<div class="clima-faixa">
-      <span class="clima-agora">${ico(d.icone, 18)}<b class="num">${Math.round(d.temp)}°</b>
-        <span>${esc(d.texto)}</span><span class="clima-local">· ${esc(local)} agora</span></span>
-      <span class="ponto-${nivel}">${esc(recado)}</span>
-      <ul class="clima-dados" aria-label="Detalhes do tempo e do mar">
-        ${d.vento !== null ? item("vento", Math.round(d.vento) + " km/h", "vento") : ""}
-        ${d.onda !== null ? item("onda", d.onda.toFixed(1).replace(".", ",") + " m", "onda") : ""}
-        ${d.chuvaProb !== null ? item("chuva", Math.round(d.chuvaProb) + "%", "chuva") : ""}
-        ${d.uv !== null ? item("uv", Math.round(d.uv), "UV") : ""}
-        ${d.maxima !== null && d.minima !== null ? item("termo", Math.round(d.minima) + "° / " + Math.round(d.maxima) + "°", "mín/máx") : ""}
-        ${d.por ? item("porsol", d.por, "pôr do sol") : ""}
-      </ul>
+      <span class="clima-agora">${ico(d.icone, 16)}<b class="num">${Math.round(d.temp)}°</b>
+        <span>${esc(d.texto)}</span><span class="clima-local">· ${esc(local)}</span></span>
+      ${d.onda !== null ? `<span class="clima-onda">${ico("onda", 14)}<b class="num">${esc(d.onda.toFixed(1).replace(".", ","))} m</b> onda</span>` : ""}
       <span class="clima-meta" title="Fonte: Open-Meteo">${d.hora ? "às " + esc(d.hora) : ""}<button class="clima-acao" type="button" data-recarregar>Atualizar</button></span>
     </div>`;
   }
@@ -865,10 +865,13 @@ function desenharPlanos() {
   if (!alvo) return;
   alvo.innerHTML = PLANOS.map(p => {
     const sel = p.id === reserva.plano;
+    const infoHorario = p.horarioCombinado
+      ? "Horário combinado pelo WhatsApp"
+      : (p.horarios ? "Encontro às " + horariosDoPlano(p).map(horaLabel).join(" e ") + ", saída às " + horariosDoPlano(p).map(h => saidaLabel(h)).join(" e ") : "Saídas " + faixaDeHorarios(p, "hhmm").replace(/^de /, "das "));
     return `<button type="button" class="plano-opcao" data-plano="${p.id}" aria-pressed="${sel}">
       <span class="plano-nome">${p.nome}</span>
-      <span class="plano-preco"><b>${BRL(p.preco)}</b> <span>por pessoa</span></span>
-      <span class="plano-info">${p.horarios ? "Encontro às " + horariosDoPlano(p).map(horaLabel).join(" e ") + ", saída às " + horariosDoPlano(p).map(h => saidaLabel(h)).join(" e ") : "Saídas " + faixaDeHorarios(p, "hhmm").replace(/^de /, "das ")} · ${p.dur}</span>
+      <span class="plano-preco"><b>${BRL(p.preco)}</b> <span>${p.unidade || "por pessoa"}</span></span>
+      <span class="plano-info">${infoHorario} · ${p.dur}</span>
       ${p.voucher ? `<span class="plano-info">Inclui voucher de ${BRL(p.voucher)} no almoço</span>` : ""}
     </button>`;
   }).join("");
@@ -893,13 +896,30 @@ function desenharDatas() {
    rede) e manda buscar o número real de vagas em paralelo. */
 function desenharHorarios() {
   pintarHorarios();
-  atualizarDisponibilidade();
+  // O parapente não tem vaga por horário (é combinado pelo WhatsApp, conforme o tempo): não há por
+  // que consultar /api/disponibilidade para ele.
+  if (!planoPor(reserva.plano).horarioCombinado) atualizarDisponibilidade();
 }
 
 function pintarHorarios() {
   const alvo = $("#listaHorarios");
   if (!alvo) return;
   const p = planoPor(reserva.plano);
+
+  const dicaSaida20 = $("#dicaSaida20");
+  if (p.horarioCombinado) {
+    reserva.hora = null;
+    alvo.innerHTML = "";
+    if (dicaSaida20) dicaSaida20.hidden = true;
+    const aviso = $("#avisoHorario");
+    if (aviso) aviso.textContent = "Horário combinado pelo WhatsApp, conforme as condições do tempo.";
+    mostrarErro(null, "#errHora", "");
+    $("#rotuloData").textContent = "— " + dataBR(reserva.data);
+    window.dispatchEvent(new Event("trindade:slots"));
+    return;
+  }
+  if (dicaSaida20) dicaSaida20.hidden = false;
+
   const horas = horariosDoPlano(p);
 
   // Uma saída que já passou hoje não pode ser escolhida hoje.
@@ -981,7 +1001,7 @@ async function atualizarDisponibilidade() {
     desenharPlanos();
     pintarFaixasDeHorarios();
   }
-  if (preSelecionarHorarioUnico()) desenharResumo(); // Boat: o único horário livre já vem selecionado
+  if (preSelecionarPrimeiroHorario()) desenharResumo(); // o primeiro horário livre já vem selecionado
   pintarHorarios();
 
   // O horário que a pessoa já tinha escolhido pode ter lotado agora mesmo
@@ -1012,7 +1032,8 @@ function desenharResumo() {
 
   $("#rsPasseio").textContent = p.nome;
   $("#rsData").textContent = `${dataBR(reserva.data)} (${diaSemana(reserva.data)})`;
-  $("#rsHora").textContent = reserva.hora === null ? "—" : `${horaLabel(reserva.hora)} · sai ${saidaLabel(reserva.hora)}`;
+  $("#rsHora").textContent = p.horarioCombinado ? "combinado pelo WhatsApp"
+    : reserva.hora === null ? "—" : `${horaLabel(reserva.hora)} · sai ${saidaLabel(reserva.hora)}`;
   $("#rsPax").textContent = String(reserva.pax);
   $("#rsCalculo").textContent = `${BRL(p.preco)} × ${reserva.pax}`;
   $("#rsSubtotal").textContent = BRL(total);
@@ -1020,31 +1041,57 @@ function desenharResumo() {
   // O voucher já está dentro do valor do passeio: aparece como "incluso", nunca como um valor a somar.
   $("#rsVoucherLinha").hidden = !voucher;
   if (voucher) $("#rsVoucher").textContent = `incluso · ${BRL(voucher)}`;
+
+  // Sinal e garantia, bem perto do botão de envio (ver resumo-garantia no HTML).
+  const rsSinal = $("#rsSinal"), rsGarantia = $("#rsGarantia"), bfTotal = $("#bfTotal"), resumoNota = $("#resumoNota");
+  if (p.horarioCombinado) {
+    if (rsSinal) rsSinal.textContent = BRL(p.sinalFixo) + " por voo";
+    if (rsGarantia) rsGarantia.textContent = `Sinal de ${BRL(p.sinalFixo)} por voo para agendar · se o tempo não permitir, o voo é remarcado.`;
+    if (resumoNota) resumoNota.textContent = "A reserva é confirmada pela equipe no WhatsApp.";
+  } else {
+    const sinal = Math.round(total * 0.3);
+    if (rsSinal) rsSinal.textContent = BRL(sinal) + " (30%)";
+    if (rsGarantia) rsGarantia.textContent = `Cancelamento gratuito até 12 h antes da saída · sinal de 30% via Pix: ${BRL(sinal)}.`;
+    if (resumoNota) resumoNota.textContent = "Até 15 pessoas por reserva. A reserva é confirmada pela equipe no WhatsApp.";
+  }
+  // Barra fixa do celular (ver #barraFixaReserva no HTML): mesmo total do resumo.
+  if (bfTotal) bfTotal.textContent = BRL(total);
 }
 
-/* Passeio com um único horário (o Trindade Boat): se ele está livre na data escolhida, já vem
-   selecionado — a pessoa não precisa clicar no único botão para o resumo mostrar o horário.
-   Só vale depois de saber as vagas da data (ou de a API não responder); horário que já saiu,
-   bloqueado ou esgotado fica sem seleção. Passeios com vários horários nunca pré-selecionam. */
-function preSelecionarHorarioUnico() {
+/* O primeiro horário livre da data escolhida já vem selecionado, em qualquer passeio com agenda —
+   a pessoa só precisa trocar se quiser outro. Só vale depois de saber as vagas da data (ou de a API
+   não responder); horário que já saiu, bloqueado ou esgotado é pulado. O parapente (horarioCombinado)
+   nunca pré-seleciona: não tem grade. */
+function preSelecionarPrimeiroHorario() {
   if (reserva.hora !== null) return false;
-  const horas = horariosDoPlano(planoPor(reserva.plano));
-  if (horas.length !== 1) return false;
-  const h = horas[0];
+  const p = planoPor(reserva.plano);
+  if (p.horarioCombinado) return false;
+  const horas = horariosDoPlano(p);
+  if (!horas.length) return false;
   const agora = agoraEmTrindade();
-  if (reserva.data === agora.data && h <= agora.hora) return false;
   const grade = (dispoCache && dispoCache.data === reserva.data) ? dispoCache.grade : null;
-  const info = grade ? grade[String(h)] : null;
-  if (info && (info.bloqueado || info.restam <= 0)) return false;
-  reserva.hora = h;
+  const livre = horas.find(h => {
+    if (reserva.data === agora.data && h <= agora.hora) return false;
+    const info = grade ? grade[String(h)] : null;
+    return !(info && (info.bloqueado || info.restam <= 0));
+  });
+  if (livre === undefined) return false;
+  reserva.hora = livre;
   mostrarErro(null, "#errHora", "");
   return true;
 }
 
 function desenharReserva() {
-  // Trocar de plano pode invalidar o horário escolhido (o Trindade Boat só tem encontro às 8:30).
+  // Trocar de plano pode invalidar o horário escolhido (o Boat só tem encontro às 8h30 e 11h; o
+  // parapente não tem grade nenhuma).
   const p = planoPor(reserva.plano);
-  if (reserva.hora !== null && !horariosDoPlano(p).includes(reserva.hora)) reserva.hora = null;
+  if (reserva.hora !== null && (p.horarioCombinado || !horariosDoPlano(p).includes(reserva.hora))) reserva.hora = null;
+
+  const campoPeso = $("#campoPeso");
+  if (campoPeso) campoPeso.hidden = !p.soWhatsApp;
+  const rotuloPax = $("#rotuloPax");
+  if (rotuloPax) rotuloPax.textContent = p.unidadePessoas === "voos" ? "Quantidade de voos" : "Pessoas";
+
   desenharPlanos(); desenharDatas(); desenharHorarios(); desenharPax(); desenharResumo();
 }
 
@@ -1079,6 +1126,12 @@ function validar() {
   const insta = ($("#fInstagram") ? $("#fInstagram").value.trim() : "").replace(/^@+/, "");
   falha("#fInstagram", "#fInstagram", "#errInstagram", insta && !/^[A-Za-z0-9._]{1,30}$/.test(insta) ? "Use só letras, números, ponto e sublinhado." : "");
 
+  const p = planoPor(reserva.plano);
+  if (p.soWhatsApp) {
+    const peso = $("#fPeso") ? $("#fPeso").value.trim() : "";
+    falha("#fPeso", "#fPeso", "#errPeso", peso.length < 2 ? "Informe o peso de cada passageiro." : "");
+  }
+
   const agora = agoraEmTrindade();
   const semData = reserva.data < agora.data;
   const erroData = $("#errData");
@@ -1087,18 +1140,23 @@ function validar() {
   if (semData && !primeiro) primeiro = erroData;
 
   // O horário pode ter sido escolhido há um tempo e já ter passado, ou não
-  // valer para o passeio (duração além do horário-limite de retorno).
-  const semHora = reserva.hora === null;
-  const horaInvalida = !semHora && !horariosDoPlano(planoPor(reserva.plano)).includes(reserva.hora);
-  const horaPassou = !semHora && reserva.data === agora.data && reserva.hora <= agora.hora;
+  // valer para o passeio (duração além do horário-limite de retorno). O
+  // parapente (horarioCombinado) não tem horário nenhum para validar.
   const erroHora = $("#errHora");
-  erroHora.textContent = semHora ? "Escolha o horário da saída."
-    : horaInvalida ? "Esse horário não está disponível para este passeio. Escolha outro."
-    : horaPassou ? "Esse horário já passou. Escolha outro."
-    : "";
-  erroHora.hidden = !erroHora.textContent;
-  if (erroHora.textContent && !primeiro) primeiro = $("#listaHorarios");
-  if (horaPassou || horaInvalida) { reserva.hora = null; pintarHorarios(); desenharResumo(); }
+  if (p.horarioCombinado) {
+    erroHora.textContent = ""; erroHora.hidden = true;
+  } else {
+    const semHora = reserva.hora === null;
+    const horaInvalida = !semHora && !horariosDoPlano(p).includes(reserva.hora);
+    const horaPassou = !semHora && reserva.data === agora.data && reserva.hora <= agora.hora;
+    erroHora.textContent = semHora ? "Escolha o horário da saída."
+      : horaInvalida ? "Esse horário não está disponível para este passeio. Escolha outro."
+      : horaPassou ? "Esse horário já passou. Escolha outro."
+      : "";
+    erroHora.hidden = !erroHora.textContent;
+    if (erroHora.textContent && !primeiro) primeiro = $("#listaHorarios");
+    if (horaPassou || horaInvalida) { reserva.hora = null; pintarHorarios(); desenharResumo(); }
+  }
 
   const semAceite = !$("#fAceite").checked;
   const erroAceite = $("#errAceite");
@@ -1133,14 +1191,29 @@ function mensagemWhatsApp(dados) {
     "",
     `Código: ${dados.codigo}`,
     `Passeio: ${p.nome}`,
-    `Data: ${dataBR(reserva.data)} (${diaSemana(reserva.data)})`,
-    `Horário: ${horaLabel(reserva.hora)} — saída ${saidaLabel(reserva.hora)}`,
-    `Pessoas: ${reserva.pax}`,
-    `Total: ${BRL(total)}` + (voucher ? ` (inclui ${BRL(voucher)} de voucher no almoço)` : ""),
+    `Data: ${dataBR(reserva.data)} (${diaSemana(reserva.data)})`
+  ];
+  if (p.horarioCombinado) {
+    linhas.push(
+      "Horário: combinado pelo WhatsApp, conforme as condições do tempo",
+      `Voos: ${reserva.pax}`
+    );
+    if (dados.peso) linhas.push(`Peso aproximado de cada passageiro: ${dados.peso} kg`);
+  } else {
+    linhas.push(
+      `Horário: ${horaLabel(reserva.hora)} — saída ${saidaLabel(reserva.hora)}`,
+      `Pessoas: ${reserva.pax}`
+    );
+  }
+  linhas.push(`Total: ${BRL(total)}` + (voucher ? ` (inclui ${BRL(voucher)} de voucher no almoço)` : ""));
+  linhas.push(p.horarioCombinado
+    ? `Sinal para agendar: ${BRL(p.sinalFixo)} por voo`
+    : `Sinal para confirmar (30%): ${BRL(Math.round(total * 0.3))} via Pix`);
+  linhas.push(
     "",
     `Nome: ${dados.nome}`,
     `WhatsApp: ${dados.tel}`
-  ];
+  );
   if (dados.email) linhas.push(`E-mail: ${dados.email}`);
   if (dados.obs) linhas.push(`Observações: ${dados.obs}`);
   linhas.push("", "Aguardo a confirmação da vaga. Obrigado!");
@@ -1268,17 +1341,26 @@ function mostrarConfirmacao(dados) {
       </div>
       <div class="linhas">
         <div class="linha"><span>Passeio</span><b>${esc(p.nome)}</b></div>
+        ${p.horarioCombinado ? `
+        <div class="linha"><span>Data preferida</span><b class="num">${esc(dataBR(reserva.data))}</b></div>
+        <div class="linha"><span>Horário</span><b>combinado pelo WhatsApp</b></div>
+        <div class="linha"><span>Voos</span><b class="num">${inteiroSeguro(reserva.pax)}</b></div>
+        ${dados.peso ? `<div class="linha"><span>Peso informado</span><b class="num">${esc(dados.peso)} kg</b></div>` : ""}
+        ` : `
         <div class="linha"><span>Data e horário</span><b class="num">${esc(dataBR(reserva.data))} · ${esc(horaLabel(reserva.hora))}</b></div>
         <div class="linha"><span>Saída efetiva</span><b class="num">${esc(saidaLabel(reserva.hora))}</b></div>
         <div class="linha"><span>Pessoas</span><b class="num">${inteiroSeguro(reserva.pax)}</b></div>
+        `}
         <div class="linha"><span>Total</span><b class="num">${esc(BRL(total))}</b></div>
         ${voucher ? `<div class="linha linha-ouro"><span>Voucher almoço</span><b class="num">incluso · ${esc(BRL(voucher))}</b></div>` : ""}
       </div>
-      <p class="nota">Ponto de encontro: ${esc(CFG.pontoEncontro)}. Chegue 15 minutos antes, com protetor solar, água e calçado fechado.</p>
+      <p class="nota">${p.horarioCombinado
+        ? `Data, horário e ponto de encontro do voo são combinados pelo WhatsApp, conforme as condições do tempo.`
+        : `Ponto de encontro: ${esc(CFG.pontoEncontro)}. Chegue 15 minutos antes, com protetor solar, água e calçado fechado.`}</p>
       <a class="btn btn-primario btn-largo" id="btnAbrirWA" href="${esc(hrefSeguro)}" target="_blank" rel="noopener">
         Reabrir o WhatsApp com o pedido
       </a>
-      <button class="btn btn-secundario btn-largo" type="button" id="btnICS">Salvar no meu calendário</button>
+      ${p.horarioCombinado ? "" : `<button class="btn btn-secundario btn-largo" type="button" id="btnICS">Salvar no meu calendário</button>`}
       <button class="btn btn-secundario btn-largo" type="button" id="btnNova">Fazer outro pedido</button>
     </div>`;
 
@@ -1288,7 +1370,7 @@ function mostrarConfirmacao(dados) {
   $("#btnAbrirWA").focus();
   window.dispatchEvent(new Event("trindade:confirmation"));
 
-  $("#btnICS").onclick = () => { baixarICS(dados); torrada("Arquivo do calendário baixado."); };
+  if (!p.horarioCombinado) $("#btnICS").onclick = () => { baixarICS(dados); torrada("Arquivo do calendário baixado."); };
   $("#btnNova").onclick = () => {
     alvo.hidden = true;
     $("#formReserva").hidden = false;
@@ -1304,7 +1386,6 @@ function mostrarConfirmacao(dados) {
 function ligarReserva() {
   const form = $("#formReserva");
   if (!form) return;
-  form.hidden = false;
 
   // Depois da última saída do dia, a agenda abre no dia seguinte: não faz
   // sentido mostrar primeiro uma grade inteira de horários que já passaram.
@@ -1371,7 +1452,8 @@ function ligarReserva() {
       nome: $("#fNome").value.trim(),
       tel: $("#fTel").value.trim(),
       email: $("#fEmail").value.trim(),
-      obs: $("#fObs").value.trim()
+      obs: $("#fObs").value.trim(),
+      peso: $("#fPeso") ? $("#fPeso").value.trim() : ""
     };
     reserva.comoConheceu = $("#fComoConheceu") ? $("#fComoConheceu").value : "";
     reserva.instagramCliente = $("#fInstagram") ? $("#fInstagram").value.trim().replace(/^@+/, "") : "";
@@ -1381,6 +1463,20 @@ function ligarReserva() {
     // o navegador entende como pop-up indesejado e bloqueia. Por isso ela
     // abre em branco agora e só recebe o endereço quando o servidor responder.
     const abaWA = window.open("", "_blank");
+
+    const planoAtual = planoPor(reserva.plano);
+    // Parapente (soWhatsApp): sem horário nem vaga para confirmar com o servidor — não faz sentido
+    // chamar o Turnstile nem /api/reservas. Vai direto para o WhatsApp, com o mesmo esquema de aba.
+    if (planoAtual.soWhatsApp) {
+      const dados = Object.assign({ codigo: codigoReserva() }, dadosForm);
+      dados.waHref = linkWA(mensagemWhatsApp(dados));
+      if (abaWA) abaWA.location = dados.waHref;
+      else window.open(dados.waHref, "_blank", "noopener");
+      ultimoEnvio = dados;
+      evento("envio_whatsapp", { reservaCodigo: dados.codigo });
+      mostrarConfirmacao(dados);
+      return;
+    }
 
     const botao = form.querySelector('button[type="submit"]');
     if (botao) { botao.disabled = true; botao.textContent = "Enviando…"; }
@@ -1677,9 +1773,7 @@ function miniGaleriaHTML(fotos) {
      <span class="mg-cont num" data-mg-cont>1 / ${fotos.length}</span>`;
 }
 
-/* Um único ouvinte delegado cuida de toda mini-galeria da página, inclusive
-   as que a home clona da seção de pousadas (espelharPousadas) — o clone leva
-   os mesmos atributos data-*, então o clique funciona sem religar nada. */
+/* Um único ouvinte delegado cuida de toda mini-galeria da página. */
 function ligarMiniGalerias() {
   document.addEventListener("click", ev => {
     const prev = ev.target.closest("[data-mg-prev]");
@@ -1699,25 +1793,10 @@ function ligarMiniGalerias() {
   });
 }
 
-function cenaPousada(indice) {
-  const tom = ["#ece6d7", "#e6e0cf", "#e2ddcc"][indice % 3];
-  return `<svg class="cena" viewBox="0 0 640 400" preserveAspectRatio="xMidYMid slice" role="img"
-      aria-label="Espaço reservado para a foto da pousada">
-    <rect width="640" height="400" fill="${tom}"/>
-    <g transform="translate(260,150)" fill="none" stroke="#0d6b38" stroke-width="9"
-       stroke-linecap="round" stroke-linejoin="round" opacity=".3">
-      <path d="M4 84 L38 22 L64 66"/><path d="M52 84 L80 40 L116 84"/>
-      <path d="M4 104 q14 -10 28 0 t28 0 t28 0 t28 0"/><path d="M18 126 q14 -10 28 0 t28 0 t28 0"/>
-    </g>
-    <text x="320" y="330" text-anchor="middle" font-family="ui-monospace,monospace" font-size="12"
-      letter-spacing="2.2" fill="#8a7a5c" opacity=".85">FOTO DA POUSADA</text>
-  </svg>`;
-}
-
 const CAMERAS = [
   { nome:"Praia do Meio — ponto de encontro", local:"Entrada das trilhas", cena:"praia" },
   { nome:"Início da Trilha do Cachadaço",     local:"Portal da trilha",    cena:"trilha" },
-  { nome:"Píer de embarque",                  local:"Trindade Boat · saída 8:50", cena:"pier" },
+  { nome:"Píer de embarque",                  local:"Trindade Boat · saída 20 min após o encontro", cena:"pier" },
   { nome:"Estacionamento / recepção",         local:"Sede operacional",     cena:"sede" }
 ];
 
@@ -1753,29 +1832,6 @@ function ligarRelogios() {
   };
   tique();
   setInterval(tique, 1000);
-}
-
-/* As pousadas também aparecem na primeira página. Em vez de repetir o HTML dos
-   cartões — e correr o risco de os dois textos divergirem com o tempo —, a home
-   clona os cartões da seção de pousadas. Existe um só original a manter.
-   Os ids são removidos das cópias para não duplicar identificadores no documento. */
-function espelharPousadas() {
-  const destino = $("#pousadasInicio");
-  const origem = $("#pousadas .pousadas");
-  if (!destino || !origem) return;
-
-  Array.from(origem.children).forEach(cartao => {
-    const copia = cartao.cloneNode(true);
-    copia.removeAttribute("id");
-    $$("[id]", copia).forEach(n => n.removeAttribute("id"));
-    $$("[data-cena]", copia).forEach(n => n.removeAttribute("data-cena"));
-    destino.appendChild(copia);
-  });
-
-  // As ilustrações de espaço reservado são recriadas para as cópias.
-  $$(".thumb.media", destino).forEach((caixa, i) => {
-    if (!caixa.querySelector("img")) caixa.innerHTML = cenaPousada(i);
-  });
 }
 
 /* ------------------------------ partida ------------------------------ */
@@ -1856,10 +1912,7 @@ function iniciar() {
     ]);
   }
 
-  $$("[data-cena]").forEach((el, i) => { el.innerHTML = cenaPousada(i + 1); });
-
   ligarMiniGalerias();
-  espelharPousadas();
 
   // Se a detecção automática já sabe que veio do Instagram ou do Google,
   // deixa pré-marcado no formulário — a pessoa só confirma, não escolhe do zero.
@@ -1881,34 +1934,3 @@ function iniciar() {
 
 if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", iniciar);
 else iniciar();
-
-/* ------------------- categorias da home (acréscimo de 21/10/2026) -------------------
-   Cada cartão de categoria abre o seu painel logo abaixo da grade e fecha os outros;
-   tocar de novo fecha. Sem JavaScript, os painéis ficam todos abertos (o CSS só os
-   esconde com a classe "js" no <html>). Reserva e WhatsApp não passam por aqui:
-   os links do bloco usam /reservar?plano=... e data-wa, como o resto do site. */
-(function ligarCategorias() {
-  const bloco = $("#categorias");
-  if (!bloco) return;
-  const botoes = $$("button.categoria[aria-controls]", bloco);
-  const fecharTodos = exceto => botoes.forEach(b => {
-    if (b === exceto) return;
-    b.setAttribute("aria-expanded", "false");
-    document.getElementById(b.getAttribute("aria-controls"))?.classList.remove("is-aberta");
-  });
-  botoes.forEach(botao => {
-    botao.addEventListener("click", () => {
-      const painel = document.getElementById(botao.getAttribute("aria-controls"));
-      if (!painel) return;
-      const abrir = botao.getAttribute("aria-expanded") !== "true";
-      fecharTodos(botao);
-      botao.setAttribute("aria-expanded", String(abrir));
-      painel.classList.toggle("is-aberta", abrir);
-      if (abrir) {
-        const carrossel = painel.querySelector(".cat-carrossel");
-        if (carrossel) carrossel.scrollLeft = 0;
-        requestAnimationFrame(() => rolarAte(painel));
-      }
-    });
-  });
-})();

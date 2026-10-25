@@ -188,7 +188,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     if (hp) {
       checar("T8  Adventure (≈6h) não oferece 13h, 14h nem 15h", !hp.adventure.some(h => h > 12) && Math.max(...hp.adventure) === 12, JSON.stringify(hp.adventure));
       checar("T8  Essencial (≈3h) mantém 08h–15h", JSON.stringify(hp.essencial) === JSON.stringify([8, 9, 10, 11, 12, 13, 14, 15]), JSON.stringify(hp.essencial));
-      checar("T8  Boat mantém saída única 08:30", JSON.stringify(hp.boat) === "[8.5]", JSON.stringify(hp.boat));
+      checar("T8  Boat tem as saídas 08:30 e 11:00", JSON.stringify(hp.boat) === "[8.5,11]", JSON.stringify(hp.boat));
     }
 
     if (LOCAL) {
@@ -271,9 +271,9 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     checar(`E9  ${c} não diz mais "saída única às 8h30/08:30"`, !/saída única às 0?8[h:]30/i.test(doc) && !/Saída única · 8h30/.test(doc), (doc.match(/.{30}saída única.{20}/i) || [""])[0]);
   }
   const boat = await (await pegar("/passeios/boat")).text();
-  checar("E9  /passeios/boat: card e meta dizem encontro 8h30 e saída 8h50", boat.includes("encontro às 8h30, saída às 8h50") && boat.includes("encontro às 8h30, saída às 8h50, R$ 400"), "");
-  checar("E9  /contato: Trindade Boat com encontro e saída", (await (await pegar("/contato")).text()).includes("encontro às 08:30, saída às 08:50"));
-  checar("E9  Termos §4: encontro às 8h30 e saída às 8h50", (await (await pegar("/termos-do-passeio")).text()).includes("O Trindade Boat tem encontro às 8h30 e saída às 8h50."));
+  checar("E9  /passeios/boat: card e meta dizem encontro 8h30 ou 11h", boat.includes("encontro às 8h30 ou às 11h (saída 20 min depois)") && boat.includes("encontro às 8h30 ou 11h (saída 20 min depois), R$ 400"), "");
+  checar("E9  /contato: Trindade Boat com encontro e saída", (await (await pegar("/contato")).text()).includes("encontro às 8h30 ou às 11h (saída 20 min depois)"));
+  checar("E9  Termos §4: encontro às 8h30 ou às 11h", (await (await pegar("/termos-do-passeio")).text()).includes("O Trindade Boat tem encontro às 8h30 ou às 11h (saída 20 min depois)."));
   const app = await (await pegar("/app.js?v=20261020-s09")).text();
   checar("E9  app.js: rótulos do Boat com encontro e saída", app.includes('"Encontro às "') && app.includes("tem encontro às"), "");
   const worker = readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
@@ -293,7 +293,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const p = await pegar("/pescaria"); const doc = await p.text();
   checar("E11 /pescaria → 200 com title/canonical próprios", p.status === 200 && /<link rel="canonical" href="[^"]*\/pescaria">/.test(doc) && /<title>[^<]*[Pp]escaria[^<]*<\/title>/.test(doc), `${p.status}`);
   const xml = await (await pegar("/sitemap.xml")).text();
-  checar("E11 sitemap tem 16 URLs e nenhuma de fishing", (xml.match(/<loc>/g) || []).length === 16 && !xml.includes("fishing"), (xml.match(/<loc>/g) || []).length);
+  checar("E11 sitemap tem 17 URLs e nenhuma de fishing", (xml.match(/<loc>/g) || []).length === 17 && !xml.includes("fishing"), (xml.match(/<loc>/g) || []).length);
   checar("E11 site-config sem /passeios/fishing", !Object.keys(SITE.paginas).includes("/passeios/fishing"));
   const n404 = await pegar("/passeios/nao-existe"); await n404.arrayBuffer();
   checar("E11 outras rotas inalteradas: /passeios/nao-existe → 404", n404.status === 404, n404.status);
@@ -321,7 +321,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("E12 /passeios/boat tem o h1 do Boat (não \"Roteiros e preços\")", h["/passeios/boat"] === "Trindade Boat", h["/passeios/boat"]);
   checar("E12 /passeios/essencial e /adventure idem", h["/passeios/essencial"] === "Trindade Essencial" && h["/passeios/adventure"] === "Trindade Adventure");
   checar("E12 /passeios/mamangua, /saco-bravo e /juatinga com o nome do passeio", h["/passeios/mamangua"] === "Mamanguá Adventure" && h["/passeios/saco-bravo"] === "Saco Bravo Adventure" && h["/passeios/juatinga"] === "Costa da Juatinga", JSON.stringify([h["/passeios/mamangua"], h["/passeios/saco-bravo"], h["/passeios/juatinga"]]));
-  checar("E12 /passeios continua \"Roteiros e preços\" e / traz o h1 do hero", h["/passeios"] === "Roteiros e preços" && /extraordinário/.test(h["/"]), `${h["/passeios"]} | ${h["/"]}`);
+  checar("E12 /passeios continua \"Roteiros e preços\" e / traz o h1 do hero", h["/passeios"] === "Roteiros e preços" && /parapente/i.test(h["/"]) && /Trindade/.test(h["/"]), `${h["/passeios"]} | ${h["/"]}`);
   const nf = await pegar("/nao-existe"); const dnf = await nf.text();
   checar("E12 /nao-existe → 404 com único h1 \"Página não encontrada\"", nf.status === 404 && (dnf.match(/<h1/g) || []).length === 1 && />Página não encontrada<\/h1>/.test(dnf), nf.status);
   const boat = await (await pegar("/passeios/boat")).text();
@@ -339,7 +339,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     const visiveis = secoes.filter(s => !s.oculta).map(s => s.nome);
     const esperada = c === "/nao-existe" ? "nao-encontrada" : SITE.paginas[c].secao;
     tabela.push([c, visiveis.join(",")]);
-    checar(`E13 ${c} → exatamente 1 seção visível, a da rota (${esperada})`, secoes.length === 12 && visiveis.length === 1 && visiveis[0] === esperada, JSON.stringify(visiveis));
+    checar(`E13 ${c} → exatamente 1 seção visível, a da rota (${esperada})`, secoes.length === 13 && visiveis.length === 1 && visiveis[0] === esperada, JSON.stringify(visiveis));
   }
   for (const plano of ["essencial", "adventure", "boat"]) {
     const doc = await (await pegar("/passeios/" + plano)).text();
@@ -360,9 +360,14 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const { readdirSync, statSync } = await import("node:fs");
   const dirAssets = new URL("../site/assets/", import.meta.url);
   const pesadas = readdirSync(dirAssets).filter(n => n.endsWith(".webp") && statSync(new URL(n, dirAssets)).size > 150 * 1024);
-  // 3 exceções justificadas: fotos de folhagem densa que só chegam abaixo de 150 KB com qualidade < 50 (blocos visíveis)
-  const excecoes = ["lugar-trilha-720.webp", "pousada-madeira-2-720.webp", "trilha-v2-1024.webp"];
-  checar("E14 nenhum WebP acima de 150 KiB além das 3 exceções justificadas (folhagem densa, q50)", pesadas.every(n => excecoes.includes(n)), pesadas.join(", "));
+  // 3 exceções antigas: fotos de folhagem densa que só chegam abaixo de 150 KB com qualidade < 50 (blocos visíveis).
+  // + as 3 fotos do Mamanguá (24/10/2026, Wikimedia Commons, 1600 px de largura): mantidas na resolução e
+  // qualidade da fonte, sem recompressão agressiva, para não degradar fotos de terceiros creditadas.
+  const excecoes = [
+    "lugar-trilha-720.webp", "pousada-madeira-2-720.webp", "trilha-v2-1024.webp",
+    "mamangua-vista-pico-1600.webp", "mamangua-barco-1600.webp", "mamangua-pao-de-acucar-1600.webp"
+  ];
+  checar("E14 nenhum WebP acima de 150 KiB além das exceções justificadas (folhagem densa, q50; fotos do Mamanguá, 1600px)", pesadas.every(n => excecoes.includes(n)), pesadas.join(", "));
   const dims = { "lugar-trilha-720.webp": [720, 960], "pousada-madeira-1-720.webp": [720, 704], "pousada-madeira-2-720.webp": [720, 880], "pousada-madeira-4-720.webp": [720, 918], "trilha-v2-1024.webp": [1024, 768], "trilha-v2-800.webp": [800, 600] };
   for (const [n, [w, h]] of Object.entries(dims)) {
     const b = readFileSync(new URL(n, dirAssets)); // WebP VP8: largura/altura nos bytes 26-29
@@ -454,7 +459,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const OFICIAL = "https://trindadeadventury.com.br";
   const ANTIGO = "trindade-adventure" + ".pages.dev"; // montado por concatenação para este arquivo não aparecer no rg do domínio antigo
   const locs = [...(await (await pegar("/sitemap.xml")).text()).matchAll(/<loc>([^<]*)<\/loc>/g)].map(m => m[1]);
-  checar("E22 sitemap: 16 <loc>, todos começam com o domínio oficial", locs.length === 16 && locs.every(l => l.startsWith(OFICIAL + "/") || l === OFICIAL + "/"), locs.filter(l => !l.startsWith(OFICIAL)).join(","));
+  checar("E22 sitemap: 17 <loc>, todos começam com o domínio oficial", locs.length === 17 && locs.every(l => l.startsWith(OFICIAL + "/") || l === OFICIAL + "/"), locs.filter(l => !l.startsWith(OFICIAL)).join(","));
   const robots = await (await pegar("/robots.txt")).text();
   checar("E22 robots.txt: Sitemap oficial e Disallow /admin e /api/", robots.includes(`Sitemap: ${OFICIAL}/sitemap.xml`) && /Disallow: \/admin/.test(robots) && /Disallow: \/api\//.test(robots) && !robots.includes(ANTIGO));
   const dimJpg = rel => { const b = readFileSync(new URL("../site" + rel, import.meta.url)); let i = 2; while (i < b.length) { if (b[i] !== 0xff) { i++; continue; } const m = b[i + 1]; if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return [b.readUInt16BE(i + 7), b.readUInt16BE(i + 5)]; i += 2 + b.readUInt16BE(i + 2); } return null; };
@@ -477,8 +482,11 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
       tipos.push(j["@type"]);
       if (j["@type"] === "TravelAgency") checar(`E22 ${caminho}: TravelAgency com url, @id, e-mail, sameAs e image no domínio oficial`, j.url === OFICIAL + "/" && j["@id"] === OFICIAL + "/#empresa" && j.email === "contato@trindadeadventury.com.br" && j.image.startsWith(OFICIAL + "/") && JSON.stringify(j.sameAs) === JSON.stringify(["https://www.instagram.com/trindadeadventure/"]) && j.makesOffer.every(o => o.url.startsWith(OFICIAL + "/")), JSON.stringify(j).slice(0, 160));
       if (j["@type"] === "TouristTrip") {
-        const preco = { "/passeios/essencial": "70", "/passeios/adventure": "150", "/passeios/boat": "400" }[caminho];
-        checar(`E22 ${caminho}: TouristTrip com Offer (preço ${preco} BRL, InStock) igual ao da página`, j.offers && j.offers.price === preco && j.offers.priceCurrency === "BRL" && j.offers.availability === "https://schema.org/InStock" && j.offers.url === OFICIAL + caminho && j.provider["@id"] === OFICIAL + "/#empresa" && doc.includes("R$ " + preco + " por pessoa"), JSON.stringify(j.offers));
+        // Essencial/Adventure/Boat vêm de PLANOS (com agenda); o voo de parapente vem de
+        // OFERTAS_SO_WHATSAPP (sem agenda) — por isso não diz "por pessoa" na página.
+        const PRECOS = { "/passeios/essencial": ["70", " por pessoa"], "/passeios/adventure": ["150", " por pessoa"], "/passeios/boat": ["400", " por pessoa"], "/voo-de-parapente": ["350", ""] };
+        const [preco, unidade] = PRECOS[caminho] || [undefined, ""];
+        checar(`E22 ${caminho}: TouristTrip com Offer (preço ${preco} BRL, InStock) igual ao da página`, j.offers && j.offers.price === preco && j.offers.priceCurrency === "BRL" && j.offers.availability === "https://schema.org/InStock" && j.offers.url === OFICIAL + caminho && j.provider["@id"] === OFICIAL + "/#empresa" && doc.includes("R$ " + preco + unidade), JSON.stringify(j.offers));
       }
       if (j["@type"] === "BreadcrumbList") checar(`E22 ${caminho}: BreadcrumbList começa em Início e termina na própria rota`, j.itemListElement[0].item === OFICIAL + "/" && j.itemListElement.at(-1).item === OFICIAL + caminho && j.itemListElement.every((x, i) => x.position === i + 1), JSON.stringify(j.itemListElement));
     }
@@ -533,9 +541,12 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("E21 nenhum '20 pessoas'/'até 20'/'pessoas por horário' nos textos", !/20 pessoas|até 20|máximo · 20|maximo 20|pessoas por horário/i.test(fonteTexto));
   checar("E21 seletor de pessoas: Math.min(limitePaxPedido, capacidade) e limitePaxPedido = 15", /Math\.min\(CFG\.limitePaxPedido, CFG\.capacidade\)/.test(app) && /limitePaxPedido: 15/.test(app) && /const LIMITE_PAX_PEDIDO = 15/.test(worker));
   const home = await (await pegar("/")).text(), reservar = await (await pegar("/reservar")).text(), contato = await (await pegar("/contato")).text(), termos = await (await pegar("/termos-do-passeio")).text();
-  checar("E21 home: 'Pessoas por reserva · até 15'", home.includes("<dt>Pessoas por reserva</dt><dd>até 15</dd>") && home.includes("grupos de até 15 pessoas por reserva"));
+  // Home nova (24/10/2026): os 4 números do hero (Passeios/Pessoas/Saídas/A partir de) saíram do
+  // hero — a informação de "até 15 pessoas" continua em /contato, Termos e no resumo de /reservar.
   checar("E21 /contato: 'Grupo máximo · 15 pessoas por reserva'", contato.includes("<dt>Grupo máximo</dt><dd>15 pessoas por reserva</dd>"));
-  checar("E21 /reservar: nota com 15 pessoas e sinal de 30% via Pix", reservar.includes("Até 15 pessoas por reserva. A reserva é confirmada pela equipe no WhatsApp, após o pagamento de um sinal de 30% via Pix.") && reservar.includes("sem cadastro e sem pagamento online"));
+  checar("E21 /reservar: texto do topo sem cadastro nem pagamento online", reservar.includes("sem cadastro e sem pagamento online"));
+  checar("E21 /reservar: resumo mostra 'Até 15 pessoas por reserva' por padrão", reservar.includes("Até 15 pessoas por reserva."));
+  checar("E21 app.js: resumo monta 'sinal de 30% via Pix' e a garantia de cancelamento", app.includes("sinal de 30% via Pix") && app.includes("Cancelamento gratuito até 12 h antes da saída"));
   checar("E21 FAQ 'Como pago?' com o sinal de 30%", reservar.includes("Para confirmar a reserva, a equipe pede pelo WhatsApp um sinal de 30% do valor via Pix. Não há pagamento pelo site."));
   checar("E21 Termos §2 e §3 com o sinal de 30% e até 15 pessoas", termos.includes("A vaga só fica garantida depois do pagamento do sinal de 30% via Pix e da confirmação da equipe pelo WhatsApp. Cada reserva tem até 15 pessoas.") &&
     termos.includes("Para confirmar a reserva, é pago um sinal de 30% do valor via Pix, combinado pelo WhatsApp. Não há pagamento pelo site."));
@@ -551,22 +562,25 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 
 
 // ---------- ETAPA 19 — dados da empresa no rodapé, sem JavaScript ----------
+// Cadastur retirado em 24/10/2026 (negocio.cadastur = "" — era igual ao CNPJ, por engano; a busca
+// pública mostra uma empresa homônima com outro CNPJ). Campo vazio não aparece: só razão social e CNPJ.
 {
-  const esperado = "64.565.826 IGOR SANTIAGO FRAGA · CNPJ 64.565.826/0001-80 · Cadastur 64.565.826/0001-80";
+  const esperado = "64.565.826 IGOR SANTIAGO FRAGA · CNPJ 64.565.826/0001-80";
   for (const c of ["/", "/passeios/boat", "/pescaria", "/nao-existe", "/reservar", "/termos-do-passeio"]) {
     const doc = await (await pegar(c)).text();
     const m = doc.match(/<p class="rodape-legal" id="dadosEmpresa"([^>]*)>([^<]*)<\/p>/);
-    checar(`E19 ${c}: #dadosEmpresa com razão social, CNPJ e Cadastur, sem hidden`, !!m && !/\bhidden\b/.test(m[1]) && m[2] === esperado, m ? m[1] + "|" + m[2] : "sem parágrafo");
+    checar(`E19 ${c}: #dadosEmpresa com razão social e CNPJ, sem Cadastur, sem hidden`, !!m && !/\bhidden\b/.test(m[1]) && m[2] === esperado, m ? m[1] + "|" + m[2] : "sem parágrafo");
+    checar(`E19 ${c}: nenhum "Cadastur" na página`, !/Cadastur/.test(doc), c);
     // Marcadores de pendência (TODO em maiúsculas, PREENCHER): "todo/todos" em português é texto normal e não conta.
     checar(`E19 ${c}: nenhum marcador TODO/PREENCHER no HTML`, !/\bTODO\b|PREENCHER/.test(doc));
   }
   const appjs = readFileSync(new URL("../site/app.js", import.meta.url), "utf8");
   checar("E19 app.js não duplica nem apaga o parágrafo quando o servidor já o preencheu", appjs.includes("if (!alvo || alvo.textContent.trim()) return;"));
-  checar("E19 site-config: razaoSocial, cnpj e cadastur preenchidos", SITE.negocio.razaoSocial === "64.565.826 IGOR SANTIAGO FRAGA" && SITE.negocio.cnpj === "64.565.826/0001-80" && SITE.negocio.cadastur === "64.565.826/0001-80");
+  checar("E19 site-config: razaoSocial e cnpj preenchidos, cadastur vazio", SITE.negocio.razaoSocial === "64.565.826 IGOR SANTIAGO FRAGA" && SITE.negocio.cnpj === "64.565.826/0001-80" && SITE.negocio.cadastur === "");
   const todas = ["/", ...[...(await (await pegar("/sitemap.xml")).text()).matchAll(/<loc>([^<]*)<\/loc>/g)].map(m => new URL(m[1]).pathname)].filter((u, i, a) => a.indexOf(u) === i);
   let sujas = [];
   for (const u of todas) { const d = await (await pegar(u)).text(); if (/\bTODO\b|PREENCHER/.test(d)) sujas.push(u); }
-  checar(`E19 as ${todas.length} URLs do sitemap sem marcador TODO/PREENCHER`, todas.length === 16 && !sujas.length, sujas.join(","));
+  checar(`E19 as ${todas.length} URLs do sitemap sem marcador TODO/PREENCHER`, todas.length === 17 && !sujas.length, sujas.join(","));
 }
 
 
@@ -682,74 +696,136 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("E17 o repositório continua intacto depois da demonstração (check-versao passa)", intacto.status === 0, intacto.stderr);
 }
 
-// ---------- ETAPA 25 — categorias da home (add-only) ----------
+// ---------- ETAPA 26 — home nova (24/10/2026): hero, 4 cartões, sob consulta, prova real,
+//            como funciona, FAQ, quem guia, CTA final, links — no lugar das categorias e do
+//            catálogo duplicado "Sete passeios" ----------
 {
   const { existsSync } = await import("node:fs");
   const r = await pegar("/");
   const doc = await r.text();
-  checar("E25 / responde 200", r.status === 200, r.status);
+  checar("E26 / responde 200", r.status === 200, r.status);
+  checar("E26 / tem exatamente 1 <h1>", (doc.match(/<h1/g) || []).length === 1);
 
-  const ocorrencias = (doc.match(/id="categorias"/g) || []).length;
-  const idxHero = doc.indexOf('class="hero"');
-  const idxCategorias = doc.indexOf('id="categorias"');
-  const idxRoteiros = doc.indexOf('id="roteiros-inicio"');
-  checar("E25 #categorias aparece uma vez, depois do hero e antes do catálogo", ocorrencias === 1 && idxHero > -1 && idxHero < idxCategorias && idxCategorias < idxRoteiros, `hero=${idxHero} categorias=${idxCategorias} roteiros=${idxRoteiros} ocorrencias=${ocorrencias}`);
+  // Ordem das seções, do topo para baixo. fimHome fecha a fatia em "/inicio": a seção seguinte
+  // (passeios) continua inteira no HTML, só com "hidden" — sem isso os testes abaixo (fotos
+  // repetidas, style inline, marcador de pendência) pegariam as OUTRAS seções da página também.
+  const idx = marcador => doc.indexOf(marcador);
+  const pontos = {
+    hero: idx('class="hero"'),
+    cartoes: idx('id="mais-procurados"'),
+    consulta: idx('id="titulo-sob-consulta-home"'),
+    prova: idx('id="titulo-prova"'),
+    como: idx('id="titulo-como-funciona"'),
+    faq: idx('id="titulo-faq-home"'),
+    guia: idx('id="titulo-quem-guia"'),
+    cta: idx('id="titulo-cta-final"'),
+    links: idx('class="bloco links-home"'),
+    fimHome: idx('<section class="secao" id="passeios"')
+  };
+  const ordemChecada = ["hero", "cartoes", "consulta", "prova", "como", "faq", "guia", "cta", "links", "fimHome"];
+  const emOrdem = ordemChecada.every((k, i) => i === 0 || (pontos[ordemChecada[i - 1]] > -1 && pontos[k] > pontos[ordemChecada[i - 1]]));
+  checar("E26 a home segue a ordem: hero, 4 cartões, sob consulta, prova real, como funciona, FAQ, quem guia, CTA final, links", emOrdem, JSON.stringify(pontos));
+  const docHome = doc.slice(pontos.hero, pontos.fimHome);
 
-  const fimBloco = doc.indexOf("</section>", idxCategorias);
-  const bloco = doc.slice(idxCategorias, fimBloco);
+  // Nada das seções antigas na HOME (categorias, catálogo "Sete passeios", "Um dia", "Cinco praias",
+  // "Onde dormir"). "Cinco praias" mudou de página — é validado mais abaixo que ela existe em /historia.
+  checar("E26 sem a seção de categorias nem o catálogo antigo na home", !docHome.includes('id="categorias"') && !docHome.includes("Sete passeios saindo de Trindade") && !docHome.includes("Ver os 7 passeios") && !docHome.includes('id="pousadasInicio"') && !docHome.includes('id="catalogoPasseios"') && !docHome.includes("Um dia no Trindade Adventure") && !docHome.includes("Cinco praias e três cachoeiras") && !docHome.includes("Onde dormir"));
 
-  const ordem = [...bloco.matchAll(/data-categoria="([a-z-]+)"/g)].map(m => m[1]);
-  checar("E25 5 categorias, na ordem trilha, barco, parapente, pousada, city-tour", ordem.join(",") === "trilha,barco,parapente,pousada,city-tour", ordem.join(","));
-
-  const idxTrilha = bloco.indexOf('id="cat-trilha"');
-  const idxBarco = bloco.indexOf('id="cat-barco"');
-  const idxPousada = bloco.indexOf('id="cat-pousada"');
-  const painelTrilha = bloco.slice(idxTrilha, idxBarco);
-  const painelBarco = bloco.slice(idxBarco, idxPousada);
-  const painelPousada = bloco.slice(idxPousada);
-
-  checar("E25 painel trilha tem os links do Essencial e Adventure", ["/reservar?plano=essencial", "/reservar?plano=adventure", "/passeios/essencial", "/passeios/adventure"].every(s => painelTrilha.includes(s)));
-  checar("E25 painel barco tem os links do Boat, Saco Bravo e Mamanguá", ["/reservar?plano=boat", "/passeios/boat", "/passeios/saco-bravo", "/passeios/mamangua"].every(s => painelBarco.includes(s)));
-  checar("E25 painel pousada tem as 2 pousadas e o link /pousadas", ["Pousada Hymbé Trindade", "Casa de Madeira Trindade", "/pousadas"].every(s => painelPousada.includes(s)));
-
-  const existeParapente = !!SITE.paginas["/voo-de-parapente"];
-  if (existeParapente) {
-    checar("E25 /voo-de-parapente existe no site-config: cartão parapente é um <a href>", /<a class="categoria" data-categoria="parapente" href="\/voo-de-parapente">/.test(bloco));
-  } else {
-    checar("E25 /voo-de-parapente não existe no site-config: bloco não referencia a página", !bloco.includes('href="/voo-de-parapente"'));
+  // 4 cartões (Essencial, Adventure, Boat, Parapente), nessa ordem, com Reservar + WhatsApp (Data/Pessoas; peso no parapente).
+  const fimCartoes = doc.indexOf("</section>", pontos.cartoes);
+  const blocoCartoes = doc.slice(pontos.cartoes, fimCartoes);
+  const titulosCartoes = [...blocoCartoes.matchAll(/<h3>([^<]+)<\/h3>/g)].map(m => m[1]);
+  checar("E26 4 cartões, na ordem Essencial, Adventure, Boat, Parapente", titulosCartoes.join(",") === "Trindade Essencial,Trindade Adventure,Trindade Boat,Voo de Parapente", titulosCartoes.join(","));
+  checar("E26 Adventure com o selo \"Mais completo\"", /Trindade Adventure[\s\S]*?Mais completo|Mais completo[\s\S]{0,400}Trindade Adventure/.test(blocoCartoes));
+  for (const [plano, preco] of [["essencial", "70"], ["adventure", "150"], ["boat", "400"], ["parapente", "350"]]) {
+    checar(`E26 cartão ${plano}: Reservar → /reservar?plano=${plano} e preço R$ ${preco}`, blocoCartoes.includes(`href="/reservar?plano=${plano}"`) && blocoCartoes.includes(`R$ ${preco}`));
   }
+  checar("E26 WhatsApp dos 4 cartões pede Data e Pessoas", (blocoCartoes.match(/data-wa="[^"]*Data: ___ · Pessoas: ___/g) || []).length === 4);
+  checar("E26 cartão do parapente pede peso no WhatsApp", /data-wa="[^"]*Peso aprox\. de cada pessoa: ___ kg[^"]*"/.test(blocoCartoes));
+  checar("E26 garantia de 12h nos 3 primeiros cartões, remarcação no parapente (não 12h)", (blocoCartoes.match(/Cancelamento gratuito até 12 h antes da saída/g) || []).length === 3 && blocoCartoes.includes("Sinal de R$ 50 · se o tempo não permitir, o voo é remarcado"));
 
-  const hrefsInternos = [...bloco.matchAll(/href="(\/(?!assets\/)[^"]*)"/g)].map(m => m[1].split(/[?#]/)[0]);
-  const paginasValidas = new Set(Object.keys(SITE.paginas));
-  const hrefsRuins = hrefsInternos.filter(h => !paginasValidas.has(h));
-  checar("E25 todo href interno do bloco é uma página do site-config", hrefsRuins.length === 0, hrefsRuins.join(", "));
+  // Sob consulta: 4 links para as páginas próprias.
+  const fimConsulta = doc.indexOf("</section>", pontos.consulta);
+  const blocoConsulta = doc.slice(pontos.consulta, fimConsulta);
+  checar("E26 sob consulta: links para Mamanguá, Saco Bravo, Juatinga e Pescaria", ["/passeios/mamangua", "/passeios/saco-bravo", "/passeios/juatinga", "/pescaria"].every(h => blocoConsulta.includes(`href="${h}"`)));
 
-  const srcsAssets = [...new Set([...bloco.matchAll(/\/assets\/[A-Za-z0-9_.\-]+\.[A-Za-z0-9]+/g)].map(m => m[0]))];
-  const faltandoAssets = srcsAssets.filter(s => !existsSync(new URL("../site" + s, import.meta.url)));
-  checar(`E25 os ${srcsAssets.length} /assets/ citados no bloco existem no disco`, faltandoAssets.length === 0, faltandoAssets.join(", "));
+  // Prova real: galeria de fotos do parapente, com crédito, sem repetir foto do hero/cartão.
+  const fimProva = doc.indexOf("</section>", pontos.prova);
+  const blocoProva = doc.slice(pontos.prova, fimProva);
+  checar("E26 prova real: crédito \"Fotos: Voar Parapente\"", blocoProva.includes("Fotos: Voar Parapente."));
+  const fotosProva = [...blocoProva.matchAll(/\/assets\/parapente-voo-\d\d[A-Za-z0-9_.\-]*\.webp/g)].map(m => m[0]);
+  checar("E26 prova real: fotos existem no disco", fotosProva.length > 0 && fotosProva.every(s => existsSync(new URL("../site" + s, import.meta.url))), fotosProva.join(", "));
 
-  const waNumeros = [...bloco.matchAll(/data-wa-numero="(\d+)"/g)].map(m => m[1]);
-  checar("E25 data-wa-numero aparece 1 vez, da Casa de Madeira", waNumeros.length === 1 && waNumeros[0] === "5524987873576", waNumeros.join(","));
+  // Nenhuma foto repetida entre as seções da home (hero, 4 cartões, prova real). Só o src= conta —
+  // o srcset do mesmo <img> cita de novo o arquivo do próprio src= (outro tamanho), não é repetição.
+  const todasFotos = [...docHome.matchAll(/\ssrc="(\/assets\/[A-Za-z0-9_.\-]+\.webp)"/g)].map(m => m[1]);
+  const repetidas = todasFotos.filter((s, i) => todasFotos.indexOf(s) !== i);
+  checar("E26 nenhuma foto repetida na home", repetidas.length === 0, [...new Set(repetidas)].join(", "));
 
-  const precos = [...bloco.matchAll(/R\$ (\d+)/g)].map(m => Number(m[1]));
-  const precosEsperados = new Set([70, 150, 400, 350, 60]);
+  // Como funciona: 4 passos.
+  const fimComo = doc.indexOf("</section>", pontos.como);
+  const blocoComo = doc.slice(pontos.como, fimComo);
+  checar("E26 como funciona: 4 passos (escolha, pedido, confirmação com sinal, encontro)", (blocoComo.match(/<li>/g) || []).length === 4 && blocoComo.includes("sinal de 30% via Pix") && blocoComo.includes("sinal de R$ 50") && blocoComo.includes("Praia do Meio"));
+
+  // FAQ: textos iguais aos de /contato e dos Termos (chuva, crianças, cancelamento, o que levar).
+  const contatoDoc = await (await pegar("/contato")).text();
+  const termosDoc = await (await pegar("/termos-do-passeio")).text();
+  const fimFaq = doc.indexOf("</section>", pontos.faq);
+  const blocoFaq = doc.slice(pontos.faq, fimFaq);
+  checar("E26 FAQ da home: chuva (texto igual ao de /contato)", blocoFaq.includes("Chuva fraca não cancela. Em chuva forte, mar grosso ou risco na trilha, a operação remarca sem custo.") && contatoDoc.includes("Chuva fraca não cancela. Em chuva forte, mar grosso ou risco na trilha, a operação remarca sem custo."));
+  checar("E26 FAQ da home: crianças (texto igual ao de /contato)", blocoFaq.includes("Sim, a partir de 6 anos na trilha, sempre acompanhadas de um responsável.") && contatoDoc.includes("Sim, a partir de 6 anos na trilha, sempre acompanhadas de um responsável."));
+  checar("E26 FAQ da home: cancelamento (texto igual ao dos Termos §8)", blocoFaq.includes("O cancelamento é gratuito até 12 horas antes da saída.") && termosDoc.includes("O cancelamento é gratuito até 12 horas antes da saída."));
+  checar("E26 FAQ da home: o que levar (texto igual ao de \"Prepare a mochila\")", blocoFaq.includes("Calçado fechado com solado de borracha e protetor solar") && doc.includes("Calçado fechado com solado de borracha e protetor solar"));
+
+  // Quem guia: só o que o site já diz (sem anos nem credencial inventada).
+  const fimGuia = doc.indexOf("</section>", pontos.guia);
+  const blocoGuia = doc.slice(pontos.guia, fimGuia);
+  checar("E26 quem guia: guias locais e o piloto Alef Magno, da Voar Parapente — sem credencial nem anos inventados", blocoGuia.includes("quem realmente conhece e ama esse lugar") && blocoGuia.includes("Alef Magno") && blocoGuia.includes("Voar Parapente") && !/\bABVL\b|\bCBVL\b|anos de experiência|certificad[oa]/i.test(blocoGuia));
+
+  // CTA final: ponto de encontro, mapa, Reservar e WhatsApp.
+  const fimCta = doc.indexOf("</section>", pontos.cta);
+  const blocoCta = doc.slice(pontos.cta, fimCta);
+  checar("E26 CTA final: Praia do Meio, link do mapa, Reservar e WhatsApp", blocoCta.includes("Praia do Meio") && /google\.com\/maps/.test(blocoCta) && blocoCta.includes('href="/reservar"') && /data-wa="[^"]*Data: ___/.test(blocoCta));
+
+  // Links para as páginas próprias, no lugar das seções longas.
+  const blocoLinks = doc.slice(pontos.links);
+  checar("E26 links: Pousadas, Praias e lugares, História, Pescaria, Adventure", ["/pousadas", "/historia#titulo-lugares", "/historia", "/pescaria", "/passeios/adventure"].every(h => blocoLinks.includes(`href="${h}"`)));
+
+  // "Cinco praias e três cachoeiras" foi para /historia, não apagado.
+  const historiaDoc = await (await pegar("/historia")).text();
+  checar("E26 \"Cinco praias e três cachoeiras\" mudou para /historia (não foi apagado)", historiaDoc.includes("Cinco praias e três cachoeiras") && historiaDoc.includes("Praia do Cepilho") && historiaDoc.includes('id="titulo-lugares"'));
+
+  checar("E26 site-config: paginas agora com 18 entradas (creditos-das-fotos é novo)", Object.keys(SITE.paginas).length === 18, Object.keys(SITE.paginas).length);
+
+  checar("E26 sem style= inline na home nova", !docHome.includes("style="));
+  checar("E26 sem marcador de pendência na home nova", !/PREENCHER|TODO|\[[A-ZÇÃÕÉ ]{3,}\]/.test(docHome));
+
+  // Hero: 2 CTAs (Reservar e WhatsApp), imagem sem loading=lazy e com fetchpriority=high.
+  const blocoHero = doc.slice(pontos.hero, pontos.cartoes);
+  checar("E26 hero: 2 CTAs (Reservar meu passeio e Tirar dúvida no WhatsApp)", blocoHero.includes(">Reservar meu passeio<") && blocoHero.includes("Tirar dúvida no WhatsApp"));
+  checar("E26 hero: imagem do parapente, sem loading=lazy, com fetchpriority=high", /<img[^>]*parapente-voo-01-praia-vila[^>]*fetchpriority="high"/.test(blocoHero) && !/<img[^>]*parapente-voo-01-praia-vila[^>]*loading="lazy"/.test(blocoHero));
+
+  // Câmeras: fora do menu e do rodapé (a rota continua existindo).
+  checar("E26 \"Câmeras\" saiu do menu e do rodapé (rota /cameras continua existindo)", !doc.includes('data-rota="cameras"') && !/<li><a href="\/cameras">/.test(doc) && SITE.paginas["/cameras"]);
+
+  // Botão fixo de WhatsApp no celular.
+  checar("E26 botão fixo de WhatsApp no HTML, com aria-label", /<a class="wa-flutuante"[^>]*aria-label="[^"]+"/.test(doc));
+  const cssTxt = readFileSync(new URL("../site/estilo.css", import.meta.url), "utf8");
+  checar("E26 CSS: botão de WhatsApp fixo só <= 760px e escondido em /reservar", /@media\(max-width:760px\)\{[\s\S]*?\.wa-flutuante\{/.test(cssTxt) && cssTxt.includes('html[data-rota-atual="reservar"] .wa-flutuante{display:none}'));
+
+  // Barra de clima: altura máx. ~40px, uma linha, sem aviso/recomendação de chuva.
+  checar("E26 CSS: #climaBar com min-height 40px (uma linha)", /#climaBar\{[^}]*min-height:40px/.test(cssTxt));
   const appjsTxt = readFileSync(new URL("../site/app.js", import.meta.url), "utf8");
-  const precosPlanos = Object.fromEntries([...appjsTxt.matchAll(/id:"(essencial|adventure|boat)".*?preco:(\d+)/g)].map(m => [m[1], Number(m[2])]));
-  checar("E25 preços do bloco só usam os valores já existentes", precos.every(p => precosEsperados.has(p)), precos.join(","));
-  checar("E25 preços do bloco batem com PLANOS do app.js (essencial 70, adventure 150, boat 400)", bloco.includes("R$ 70") && bloco.includes("R$ 150") && bloco.includes("R$ 400") && precosPlanos.essencial === 70 && precosPlanos.adventure === 150 && precosPlanos.boat === 400);
+  checar("E26 app.js: barra de clima sem recomendação/aviso (só temperatura e mar)", !appjsTxt.includes("Mar grosso — barco provavelmente não sai") && !appjsTxt.includes("Chance alta de chuva"));
 
-  checar("E25 sem marcador de pendência, Uber nem app de transporte no bloco", !/PREENCHER|TODO|\[[A-ZÇÃÕÉ ]{3,}\]|Uber/.test(bloco) && !/\b99\b/.test(bloco));
+  // Mamanguá: fotos de terceiros com crédito, em /passeios (consulta-mamangua).
+  const passeiosDoc = await (await pegar("/passeios")).text();
+  checar("E26 Mamanguá em /passeios: 3 fotos do Wikimedia Commons com crédito", ["mamangua-vista-pico", "mamangua-barco", "mamangua-pao-de-acucar"].every(s => passeiosDoc.includes(s)) && passeiosDoc.includes("Wikimedia Commons") && passeiosDoc.includes("CC BY-SA 3.0"));
 
-  checar("E25 home continua com o catálogo e os fatos originais", doc.includes("Sete passeios saindo de Trindade") && doc.includes("Ver os 7 passeios") && doc.includes("<dt>Passeios</dt><dd>7</dd>") && (doc.match(/<h1/g) || []).length === 1);
+  // Parapente em /passeios: cartão com Reservar voo e Ver detalhes.
+  checar("E26 parapente em /passeios: cartão com \"Reservar voo\" e \"Ver detalhes\"", passeiosDoc.includes(">Reservar voo<") && /href="\/voo-de-parapente">Ver detalhes</.test(passeiosDoc) && passeiosDoc.includes('href="/reservar?plano=parapente"'));
 
-  checar("E25 site-config: paginas continua com 17 entradas", Object.keys(SITE.paginas).length === 17, Object.keys(SITE.paginas).length);
-
-  checar("E25 #dadosEmpresa continua com Cadastur 64.565.826/0001-80", doc.includes("Cadastur 64.565.826/0001-80"));
-
-  checar("E25 sem style= inline no bloco novo", !bloco.includes("style="));
-
-  const trechoNovo = appjsTxt.slice(appjsTxt.indexOf("ligarCategorias"));
-  checar("E25 o JS novo não usa innerHTML", trechoNovo.length > 0 && !trechoNovo.includes("innerHTML"));
+  checar("E26 /creditos-das-fotos → 200 com a tabela de créditos", (await pegar("/creditos-das-fotos")).status === 200);
 }
 
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);

@@ -108,10 +108,28 @@ oferecido se o passeio terminar até o **horário-limite de retorno**:
     concentração + saída (20 min) + duração ≤ retorno_limite
 
 O padrão é 18:20 — o retorno da saída mais tarde que o Essencial (≈ 3h) já
-tinha às 15:00. Com isso o Adventure (≈ 6h) vai até 12:00 e o Boat segue às
-08:30. Para mudar sem publicar: painel → Ajustes → "Retorno até". Não é o pôr
-do sol (que muda o ano todo); é um horário fixo da operação. Um plano também
-pode ter `ultimaSaida` para cortar a grade num horário específico.
+tinha às 15:00. Com isso o Adventure (≈ 6h) vai até 12:00. Para mudar sem
+publicar: painel → Ajustes → "Retorno até". Não é o pôr do sol (que muda o
+ano todo); é um horário fixo da operação. Um plano também pode ter
+`ultimaSaida` para cortar a grade num horário específico.
+
+**Trindade Boat (desde 24/10/2026): dois horários fixos, 08:30 e 11:00**
+(`horarios: [8.5, 11]` em `PLANOS`, nos dois arquivos). A concentração das
+11h, mais a duração do Boat (≈ 8h), passaria do horário-limite de retorno
+padrão — a operação pediu o horário mesmo assim, então esse plano tem também
+`semCorteRetorno: true`, que faz a lista fixa de horários ignorar a regra do
+horário-limite (só vale pra ele; os outros planos continuam seguindo a
+regra normal). Mude os dois arquivos juntos, como em qualquer horário fixo.
+
+**Voo de Parapente no `/reservar`** — não é um "plano" de verdade no
+`_worker.js` (não tem agenda nem vaga: `app.js` PLANOS tem uma entrada
+`parapente` só para aparecer como opção no passo 1, com `soWhatsApp: true` e
+`horarioCombinado: true`). Ao escolher parapente, o passo "Horário" vira um
+aviso ("combinado pelo WhatsApp") em vez da grade, aparece um campo
+obrigatório de peso, e o envio pula o Turnstile e o `POST /api/reservas`:
+vai direto para o WhatsApp. O JSON-LD de `/voo-de-parapente` (TouristTrip +
+Offer, 350 BRL) vem de uma tabela à parte no `_worker.js`,
+`OFERTAS_SO_WHATSAPP` — não de `PLANOS`.
 
 **Texto de uma página no Google/WhatsApp** — tabela `site-config` no
 `<head>` do `index.html`: `titulo`, `descricao`, `imagem` (JPG). Algumas
@@ -281,10 +299,13 @@ site. Só mexa neles de novo se for trocar de banco ou de política de acesso.
    `www.trindadeadventury.com.br`; criar as caixas `contato@` e `suporte@`; e só então
    publicar e ligar `REDIRECIONAR_PARA_DOMINIO=1` (tabela de variáveis). A troca de endereço no
    `index.html`, `robots.txt` e `sitemap.xml` já está feita no repositório.
-4. **CNPJ, razão social e Cadastur** já estão em `negocio` (tabela `site-config`) e saem no rodapé
-   direto do servidor: 64.565.826 IGOR SANTIAGO FRAGA · CNPJ 64.565.826/0001-80 · Cadastur
-   64.565.826/0001-80 (conferidos no certificado do Cadastur e no cadastro público). Confira se a validade
-   do certificado (07/09/2026 a 07/09/2028) continua em dia.
+4. **Cadastur: o número estava errado (era igual ao CNPJ) e foi retirado em 24/10/2026.** A busca
+   pública mostra outra empresa homônima ("Trindade Adventure Ltda", de Bragança Paulista/SP, CNPJ
+   diferente) — por isso o número 64.565.826/0001-80 não podia continuar valendo como Cadastur. Hoje
+   `negocio.cadastur` (tabela `site-config`) está vazio: sem Cadastur, nada aparece no rodapé nem no
+   JSON-LD (campo vazio não imprime). Quando o Cadastur certo chegar, preencha só ali — tem um
+   comentário `TODO(cadastur)` acima da tabela `site-config` lembrando disso. Razão social e CNPJ
+   continuam normais: 64.565.826 IGOR SANTIAGO FRAGA · CNPJ 64.565.826/0001-80.
 
 ## Parceiros reais no site
 

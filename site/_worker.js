@@ -489,11 +489,13 @@ function jsonLdDaPagina(site, caminho, pagina, meta) {
   }];
   const id = caminho.startsWith("/passeios/") ? caminho.slice("/passeios/".length) : "";
   const plano = Object.prototype.hasOwnProperty.call(PLANOS, id) ? PLANOS[id] : null;
-  if (plano) {
+  const soWhatsApp = Object.prototype.hasOwnProperty.call(OFERTAS_SO_WHATSAPP, caminho) ? OFERTAS_SO_WHATSAPP[caminho] : null;
+  const oferta = plano || soWhatsApp;
+  if (oferta) {
     blocos.push({
-      "@context": "https://schema.org", "@type": "TouristTrip", name: plano.nome, description: pagina.descricao,
+      "@context": "https://schema.org", "@type": "TouristTrip", name: oferta.nome, description: pagina.descricao,
       url: origem + caminho, image: meta.imagem, provider: { "@id": origem + "/#empresa" },
-      offers: { "@type": "Offer", price: String(plano.preco), priceCurrency: "BRL", availability: "https://schema.org/InStock", url: origem + caminho }
+      offers: { "@type": "Offer", price: String(oferta.preco), priceCurrency: "BRL", availability: "https://schema.org/InStock", url: origem + caminho }
     });
   }
   return blocos;
@@ -824,7 +826,18 @@ const RETORNO_LIMITE_PADRAO = "18:20";
 const PLANOS = {
   essencial: { nome: "Trindade Essencial", preco: 70, voucher: 0, duracaoMin: 180, horarios: null },
   adventure: { nome: "Trindade Adventure", preco: 150, voucher: 60, duracaoMin: 360, horarios: null },
-  boat: { nome: "Trindade Boat", preco: 400, voucher: 60, duracaoMin: 480, horarios: [8.5] }
+  // Horários fixos definidos pela operação em 24/10/2026: encontro às 8h30 OU às 11h (saída 20 min
+  // depois), sem grade de hora em hora. semCorteRetorno porque a concentração das 11h + duração do
+  // Boat (8h) passaria do horário-limite de retorno padrão (18:20) — o Lucas pediu o horário mesmo
+  // assim, então essa lista fixa não é filtrada pela regra de retorno (ver horariosDoPlano abaixo).
+  boat: { nome: "Trindade Boat", preco: 400, voucher: 60, duracaoMin: 480, horarios: [8.5, 11], semCorteRetorno: true }
+};
+
+// Produtos sem agenda no site (reserva só pelo WhatsApp): usados só para o JSON-LD TouristTrip/Offer
+// de cada página. O voo de parapente não entra em PLANOS porque não tem horário nem vaga compartilhada
+// com os passeios — ver comentário em app.js (PLANOS, plano "parapente") e no LEIA-ME.
+const OFERTAS_SO_WHATSAPP = {
+  "/voo-de-parapente": { nome: "Voo de Parapente duplo", preco: 350 }
 };
 
 const doisDig = n => String(n).padStart(2, "0");
@@ -844,6 +857,8 @@ function horariosDoPlano(planoId, cfg) {
     for (let h = cfg.slotInicio; h <= cfg.slotFim; h++) base.push(h);
   }
   if (!pl) return base;
+  // Lista fixa marcada semCorteRetorno: horários decididos pela operação, não pela regra de duração.
+  if (pl.semCorteRetorno) return base.sort((a, b) => a - b);
   return base.filter(h =>
     (pl.ultimaSaida == null || h <= pl.ultimaSaida) &&
     Math.round(h * 60) + cfg.saidaApos + pl.duracaoMin <= cfg.retornoLimiteMin
@@ -1284,6 +1299,7 @@ function montarMensagem(d) {
     "Horário: " + horaLabel(d.hora) + " — saída " + saidaLabel(d.hora, cfg),
     "Pessoas: " + d.pax,
     "Total: R$ " + d.total + (d.voucher ? " (inclui R$ " + d.voucher + " de voucher no almoço)" : ""),
+    "Sinal para confirmar (30%): R$ " + Math.round(d.total * 0.3) + " via Pix",
     "",
     "Nome: " + d.nome,
     "WhatsApp: " + d.telefone

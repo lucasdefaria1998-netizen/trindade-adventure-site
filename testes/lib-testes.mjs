@@ -81,7 +81,7 @@ export const ISS_ACCESS = "https://cold-smoke-c7c6.cloudflareaccess.com";
 const KID = "chave-de-teste-" + Math.random().toString(16).slice(2, 10); // kid novo a cada execução, como numa rotação real (o worker guarda os certificados em cache)
 const par = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const outroPar = generateKeyPairSync("rsa", { modulusLength: 2048 });
-export function iniciarServidorDeCertificados(porta = 8791) {
+export function iniciarServidorDeCertificados(porta = Number(process.env.PORTA_CERTS || 8791)) {
   const jwk = par.publicKey.export({ format: "jwk" });
   const srv = http.createServer((req, res) => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify({ keys: [{ kid: KID, kty: "RSA", alg: "RS256", use: "sig", n: jwk.n, e: jwk.e }] })); });
   return new Promise(ok => srv.listen(porta, "127.0.0.1", () => ok(srv)));
