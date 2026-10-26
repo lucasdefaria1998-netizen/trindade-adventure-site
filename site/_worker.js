@@ -794,7 +794,7 @@ async function lerConfig(env) {
     saidaApos: Number(c.saida_apos || 20),
     cancelamentoH: Number(c.cancelamento_h || 12),
     retornoLimiteMin: minutosDe(c.retorno_limite || RETORNO_LIMITE_PADRAO),
-    whatsapp: c.whatsapp || "5524993337247",
+    whatsapp: c.whatsapp || "5524992073621",
     instagram: c.instagram || "trindadeadventure",
     cupom: c.cupom || "TRINDADE10",
     beneficioInstagram: c.beneficio_instagram || "Siga e receba as fotos do seu dia de passeio."
@@ -898,7 +898,7 @@ function saidaLabel(h, cfg) {
 
 const LIMITE_PAX_PEDIDO = 15;     // pessoas por reserva (decisão do Lucas, 19/10/2026)
 const JANELA_RESERVA_DIAS = 90;   // de hoje até hoje+90 dias, no fuso de Trindade
-const WHATSAPP_PADRAO = "5524993337247";
+const WHATSAPP_PADRAO = "5524992073621";
 
 const CARACTERE_DE_CONTROLE = /[\u0000-\u001F\u007F]/;
 const DDDS_BR = new Set(

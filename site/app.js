@@ -20,7 +20,7 @@ document.documentElement.classList.add("js");
    o Google e o WhatsApp leem).
    -------------------------------------------------------------------------- */
 const CFG = {
-  whatsapp: "5524993337247",
+  whatsapp: "5524992073621",
   instagram: "trindadeadventure",
   pontoEncontro: "Praia do Meio — placa das trilhas, Trindade/Paraty",
   slotInicio: 8,      // primeira saída da grade

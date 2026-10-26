@@ -175,7 +175,7 @@ for (const [n, tel] of [["celular BR formatado", `(24) 9${dig(4)}-${dig(4)}`], [
   const r = await post("/api/reservas", { corpo: rv({ nome, obs, whatsapp: "5511999999999", numero: "5511888888888", telefone: `(24) 9${dig(4)}-${dig(4)}`, waHref: "https://evil.example" }) });
   const j = await jsonDe(r);
   checar("E4  nome/obs perigosos são aceitos como texto", r.status === 200 && j.ok, `${r.status}`);
-  checar("E4  link do WhatsApp usa o número fixo do servidor", /^https:\/\/wa\.me\/5524993337247\?text=/.test(j.whatsapp), j.whatsapp.slice(0, 50));
+  checar("E4  link do WhatsApp usa o número fixo do servidor", /^https:\/\/wa\.me\/5524992073621\?text=/.test(j.whatsapp), j.whatsapp.slice(0, 50));
   const texto = decodeURIComponent(j.whatsapp.split("?text=")[1]);
   checar("E4  o texto do link decodifica para o mesmo nome e preserva a URL", texto.includes("Nome: " + nome) && !j.whatsapp.includes("<script>") && !j.whatsapp.includes(" "), j.whatsapp.slice(0, 120));
   checar("E4  quebras de linha em excesso viram uma linha em branco", texto.includes("Observações: Linha 1\n\nLinha 2") && !texto.includes("\n\n\n"), JSON.stringify(texto.split("\n").slice(9, 14)));
