@@ -416,6 +416,26 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 }
 
 
+// ---------- 26/10/2026: Pousada Hymbé saiu do site; rodapé "Roteiros" sem preço ----------
+{
+  const { execFileSync } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const raiz = fileURLToPath(new URL("..", import.meta.url));
+  let achados = "";
+  try { achados = execFileSync("git", ["-C", raiz, "grep", "-n", "-i", "-E", "pousada[ -]hymb|pousadahymbe|fotoHymbe\\b", "--", "site", "CREDITOS-FOTOS.md"], { encoding: "utf8" }); } catch (e) { achados = e.stdout || ""; }
+  checar("HYMBE nenhum arquivo do site cita a Pousada Hymbé (fotos, card, links, config)", achados.trim() === "", achados.trim().slice(0, 300));
+  const pous = await (await pegar("/pousadas")).text();
+  checar("HYMBE /pousadas: sem card da Pousada Hymbé e com a Casa de Madeira", !/Pousada Hymb/i.test(pous) && !pous.includes('id="fotoHymbe"') && pous.includes("<h3>Casa de Madeira Trindade</h3>") && pous.includes("TRINDADE10"));
+  checar("HYMBE /pousadas: Restaurante Hymbé continua no site (almoço dos passeios)", pous.includes("Restaurante Hymbé, na praia") && pous.includes("instagram.com/hymberestaurantepraia"));
+  const mp = metaDe(pous);
+  checar("HYMBE /pousadas: og:image volta para a imagem padrão (sem foto da Pousada Hymbé)", mp.ogImagem === SITE.origem + "/assets/og-capa-mirante.jpg", mp.ogImagem);
+  const app = await (await pegar("/app.js")).text();
+  checar("HYMBE app.js sem galeria nem fotos responsivas da Pousada Hymbé", !app.includes("pousada-hymbe") && !app.includes("fotoHymbe") && app.includes("fotoRestauranteHymbe"));
+  const rod = pous.slice(pous.indexOf("<h2>Roteiros</h2>"), pous.indexOf("<h2>Trindade</h2>"));
+  checar("RODAPE lista Roteiros sem preço e sem travessão", rod.length > 0 && !rod.includes("R$") && !rod.includes(" — ") && ["Trindade Essencial", "Trindade Adventure", "Trindade Boat", "Voo de Parapente", "Pescaria em Alto Mar"].every(t => rod.includes(`">${t}</a>`)), rod.replace(/\s+/g, " ").slice(0, 300));
+}
+
+
 // ---------- FOTOS do Lucas (26/10/2026): cada foto traz o nome do lugar escrito e só entra onde o lugar já aparece ----------
 {
   const doc = await (await pegar("/")).text();
@@ -570,7 +590,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const raiz = fileURLToPath(new URL("..", import.meta.url));
   const VELHO = "trindadeadventure" + "rj"; // conta que não é do Lucas; montada por concatenação para este arquivo não a citar
   const temVelho = txt => txt.toLowerCase().includes(VELHO);
-  const PARCEIROS = ["hymberestaurantepraia", "pousadahymbetrindade", "demadeiratrindade"];
+  const PARCEIROS = ["hymberestaurantepraia", "demadeiratrindade"]; // 26/10/2026: Pousada Hymbé saiu do site
   let achados = "";
   try { achados = execFileSync("git", ["-C", raiz, "grep", "-n", "-i", VELHO], { encoding: "utf8" }); } catch (e) { achados = e.stdout || ""; }
   checar("E21 nenhum arquivo versionado cita a conta antiga do Instagram (git grep vazio)", achados.trim() === "", achados.trim().slice(0, 200));
