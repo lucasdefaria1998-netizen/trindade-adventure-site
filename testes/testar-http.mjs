@@ -146,7 +146,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const m = metaDe(await (await pegar("/passeios/adventure")).text());
   checar("T7  /passeios/adventure → title do Adventure", m.titulo === "Passeio Adventure em Trindade | Trindade Adventure", m.titulo);
   checar("T7  /passeios/adventure → canonical próprio", m.canonical === SITE.origem + "/passeios/adventure", m.canonical);
-  checar("T7  /passeios/adventure → og:image da piscina", m.ogImagem === SITE.origem + "/assets/piscina-v2.jpg", m.ogImagem);
+  checar("T7  /passeios/adventure → og:image própria (Praia do Meio, foto do Lucas)", m.ogImagem === SITE.origem + "/assets/og-adventure-praia-meio.jpg", m.ogImagem);
   const q = metaDe(await (await pegar("/reservar?plano=adventure&fonte=teste")).text());
   checar("T7  /reservar?plano=… → canonical sem parâmetros", q.canonical === SITE.origem + "/reservar", q.canonical);
 }
@@ -398,25 +398,21 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 }
 
 
-// ---------- FOTOS enviadas pela equipe na seção "Cinco praias e três cachoeiras" ----------
+// ---------- FOTOS v2 (26/10/2026): o Lucas pediu para tirar todas as fotos antigas de paisagem/passeio e usar só as 18 novas ----------
 {
-  const home = await (await pegar("/")).text();
-  const grade = home.slice(home.indexOf('class="lugares-fotos"'), home.indexOf('<ul class="lugares">'));
+  const doc = await (await pegar("/")).text();
+  const grade = doc.slice(doc.indexOf('class="lugares-fotos"'), doc.indexOf('<ul class="lugares">'));
   const imgs = [...grade.matchAll(/<img [^>]*>/g)].map(m => m[0]);
-  checar("FOTOS a grade tem as 4 fotos antigas + 8 novas + 2 do Lucas com o nome do lugar (14)", imgs.length === 14, imgs.length);
-  const novas = imgs.filter(i => /lugar-(vista-baia|pedras-agua|banco-areia|riacho-mata|amanhecer-pedras|enseada-palmeira|banco-areia-veleiro|baia-ilhas)-480/.test(i));
-  checar("FOTOS as 8 novas estão na grade", novas.length === 8, novas.length);
-  const lugares = ["Praia do Meio", "Cachadaço", "Mamanguá", "Juatinga", "Saco Bravo", "Praia Brava", "Cepilho", "Ranchos", "Pedra que Engole", "Codós", "Paraty", "Trindade", "Hymbé", "Sono", "Antigos", "Pão de Açúcar"];
-  for (const i of novas) {
-    const alt = (i.match(/alt="([^"]*)"/) || [])[1] || "";
-    const nome = (i.match(/lugar-[a-z-]+-480/) || [""])[0].replace("-480", "");
-    const src480 = (i.match(/src="([^"]+)"/) || [])[1], w = Number((i.match(/ width="(\d+)"/) || [])[1]), h = Number((i.match(/ height="(\d+)"/) || [])[1]);
-    const b = readFileSync(new URL("../site" + src480.replace("-480", "-720"), import.meta.url)); // WebP VP8: largura/altura nos bytes 26-29
-    const lw = (b[26] | (b[27] << 8)) & 0x3fff, lh = (b[28] | (b[29] << 8)) & 0x3fff;
-    checar(`FOTOS ${nome}: alt descritivo, sem citar nome de praia/lugar (sem atribuir a local específico)`, alt.length >= 25 && !lugares.some(l => alt.toLowerCase().includes(l.toLowerCase())), alt);
-    checar(`FOTOS ${nome}: width/height do HTML = dimensões reais da imagem de 720 (${w}×${h})`, lw === w && lh === h, lw + "×" + lh);
-    checar(`FOTOS ${nome}: carregamento lazy, decoding async e classe de foco`, i.includes('loading="lazy"') && i.includes('decoding="async"') && /class="foco-(60|65|70|75)"/.test(i));
-  }
+  checar("FOTOS a grade \"Cinco praias e três cachoeiras\" tem as 8 fotos do Lucas", imgs.length === 8, imgs.length);
+  // fotos antigas de paisagem/passeio que saíram de todo o site (os arquivos continuam em /assets)
+  const antigas = ["lugar-trilha", "lugar-praia-pedras", "lugar-praia-areia", "lugar-piscina-", "lugar-vista-baia", "lugar-pedras-agua", "lugar-banco-areia", "lugar-riacho-mata",
+    "lugar-amanhecer-pedras", "lugar-enseada-palmeira", "lugar-baia-ilhas", "piscina-v2", "trilha-v2", "/assets/costa-trindade", "foto-costa-trindade", "foto-saco-bravo-",
+    "mamangua-vista-pico", "mamangua-barco", "mamangua-pao-de-acucar-480", "mamangua-pao-de-acucar-960", "foto-praia-antigos", "foto-praia-sono", "foto-restaurante-sono", "og-v2"];
+  for (const a of antigas) checar(`FOTOS antiga ${a}* não aparece mais no HTML`, !doc.includes(a.startsWith("/") ? a : "/assets/" + a), a);
+  // toda <img> da página (fora o hero) tem width/height e loading=lazy — a grade não pula (CLS)
+  const todas = [...doc.matchAll(/<img [^>]*>/g)].map(m => m[0]).filter(t => !t.includes("capa-mirante-baia"));
+  const semDim = todas.filter(t => !/ width="\d+"/.test(t) || !/ height="\d+"/.test(t) || !t.includes('loading="lazy"'));
+  checar("FOTOS toda <img> abaixo da dobra tem width, height e loading=lazy", semDim.length === 0, semDim.map(t => t.slice(0, 90)).join(" | "));
 }
 
 
@@ -424,19 +420,34 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 {
   const doc = await (await pegar("/")).text();
   const fotos = [
-    // [arquivo do src, maior arquivo do srcset, trecho que precisa conter o <img>, lugar que o alt cita]
+    // [arquivo do src, maior arquivo do srcset, trecho que vem logo antes do <img>, lugar que o alt cita]
     ["capa-mirante-baia-800", "capa-mirante-baia-1200", 'class="hero-foto"', "baía de Trindade"],
-    // Galhetas: recortadas sem o texto gravado ("Galeta", grafia diferente da do site)
-    ["foto-praia-galhetas-recorte-480", "foto-praia-galhetas-recorte-720", 'id="mais-procurados"', "Praia das Galhetas"],
+    ["foto-piscina-cachadaco-recorte-495", "foto-piscina-cachadaco-recorte-495", 'id="mais-procurados"', "Piscina Natural do Cachadaço"],
+    ["lugar-praia-meio-480", "lugar-praia-meio-960", '<h3>Trindade Essencial</h3>', "Praia do Meio"],
+    ["foto-praia-galhetas-recorte-480", "foto-praia-galhetas-recorte-720", "<h3>Trindade Adventure</h3>", "Praia das Galhetas"],
+    ["foto-piscina-cachadaco-recorte-495", "foto-piscina-cachadaco-recorte-495", 'id="roteiro-essencial"', "Piscina Natural do Cachadaço"],
+    ["lugar-praia-meio-480", "lugar-praia-meio-960", 'id="roteiro-adventure"', "Praia do Meio"],
     ["foto-piscina-galhetas-recorte-410", "foto-piscina-galhetas-recorte-410", 'id="roteiro-boat"', "Piscina natural das Galhetas"],
+    ["mamangua-igreja-paraty-mirim-480", "mamangua-igreja-paraty-mirim-480", 'id="consulta-mamangua"', "Paraty-Mirim"],
+    ["mamangua-praia-cruzeiro-recorte-210", "mamangua-praia-cruzeiro-recorte-210", 'id="consulta-mamangua"', "Praia do Cruzeiro"],
+    ["mamangua-pao-de-acucar-lucas-480", "mamangua-pao-de-acucar-lucas-480", 'id="consulta-mamangua"', "Pão de Açúcar"],
     ["foto-cachoeira-saco-bravo-720", "foto-cachoeira-saco-bravo-720", 'id="consulta-saco-bravo"', "Cachoeira do Saco Bravo"],
+    ["juatinga-praia-brava-aerea-348", "juatinga-praia-brava-aerea-348", 'id="consulta-juatinga"', "Praia Brava"],
+    ["juatinga-piscina-galheta-aerea-357", "juatinga-piscina-galheta-aerea-357", 'id="consulta-juatinga"', "Galheta"],
+    ["juatinga-praia-antigos-324", "juatinga-praia-antigos-324", 'id="consulta-juatinga"', "Praia dos Antigos"],
+    ["lugar-praia-meio-480", "lugar-praia-meio-960", 'class="lugares-fotos"', "Praia do Meio"],
     ["lugar-praia-brava-rio-480", "lugar-praia-brava-rio-720", 'class="lugares-fotos"', "Praia Brava"],
-    ["lugar-praia-meio-480", "lugar-praia-meio-960", 'class="lugares-fotos"', "Praia do Meio"]
+    ["foto-piscina-cachadaco-recorte-495", "foto-piscina-cachadaco-recorte-495", 'class="lugares-fotos"', "Piscina Natural do Cachadaço"],
+    ["lugar-antigos-aerea-recorte-480", "lugar-antigos-aerea-recorte-668", 'class="lugares-fotos"', "Praia dos Antigos"],
+    ["lugar-ponta-negra-aerea-recorte-480", "lugar-ponta-negra-aerea-recorte-720", 'class="lugares-fotos"', "Ponta Negra"],
+    ["lugar-praia-ponta-negra-480", "lugar-praia-ponta-negra-720", 'class="lugares-fotos"', "Praia da Ponta Negra"],
+    ["lugar-saco-bravo-cachoeira-480", "lugar-saco-bravo-cachoeira-720", 'class="lugares-fotos"', "Cachoeira do Saco Bravo"],
+    ["lugar-igreja-centro-paraty-480", "lugar-igreja-centro-paraty-698", 'class="lugares-fotos"', "centro histórico de Paraty"]
   ];
   for (const [src, maior, bloco, lugar] of fotos) {
-    const i = doc.indexOf(`src="/assets/${src}.webp"`), b = doc.lastIndexOf(bloco, i);
+    const b = doc.indexOf(bloco), i = b < 0 ? -1 : doc.indexOf(`src="/assets/${src}.webp"`, b);
     const tag = i < 0 ? "" : doc.slice(doc.lastIndexOf("<img", i), doc.indexOf(">", i) + 1);
-    checar(`FOTOS-LUCAS ${src}: no lugar certo (${bloco})`, i > 0 && b > 0 && i - b < 6000, `${i} ${b}`);
+    checar(`FOTOS-LUCAS ${src}: no lugar certo (${bloco})`, i > 0 && b > 0 && i - b < 4000, `${i} ${b}`);
     const alt = (tag.match(/alt="([^"]*)"/) || [])[1] || "";
     checar(`FOTOS-LUCAS ${src}: alt cita ${lugar}`, alt.includes(lugar), alt);
     const w = Number((tag.match(/ width="(\d+)"/) || [])[1]), h = Number((tag.match(/ height="(\d+)"/) || [])[1]);
@@ -449,7 +460,17 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   // fotos com o nome escrito em grafia diferente da do site ficam fora (Galeta, Caixadaço)
   for (const fora of ["foto-praia-galhetas-480", "foto-praia-galhetas-640", "foto-piscina-galhetas-720", "lugar-piscina-cachadaco"])
     checar(`FOTOS-LUCAS ${fora} não é usada (texto gravado com grafia diferente)`, !doc.includes(`/assets/${fora}`));
-  checar("FOTOS-LUCAS og:image continua og-v2.jpg (capa nova só no hero)", doc.includes('<meta property="og:image" content="https://trindadeadventury.com.br/assets/og-v2.jpg">'));
+  // og:image, twitter:image, JSON-LD e site-config apontam para a capa nova (JPG 1200×630)
+  const og = "https://trindadeadventury.com.br/assets/og-capa-mirante.jpg";
+  checar("FOTOS-LUCAS og:image e twitter:image = og-capa-mirante.jpg", doc.includes(`<meta property="og:image" content="${og}">`) && doc.includes(`<meta name="twitter:image" content="${og}">`));
+  checar("FOTOS-LUCAS JSON-LD image e site-config imagemPadrao = og-capa-mirante.jpg", doc.includes(`"image": "${og}"`) && SITE.imagemPadrao === "/assets/og-capa-mirante.jpg" && JSON.stringify(SITE.imagensDim["/assets/og-capa-mirante.jpg"]) === "[1200,630]");
+  const jpg = readFileSync(new URL("../site/assets/og-capa-mirante.jpg", import.meta.url));
+  let k = 2, dimJpg = null; // procura o marcador SOF do JPEG para ler largura × altura
+  while (k < jpg.length) { const mk = jpg[k + 1], len = jpg.readUInt16BE(k + 2); if (mk >= 0xc0 && mk <= 0xc3) { dimJpg = [jpg.readUInt16BE(k + 7), jpg.readUInt16BE(k + 5)]; break; } k += 2 + len; }
+  checar("FOTOS-LUCAS og-capa-mirante.jpg é um JPG de 1200×630", JSON.stringify(dimJpg) === "[1200,630]", JSON.stringify(dimJpg));
+  const pre = (doc.match(/<link rel="preload" as="image"[^>]*>/) || [""])[0], imgCapa = (doc.match(/<img src="\/assets\/capa-mirante-baia-800\.webp"[^>]*>/) || [""])[0];
+  const at = (t, n) => (t.match(new RegExp(` ${n}="([^"]*)"`)) || [])[1];
+  checar("FOTOS-LUCAS preload da capa = src/srcset/sizes do <img> do hero", !!imgCapa && at(pre, "href") === at(imgCapa, "src") && at(pre, "imagesrcset") === at(imgCapa, "srcset") && at(pre, "imagesizes") === at(imgCapa, "sizes"));
 }
 
 
@@ -851,7 +872,9 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 
   // Mamanguá: fotos de terceiros com crédito, em /passeios (consulta-mamangua).
   const passeiosDoc = await (await pegar("/passeios")).text();
-  checar("E26 Mamanguá em /passeios: 3 fotos do Wikimedia Commons com crédito", ["mamangua-vista-pico", "mamangua-barco", "mamangua-pao-de-acucar"].every(s => passeiosDoc.includes(s)) && passeiosDoc.includes("Wikimedia Commons") && passeiosDoc.includes("CC BY-SA 3.0"));
+  // 26/10/2026: as 3 fotos do Wikimedia saíram (fotos novas do Lucas); o crédito sai do cartão junto com elas.
+  const cartaoMamangua = passeiosDoc.slice(passeiosDoc.indexOf('id="consulta-mamangua"'), passeiosDoc.indexOf('id="consulta-fishing"'));
+  checar("E26 Mamanguá em /passeios: 3 fotos do Lucas, sem as do Wikimedia nem o crédito delas no cartão", ["mamangua-igreja-paraty-mirim", "mamangua-praia-cruzeiro", "mamangua-pao-de-acucar-lucas"].every(s => cartaoMamangua.includes(s)) && !/mamangua-(vista-pico|barco)/.test(cartaoMamangua) && !cartaoMamangua.includes("Ygaray"));
 
   // Parapente em /passeios: cartão com Reservar voo e Ver detalhes.
   checar("E26 parapente em /passeios: cartão com \"Reservar voo\" e \"Ver detalhes\"", passeiosDoc.includes(">Reservar voo<") && /href="\/voo-de-parapente">Ver detalhes</.test(passeiosDoc) && passeiosDoc.includes('href="/reservar?plano=parapente"'));
