@@ -233,10 +233,23 @@ localhost — grava no D1 local e confere a contagem de linhas:
 Pagamento online (Asaas, só Pix) — sem wrangler e sem rede, com Node 22.5+ (usa `node:sqlite`):
 
     node testes/testar-pagamento.mjs            # regra 30/100, webhook, saldo 12 h, cancelamento aos 15 min, reagendar/devolver (Asaas simulado)
+    node testes/testar-pagamento.mjs            # (inclui "saldo pago no local": não cancela aos 15 min, sem link automático)
     node testes/testar-pagamento-desligado.mjs  # desligado = mesmas respostas do d1ad1fc e nenhuma SQL da migração 0003
+    node testes/testar-pagamento-ui.mjs         # site (/reservar) e painel: roda os blocos <pagamento-puro> do app.js e
+                                                # <painel-pagamento-puro> do admin.html isolados, sem navegador
 
-Para publicar e para ligar o pagamento: variáveis, migração 0003, webhook e agendador estão nos comentários do
-`_worker.js` (seção do pagamento) e no roteiro `scripts/roteiro-sandbox.sh` (só imprime).
+Como fica com a flag ligada (`PAGAMENTO_ONLINE=1` + `ASAAS_API_KEY` + `ASAAS_WEBHOOK_TOKEN`):
+- Site `/reservar` (passeios com saída fixa: Essencial, Adventure, Boat): passo "Pagamento" — sinal 30% ou 100% para
+  outro dia, só 100% no mesmo dia, só Pix. Os valores vêm do servidor; o cliente vai para o checkout do Asaas e volta em
+  `/reservar?pagamento=<ref>`, que acompanha o status. Horário sem tempo de pagar fica desativado. Parapente continua
+  no WhatsApp (`PENDENTE-LUCAS`).
+- Painel `/admin` → Reservas: colunas Modalidade, Pago, Saldo e Cobrança; alerta de "pago sem vaga"; indicadores de
+  sinal retido, devolução por fora e saldo sem tempo; botões "gerar link do saldo" (só mostra e copia — o painel não
+  envia nada), "saldo pago no local" (com confirmação), "reagendar" (dia/horário com vaga) e "devolver" (estorno Pix).
+- Com a flag desligada, site e painel ficam iguais a hoje (o painel funciona sem a migração 0003).
+
+Para publicar e para ligar o pagamento: variáveis, migração 0003 (não há 0004), webhook e agendador estão nos
+comentários do `_worker.js` (seção do pagamento) e no roteiro `scripts/roteiro-sandbox.sh` (só imprime).
 
 (`testar-api` tem ~250 verificações: portão dos POST, limite por IP, Turnstile, idempotência, painel com JWT de teste,
 `/api/csp-report`, redirecionamento de domínio.) Se rodar `testar-api` duas vezes em menos de 1 minuto, o worker
