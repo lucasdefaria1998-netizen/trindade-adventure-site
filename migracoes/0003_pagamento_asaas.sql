@@ -1,4 +1,5 @@
--- Pagamento online das trilhas guiadas pelo Asaas (30% ou 100% em outro dia; 100% no mesmo dia).
+-- Pagamento online pelo Asaas, só Pix, de todos os passeios com preço e horário fixos (30% ou 100% em outro dia;
+-- 100% no mesmo dia).
 -- NÃO APLICADA EM PRODUÇÃO. O _worker.js aplica isto sozinho, uma vez, mas SÓ quando o pagamento
 -- online está ligado (PAGAMENTO_ONLINE=1 + ASAAS_API_KEY + ASAAS_WEBHOOK_TOKEN). Para aplicar à mão
 -- antes de ligar, se preferir:
@@ -8,7 +9,8 @@
 -- Nenhuma linha existente é alterada: reservas antigas ficam com as colunas novas vazias (fluxo de
 -- sempre, confirmadas pela operação no WhatsApp).
 ALTER TABLE reservas ADD COLUMN pagamento_modalidade TEXT;  -- 'sinal' (30%) | 'integral' (100%) | vazio = sem pagamento online
-ALTER TABLE reservas ADD COLUMN pagamento_status TEXT;      -- 'aguardando' | 'sinal_pago' | 'quitado' | 'pago_sem_vaga' | 'falha_asaas'
+ALTER TABLE reservas ADD COLUMN pagamento_status TEXT;      -- 'aguardando' | 'sinal_pago' | 'quitado' | 'sinal_retido' (cancelada sem saldo, sinal fica com a empresa)
+                                                            -- | 'pago_sem_vaga' | 'devolucao_solicitada' | 'devolucao_manual' | 'falha_asaas'
 
 -- Um link de pagamento (Checkout do Asaas) por linha.
 CREATE TABLE IF NOT EXISTS cobrancas (
@@ -22,7 +24,8 @@ CREATE TABLE IF NOT EXISTS cobrancas (
   status TEXT NOT NULL DEFAULT 'aguardando', -- 'aguardando' | 'paga' | 'expirada' | 'cancelada'
   criado_em TEXT NOT NULL,
   expira_em TEXT,
-  pago_em TEXT
+  pago_em TEXT,
+  estorno TEXT                              -- vazio | 'solicitado' (estorno pedido ao Asaas) | 'falhou' (devolver por fora)
 );
 CREATE INDEX IF NOT EXISTS idx_cobrancas_reserva ON cobrancas (reserva_id);
 
