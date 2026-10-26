@@ -230,6 +230,14 @@ localhost — grava no D1 local e confere a contagem de linhas:
     node testes/testar-api.mjs
     node testes/check-versao.mjs
 
+Pagamento online (Asaas, só Pix) — sem wrangler e sem rede, com Node 22.5+ (usa `node:sqlite`):
+
+    node testes/testar-pagamento.mjs            # regra 30/100, webhook, saldo 12 h, cancelamento aos 15 min, reagendar/devolver (Asaas simulado)
+    node testes/testar-pagamento-desligado.mjs  # desligado = mesmas respostas do d1ad1fc e nenhuma SQL da migração 0003
+
+Para publicar e para ligar o pagamento: variáveis, migração 0003, webhook e agendador estão nos comentários do
+`_worker.js` (seção do pagamento) e no roteiro `scripts/roteiro-sandbox.sh` (só imprime).
+
 (`testar-api` tem ~250 verificações: portão dos POST, limite por IP, Turnstile, idempotência, painel com JWT de teste,
 `/api/csp-report`, redirecionamento de domínio.) Se rodar `testar-api` duas vezes em menos de 1 minuto, o worker
 ainda guarda os certificados de teste da rodada anterior (por até 60 s) e as chamadas do painel falham: espere.
