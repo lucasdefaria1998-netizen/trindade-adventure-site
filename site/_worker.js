@@ -686,6 +686,8 @@ async function rotearAPI(request, env, url) {
     if (p === "/api/admin/reservas" && metodo === "POST") return adminCriarReserva(request, env);
     if (p.match(/^\/api\/admin\/reservas\/[\w-]+\/saldo$/) && metodo === "POST")
       return adminLinkSaldo(request, env, p.split("/")[4]);
+    if (p.match(/^\/api\/admin\/reservas\/[\w-]+\/saldo-local$/) && metodo === "POST")
+      return adminSaldoNoLocal(env, p.split("/")[4]);
     if (p.match(/^\/api\/admin\/reservas\/[\w-]+\/reagendar$/) && metodo === "POST")
       return adminReagendar(request, env, p.split("/")[4]);
     if (p.match(/^\/api\/admin\/reservas\/[\w-]+\/devolver$/) && metodo === "POST")
@@ -1691,7 +1693,7 @@ async function statusDoPagamento(request, env, url) {
   };
   if (status === "pago") {
     const pago = await env.DB.prepare(SQL_PAGO_CENTAVOS).bind(c.reserva_id).first();
-    resp.saldo = Math.max(0, Math.round(Number(c.total) * 100) - Number(pago.pago)) / 100;
+    resp.saldo = c.pagamento_status === "saldo_no_local" ? 0 : Math.max(0, Math.round(Number(c.total) * 100) - Number(pago.pago)) / 100;
     resp.confirmada = c.reserva_status === "confirmada";
     if (resp.confirmada) resp.codigo = c.codigo;
     // Situação da reserva depois do pagamento (sem prazo nem dado interno): o site mostra a mensagem certa.
@@ -1762,7 +1764,7 @@ async function registrarPagamento(env, cob) {
       await env.DB.prepare("UPDATE reservas SET pagamento_status = 'quitado', atualizado_em = ?1 WHERE id = ?2").bind(agoraISO, r.id).run();
     return;
   }
-  if (["sinal_pago", "quitado", "sinal_retido", ...SITUACAO_SEM_VAGA].includes(r.pagamento_status)) return; // já processado
+  if (["sinal_pago", "quitado", "sinal_retido", "saldo_no_local", ...SITUACAO_SEM_VAGA].includes(r.pagamento_status)) return; // já processado
   const novo = cob.tipo === "integral" ? "quitado" : "sinal_pago";
   const cfg = await lerConfig(env);
   const conf = await env.DB.prepare(SQL_CONFIRMAR_PAGA).bind(r.id, novo, agoraISO, cfg.capacidade).run();
@@ -1910,6 +1912,28 @@ async function rotaTarefasPagamento(request, env) {
 
 /* ------------------------------ pago sem vaga: reagendar ou devolver ------------------------------
    O cliente escolhe (decisão do Lucas); a equipe executa pelo painel. */
+
+/* POST /api/admin/reservas/:id/saldo-local — o cliente pagou o saldo no local (balcão/maquininha/Pix direto).
+   Só marca: pagamento_status 'saldo_no_local' (valor novo na coluna da 0003, sem migração nova). Como a
+   tarefa de 15 min (cancelarSaldosVencidos) e o link automático (gerarSaldosAutomaticos) só pegam
+   'sinal_pago', a reserva sai dos dois; o link do saldo pelo painel também passa a ser recusado.
+   Quando: atualizado_em. Quem: não é gravado — não há coluna nem padrão de "quem fez" nas reservas
+   (fica como dúvida para o Lucas). Sem valor parcial, sem recibo, sem aviso ao cliente. */
+async function adminSaldoNoLocal(env, id) {
+  if (!pagamentoOnlineAtivo(env)) return erro("Pagamento online desligado.", 409);
+  await garantirEsquemaPagamento(env);
+  const agoraISO = new Date().toISOString();
+  const r = await env.DB.prepare(
+    "UPDATE reservas SET pagamento_status = 'saldo_no_local', atualizado_em = ?2 " +
+    "WHERE id = ?1 AND status = 'confirmada' AND pagamento_status = 'sinal_pago'"
+  ).bind(id, agoraISO).run();
+  if (!r.meta.changes) {
+    const existe = await env.DB.prepare("SELECT 1 FROM reservas WHERE id = ?1").bind(id).first();
+    if (!existe) return erro("Reserva não encontrada.", 404);
+    return erro("Só reserva confirmada com sinal pago (e saldo em aberto) pode ter o saldo marcado como pago no local.", 409);
+  }
+  return ok({ ok: true, pagamentoStatus: "saldo_no_local", em: agoraISO });
+}
 
 // POST /api/admin/reservas/:id/reagendar {data, hora} — move para outro horário COM vaga, mantendo o pagamento.
 async function adminReagendar(request, env, id) {

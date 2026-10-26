@@ -150,6 +150,10 @@ const retido = A.linha(R({ status: "cancelada", pagamento_modalidade: "sinal", p
 checar("G1  cancelada por saldo não pago: indicador 'sinal retido', sem ações", retido.status === "sinal retido" && retido.alertas.some(x => /sinal retido/.test(x.texto)) && !retido.acoes.saldo && !retido.acoes.devolver && !retido.acoes.reagendar);
 const manual = A.linha(R({ status: "cancelada", pagamento_modalidade: "integral", pagamento_status: "devolucao_manual", pago_centavos: 16000 }));
 checar("G1  devolucao_manual: indicador 'devolver por fora' e botão para tentar de novo", manual.status === "devolver por fora" && manual.acoes.devolver && manual.alertas.some(x => /por fora/.test(x.texto)));
+const local = A.linha(R({ pagamento_modalidade: "sinal", pagamento_status: "saldo_no_local", pago_centavos: 4800 }));
+checar("G1  saldo pago no local: saldo R$ 0, sem botões de saldo", local.status === "saldo pago no local" && local.saldo === "R$ 0" && !local.acoes.saldo && !local.acoes.saldoLocal);
+checar("G1  botão 'saldo pago no local' só com confirmada + sinal pago (inclusive quando já não dá tempo do link)", sinal.acoes.saldoLocal && semTempo.acoes.saldoLocal && !quit.acoes.saldoLocal && !A.linha(R({ status: "pendente", pagamento_modalidade: "sinal", pagamento_status: "sinal_pago" })).acoes.saldoLocal);
+checar("G3  'saldo pago no local' pede confirmação antes de chamar o servidor", /if \(!confirm\("Marcar o saldo de "/.test(adminSrc) && /\/saldo-local"/.test(adminSrc));
 const antiga = A.linha(R({ pagamento_modalidade: null, pagamento_status: null }));
 checar("G1  reserva sem pagamento online (WhatsApp/balcão): colunas '—' e nenhum botão novo", antiga.modalidade === "—" && antiga.pago === "—" && antiga.saldo === "—" && !antiga.acoes.saldo && !antiga.acoes.reagendar && !antiga.acoes.devolver);
 const disp = { ok: true, grade: { "8": { restam: 5, bloqueado: false }, "9": { restam: 1, bloqueado: false }, "10": { restam: 20, bloqueado: true }, "8.5": { restam: 9, bloqueado: false } }, horariosPorPlano: { essencial: [8, 9, 10], boat: [8.5, 11] } };

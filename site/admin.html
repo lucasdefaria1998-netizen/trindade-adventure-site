@@ -339,6 +339,7 @@ async function carregarReservas() {
     const r = d.reservas.find(x => x.id === btn.dataset.id);
     if (!r) return;
     if (btn.dataset.pg === "saldo") gerarLinkSaldo(r);
+    if (btn.dataset.pg === "saldo-local") saldoNoLocal(r);
     if (btn.dataset.pg === "reagendar") reagendar(r);
     if (btn.dataset.pg === "devolver") devolver(r);
   }));
@@ -361,7 +362,7 @@ const PainelPagamento = (() => {
   const STATUS = {
     aguardando: "aguardando Pix", sinal_pago: "sinal pago", quitado: "quitado", sinal_retido: "sinal retido",
     pago_sem_vaga: "pago sem vaga", devolucao_solicitada: "devolução pedida", devolucao_manual: "devolver por fora",
-    falha_asaas: "falha no Asaas"
+    falha_asaas: "falha no Asaas", saldo_no_local: "saldo pago no local"
   };
   const COBRANCA = { aguardando: "link aberto", paga: "paga", expirada: "expirou", cancelada: "cancelada" };
   const TIPO = { sinal: "sinal", integral: "integral", saldo: "saldo" };
@@ -373,7 +374,7 @@ const PainelPagamento = (() => {
     const totalC = Math.round(Number(r.total || 0) * 100);
     const pagoC = Math.max(0, Number(r.pago_centavos || 0));
     const st = r.pagamento_status || "";
-    const saldoC = st === "sinal_pago" ? Math.max(0, totalC - pagoC) : st === "quitado" ? 0 : null;
+    const saldoC = st === "sinal_pago" ? Math.max(0, totalC - pagoC) : st === "quitado" || st === "saldo_no_local" ? 0 : null;
     const alertas = [];
     if (st === "pago_sem_vaga") alertas.push({ tipo: "erro", texto: "Pagou e ficou sem vaga: reagende ou devolva." });
     if (st === "sinal_retido") alertas.push({ tipo: "aviso", texto: "Cancelada: saldo não pago até 15 min antes da saída (sinal retido)." });
@@ -389,6 +390,7 @@ const PainelPagamento = (() => {
       alertas,
       acoes: {
         saldo: r.status === "confirmada" && st === "sinal_pago" && !r.saldo_sem_tempo,
+        saldoLocal: r.status === "confirmada" && st === "sinal_pago",
         reagendar: st === "pago_sem_vaga",
         devolver: st === "pago_sem_vaga" || st === "devolucao_manual"
       }
@@ -412,7 +414,7 @@ const PainelPagamento = (() => {
 function colunasPagamento(r) {
   const l = PainelPagamento.linha(r);
   return "<td>" + esc(l.modalidade) + '</td><td style="white-space:nowrap">' + esc(l.pago) + '</td><td style="white-space:nowrap">' + esc(l.saldo) + "</td><td>" +
-    (l.status ? '<span class="pill ' + (l.alertas.some(a => a.tipo === "erro") ? "cancelada" : l.status === "quitado" || l.status === "sinal pago" ? "confirmada" : "pendente") + '">' + esc(l.status) + "</span><br>" : "") +
+    (l.status ? '<span class="pill ' + (l.alertas.some(a => a.tipo === "erro") ? "cancelada" : l.status === "quitado" || l.status === "sinal pago" || l.status === "saldo pago no local" ? "confirmada" : "pendente") + '">' + esc(l.status) + "</span><br>" : "") +
     '<span style="font-size:11px;color:var(--muted)">' + esc(l.cobranca) + "</span>" +
     l.alertas.map(a => '<br><span style="font-size:11px;color:var(' + (a.tipo === "erro" ? "--bad" : "--warn") + ')">⚠ ' + esc(a.texto) + "</span>").join("") +
     "</td>";
@@ -421,6 +423,7 @@ function colunasPagamento(r) {
 function acoesPagamento(r) {
   const a = PainelPagamento.linha(r).acoes, b = [];
   if (a.saldo) b.push('<button class="btn sm" data-pg="saldo" data-id="' + esc(r.id) + '">gerar link do saldo</button>');
+  if (a.saldoLocal) b.push('<button class="btn sm" data-pg="saldo-local" data-id="' + esc(r.id) + '">saldo pago no local</button>');
   if (a.reagendar) b.push('<button class="btn sm" data-pg="reagendar" data-id="' + esc(r.id) + '">reagendar</button>');
   if (a.devolver) b.push('<button class="btn sm danger" data-pg="devolver" data-id="' + esc(r.id) + '">' + (r.pagamento_status === "devolucao_manual" ? "tentar devolver de novo" : "devolver") + "</button>");
   return b.join("");
@@ -501,6 +504,16 @@ function reagendar(r) {
     } catch (e) { $("#rgMsg").textContent = e.message; carregarHoras(); }
   };
   carregarHoras();
+}
+
+async function saldoNoLocal(r) {
+  const l = PainelPagamento.linha(r);
+  if (!confirm("Marcar o saldo de " + l.saldo + " da reserva " + (r.codigo || "") + " como pago no local?\nA reserva deixa de ser cancelada aos 15 min e não recebe mais link de saldo.")) return;
+  try {
+    await api("/reservas/" + encodeURIComponent(r.id) + "/saldo-local", { method: "POST", body: "{}" });
+    aviso("Saldo marcado como pago no local.");
+  } catch (e) { aviso("Falhou: " + esc(e.message), true); }
+  carregarReservas();
 }
 
 async function devolver(r) {

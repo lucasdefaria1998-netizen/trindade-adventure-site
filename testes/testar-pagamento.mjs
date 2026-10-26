@@ -409,6 +409,49 @@ let refT1, idT1, refT2, idT2;
   relogio("2026-10-26T13:00:00Z");
 }
 
+// ======================= saldo pago no local (painel) =======================
+{
+  relogio("2026-10-26T13:00:00Z");
+  const r = await reservar({ data: D3, hora: 12, pagamento: "sinal" });
+  const refL = r.corpo.pagamento.ref;
+  await pagar(checkoutPorRef(refL));
+  const idL = reservaPorRef(refL).id;
+  const pend = await reservar({ data: D3, hora: 12, pagamento: "sinal" }); // sinal ainda não pago
+  const idPend = reservaPorRef(pend.corpo.pagamento.ref).id;
+  checar("S1  saldo-local recusado para reserva sem sinal pago (409) e para id inexistente (404)", (await admin(`/api/admin/reservas/${idPend}/saldo-local`, "POST", {})).status === 409 && (await admin(`/api/admin/reservas/nao-existe/saldo-local`, "POST", {})).status === 404);
+  const off = await admin(`/api/admin/reservas/${idL}/saldo-local`, "POST", {}, ENV_OFF);
+  checar("S1  flag desligada: saldo-local responde 409 e não mexe na reserva", off.status === 409 && reservaPorRef(refL).pagamento_status === "sinal_pago", JSON.stringify(off));
+  const m = await admin(`/api/admin/reservas/${idL}/saldo-local`, "POST", {});
+  const depois = reservaPorRef(refL);
+  checar("S1  painel marca o saldo como pago no local (status 'saldo_no_local', quando = atualizado_em)", m.status === 200 && m.corpo.pagamentoStatus === "saldo_no_local" && depois.pagamento_status === "saldo_no_local" && depois.status === "confirmada" && depois.atualizado_em === "2026-10-26T13:00:00.000Z", JSON.stringify(m.corpo));
+  checar("S1  marcar de novo → 409 (já marcado)", (await admin(`/api/admin/reservas/${idL}/saldo-local`, "POST", {})).status === 409);
+  const ls = await admin(`/api/admin/reservas/${idL}/saldo`, "POST", {});
+  checar("S1  depois de pago no local, o painel não gera link do saldo (409)", ls.status === 409, JSON.stringify(ls));
+  asaasPedidos = [];
+  relogio("2026-10-28T03:00:00Z"); // 28/10 0h00 em Trindade: faltam 12h20 → ainda não
+  await tarefa();
+  relogio("2026-10-28T06:00:00Z"); // faltam 9h20: o automático pegaria uma reserva com sinal_pago
+  const t = await tarefa();
+  checar("S2  saldo pago no local não recebe link automático do saldo", t.status === 200 && !asaasPedidos.some(x => x.url === "/v3/checkouts") && linha("SELECT COUNT(*) AS n FROM cobrancas WHERE reserva_id = ? AND tipo = 'saldo'", idL).n === 0, JSON.stringify(t.corpo));
+  await pagar(checkoutPorRef(refL)); // o Asaas reenvia o aviso do sinal com outro id de evento
+  checar("S2  aviso repetido do sinal não volta a reserva para 'sinal_pago'", reservaPorRef(refL).pagamento_status === "saldo_no_local");
+  relogio("2026-10-28T15:05:00Z"); // 12h05: limite de quitação do horário das 12h
+  await tarefa();
+  relogio("2026-10-28T15:10:00Z");
+  await getJSON("/api/disponibilidade?data=" + D3);
+  await tarefa();
+  const fim = reservaPorRef(refL);
+  checar("S2  passado o limite de 15 min antes da saída, continua confirmada (não é cancelada)", fim.status === "confirmada" && fim.pagamento_status === "saldo_no_local", `${fim.status}/${fim.pagamento_status}`);
+  const st = await getJSON("/api/pagamento?ref=" + refL);
+  checar("S2  página de volta mostra saldo 0 para quem pagou no local", st.corpo.situacao === "confirmada" && st.corpo.saldo === 0, JSON.stringify(st.corpo));
+  const lista = await admin(`/api/admin/reservas?de=${D3}&ate=${D3}`);
+  const it = lista.corpo.reservas.find(x => x.id === idL);
+  checar("S2  painel lista 'saldo_no_local' sem indicador de saldo sem tempo", it && it.pagamento_status === "saldo_no_local" && it.saldo_sem_tempo === false, JSON.stringify(it));
+  const pc = reservaPorRef(pend.corpo.pagamento.ref);
+  checar("S2  (controle) a outra reserva, sem sinal pago, segue o fluxo normal", pc.pagamento_status !== "saldo_no_local");
+  relogio("2026-10-26T13:00:00Z");
+}
+
 // ======================= pago sem vaga: reagendar ou devolver =======================
 async function pagoSemVaga(hora) {
   relogio("2026-10-26T13:00:00Z");
