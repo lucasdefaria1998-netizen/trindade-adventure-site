@@ -94,8 +94,8 @@ a pena os três primeiros lerem o preço do `_worker.js` por uma chamada, em vez
 de repetir o número.
 
 **Telefone do WhatsApp** — `app.js`, em `CFG.whatsapp`, no formato
-`5524993337247` (55 + DDD + número, só dígitos). Troque também o texto visível
-em `index.html` (busque por `99333-7247`) e o `telephone` do bloco JSON-LD.
+`5524992073621` (55 + DDD + número, só dígitos). Troque também o texto visível
+em `index.html` (busque por `99207-3621`) e o `telephone` do bloco JSON-LD.
 
 **Horários de saída** — `app.js`, em `CFG.slotInicio` e `CFG.slotFim` (e no
 painel, Ajustes). Para um passeio com saída própria, use o campo `horarios` do

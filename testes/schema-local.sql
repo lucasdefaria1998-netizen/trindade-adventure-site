@@ -47,5 +47,5 @@ CREATE TABLE IF NOT EXISTS config (
 );
 INSERT OR IGNORE INTO config (chave, valor) VALUES
   ('capacidade','20'), ('slot_inicio','8'), ('slot_fim','15'), ('saida_apos','20'), ('cancelamento_h','12'),
-  ('proximo_codigo','1001'), ('whatsapp','5524993337247'), ('instagram','trindadeadventure'), ('cupom','TRINDADE10'),
+  ('proximo_codigo','1001'), ('whatsapp','5524992073621'), ('instagram','trindadeadventure'), ('cupom','TRINDADE10'),
   ('beneficio_instagram','Siga e receba as fotos do seu dia de passeio por lá.');
