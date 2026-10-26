@@ -829,7 +829,7 @@ const RETORNO_LIMITE_PADRAO = "18:20";
 
 // categoria "trilha" = trilha guiada: segue a regra de pagamento online 30%/100% (ver PAGAMENTO, mais abaixo).
 const PLANOS = {
-  essencial: { nome: "Trindade Essencial", preco: 70, voucher: 0, duracaoMin: 180, horarios: null, categoria: "trilha" },
+  essencial: { nome: "Trindade Essencial", preco: 80, voucher: 0, duracaoMin: 180, horarios: null, categoria: "trilha" },
   adventure: { nome: "Trindade Adventure", preco: 150, voucher: 60, duracaoMin: 360, horarios: null, categoria: "trilha" },
   // Horários fixos definidos pela operação em 24/10/2026: encontro às 8h30 OU às 11h (saída 20 min
   // depois), sem grade de hora em hora. semCorteRetorno porque a concentração das 11h + duração do

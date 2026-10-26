@@ -205,7 +205,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
       checar("T8  mensagem do WhatsApp com preço do site (R$ 150)", (j12.mensagem || "").includes("Total: R$ 150"), (j12.mensagem || "").split("\n").find(l => l.startsWith("Total")));
       const e15 = await pedir({ plano: "essencial", data: amanha, hora: 15 });
       const je = await e15.json();
-      checar("T8  POST Essencial às 15:00 continua aceito, R$ 70", e15.status === 200 && (je.mensagem || "").includes("Total: R$ 70"), `${e15.status}`);
+      checar("T8  POST Essencial às 15:00 continua aceito, R$ 80", e15.status === 200 && (je.mensagem || "").includes("Total: R$ 80"), `${e15.status}`);
       const passado = await pedir({ plano: "essencial", data: "2020-01-01", hora: 9 });
       checar("T8  POST com data passada é recusado", passado.status === 422, passado.status);
       const agoraH = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "America/Sao_Paulo", hour: "2-digit", hourCycle: "h23" }).format(new Date()));
@@ -484,7 +484,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
       if (j["@type"] === "TouristTrip") {
         // Essencial/Adventure/Boat vêm de PLANOS (com agenda); o voo de parapente vem de
         // OFERTAS_SO_WHATSAPP (sem agenda) — por isso não diz "por pessoa" na página.
-        const PRECOS = { "/passeios/essencial": ["70", " por pessoa"], "/passeios/adventure": ["150", " por pessoa"], "/passeios/boat": ["400", " por pessoa"], "/voo-de-parapente": ["350", ""] };
+        const PRECOS = { "/passeios/essencial": ["80", " por pessoa"], "/passeios/adventure": ["150", " por pessoa"], "/passeios/boat": ["400", " por pessoa"], "/voo-de-parapente": ["350", ""] };
         const [preco, unidade] = PRECOS[caminho] || [undefined, ""];
         checar(`E22 ${caminho}: TouristTrip com Offer (preço ${preco} BRL, InStock) igual ao da página`, j.offers && j.offers.price === preco && j.offers.priceCurrency === "BRL" && j.offers.availability === "https://schema.org/InStock" && j.offers.url === OFICIAL + caminho && j.provider["@id"] === OFICIAL + "/#empresa" && doc.includes("R$ " + preco + unidade), JSON.stringify(j.offers));
       }
@@ -739,7 +739,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const titulosCartoes = [...blocoCartoes.matchAll(/<h3>([^<]+)<\/h3>/g)].map(m => m[1]);
   checar("E26 3 cartões, na ordem Essencial, Adventure, Boat", titulosCartoes.join(",") === "Trindade Essencial,Trindade Adventure,Trindade Boat", titulosCartoes.join(","));
   checar("E26 Adventure com o selo \"Mais completo\"", /Trindade Adventure[\s\S]*?Mais completo|Mais completo[\s\S]{0,400}Trindade Adventure/.test(blocoCartoes));
-  for (const [plano, preco] of [["essencial", "70"], ["adventure", "150"], ["boat", "400"]]) {
+  for (const [plano, preco] of [["essencial", "80"], ["adventure", "150"], ["boat", "400"]]) {
     checar(`E26 cartão ${plano}: Reservar → /reservar?plano=${plano} e preço R$ ${preco}`, blocoCartoes.includes(`href="/reservar?plano=${plano}"`) && blocoCartoes.includes(`R$ ${preco}`));
   }
   checar("E26 WhatsApp dos 3 cartões pede Data e Pessoas", (blocoCartoes.match(/data-wa="[^"]*Data: ___ · Pessoas: ___/g) || []).length === 3);

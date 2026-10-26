@@ -60,7 +60,7 @@ const CFG = {
    ligarReserva(). Não existe um campo "pede peso" à parte: hoje só o
    parapente tem soWhatsApp, e é esse mesmo flag que mostra o campo de peso. */
 const PLANOS = [
-  { id:"essencial", nome:"Trindade Essencial", preco:70,  voucher:0,  dur:"≈ 3h", duracaoMin:180, horarios:null,
+  { id:"essencial", nome:"Trindade Essencial", preco:80,  voucher:0,  dur:"≈ 3h", duracaoMin:180, horarios:null,
     resumo:"Trilha guiada pela Mata Atlântica até a piscina natural do Cachadaço, com água mineral." },
   { id:"adventure", nome:"Trindade Adventure", preco:150, voucher:60, dur:"≈ 6h", duracaoMin:360, horarios:null,
     resumo:"Mergulho de snorkel na piscina natural, Pedra que Engole, água mineral e almoço." },
