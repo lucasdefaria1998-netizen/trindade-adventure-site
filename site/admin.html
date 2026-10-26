@@ -303,20 +303,29 @@ async function carregarReservas() {
   try { d = await api("/reservas?" + qs.toString()); } catch (e) { return aviso("Erro: " + e.message, true); }
 
   const t = $("#tabelaReservas");
+  // Pagamento online ligado (o servidor diz): alerta de pago sem vaga + colunas e botões de pagamento.
+  const pg = d.pagamentoOnline === true;
+  if (pg) {
+    let caixa = $("#alertasPagamento");
+    if (!caixa) { caixa = document.createElement("div"); caixa.id = "alertasPagamento"; t.closest(".scroll-x").before(caixa); }
+    caixa.innerHTML = alertaPagoSemVaga(d.reservas);
+  }
   if (!d.reservas.length) { t.innerHTML = '<tbody><tr><td class="vazio">Nada encontrado.</td></tr></tbody>'; return; }
 
   t.innerHTML =
-    "<thead><tr><th>Data</th><th>Hora</th><th>Código</th><th>Cliente</th><th>Contato</th><th>Passeio</th><th>Pax</th><th>Total</th><th>Origem</th><th>Status</th><th></th></tr></thead><tbody>" +
+    "<thead><tr><th>Data</th><th>Hora</th><th>Código</th><th>Cliente</th><th>Contato</th><th>Passeio</th><th>Pax</th><th>Total</th>" +
+    (pg ? "<th>Modalidade</th><th>Pago</th><th>Saldo</th><th>Cobrança</th>" : "") +
+    "<th>Origem</th><th>Status</th><th></th></tr></thead><tbody>" +
     d.reservas.map(r => {
       const orig = r.origem === "outro" && r.como_conheceu ? r.como_conheceu : (r.origem || "—");
       const ig = r.instagram_cliente ? '<br><span style="color:var(--gold)">@' + esc(r.instagram_cliente) + (r.seguiu_instagram ? " ✓" : "") + "</span>" : "";
       return "<tr><td>" + dataBR(r.data) + "</td><td>" + hLabel(r.hora) + "</td><td>" + r.codigo +
         "</td><td>" + esc(r.nome) + ig + "</td><td>" + esc(r.telefone || "—") +
         (r.email ? "<br>" + esc(r.email) : "") + "</td><td>" + esc(nomePlano(r.plano)) +
-        "</td><td>" + r.pax + "</td><td>" + money(r.total) + "</td><td>" + esc(orig) +
+        "</td><td>" + r.pax + "</td><td>" + money(r.total) + "</td>" + (pg ? colunasPagamento(r) : "") + "<td>" + esc(orig) +
         '</td><td><span class="pill ' + r.status + '">' + rotStatus(r.status) + "</span></td><td>" +
-        acoesReserva(r) + "</td></tr>" +
-        (r.obs ? '<tr><td colspan="11" style="color:var(--muted);font-size:11px;padding-top:0">obs: ' + esc(r.obs) + "</td></tr>" : "");
+        (pg ? acoesReserva(r).replace(/<\/div>$/, acoesPagamento(r) + "</div>") : acoesReserva(r)) + "</td></tr>" +
+        (r.obs ? '<tr><td colspan="' + (pg ? 15 : 11) + '" style="color:var(--muted);font-size:11px;padding-top:0">obs: ' + esc(r.obs) + "</td></tr>" : "");
     }).join("") + "</tbody>";
 
   $$("#tabelaReservas [data-acao]").forEach(btn => btn.addEventListener("click", async () => {
@@ -326,6 +335,13 @@ async function carregarReservas() {
       carregarReservas();
     } catch (e) { aviso("Falhou: " + e.message, true); }
   }));
+  if (pg) $$("#tabelaReservas [data-pg]").forEach(btn => btn.addEventListener("click", () => {
+    const r = d.reservas.find(x => x.id === btn.dataset.id);
+    if (!r) return;
+    if (btn.dataset.pg === "saldo") gerarLinkSaldo(r);
+    if (btn.dataset.pg === "reagendar") reagendar(r);
+    if (btn.dataset.pg === "devolver") devolver(r);
+  }));
 }
 
 function acoesReserva(r) {
@@ -334,6 +350,167 @@ function acoesReserva(r) {
   if (r.status !== "nao_compareceu" && r.status !== "cancelada") b.push('<button class="btn sm" data-acao="nao_compareceu" data-id="' + r.id + '">faltou</button>');
   if (r.status !== "cancelada") b.push('<button class="btn sm danger" data-acao="cancelada" data-id="' + r.id + '">cancelar</button>');
   return '<div class="acoes">' + b.join("") + "</div>";
+}
+
+/* ------- PAGAMENTO ONLINE (Asaas, só Pix) — Sessão 3 -------
+   Só aparece quando /api/admin/reservas responde "pagamentoOnline: true" (flag ligada). Com a flag
+   desligada a resposta é a de sempre e a tabela fica igual: nada daqui é desenhado. */
+/* <painel-pagamento-puro> — sem DOM; testes/testar-pagamento-ui.mjs roda este trecho isolado. */
+const PainelPagamento = (() => {
+  const MODALIDADE = { sinal: "sinal 30%", integral: "integral" };
+  const STATUS = {
+    aguardando: "aguardando Pix", sinal_pago: "sinal pago", quitado: "quitado", sinal_retido: "sinal retido",
+    pago_sem_vaga: "pago sem vaga", devolucao_solicitada: "devolução pedida", devolucao_manual: "devolver por fora",
+    falha_asaas: "falha no Asaas"
+  };
+  const COBRANCA = { aguardando: "link aberto", paga: "paga", expirada: "expirou", cancelada: "cancelada" };
+  const TIPO = { sinal: "sinal", integral: "integral", saldo: "saldo" };
+  const reais = c => "R$ " + (c % 100 ? (c / 100).toFixed(2).replace(".", ",") : String(c / 100).replace(/\B(?=(\d{3})+(?!\d))/g, "."));
+
+  // Uma linha da tabela: o que mostrar e quais botões cabem.
+  function linha(r) {
+    const online = !!r.pagamento_modalidade;
+    const totalC = Math.round(Number(r.total || 0) * 100);
+    const pagoC = Math.max(0, Number(r.pago_centavos || 0));
+    const st = r.pagamento_status || "";
+    const saldoC = st === "sinal_pago" ? Math.max(0, totalC - pagoC) : st === "quitado" ? 0 : null;
+    const alertas = [];
+    if (st === "pago_sem_vaga") alertas.push({ tipo: "erro", texto: "Pagou e ficou sem vaga: reagende ou devolva." });
+    if (st === "sinal_retido") alertas.push({ tipo: "aviso", texto: "Cancelada: saldo não pago até 15 min antes da saída (sinal retido)." });
+    if (st === "devolucao_manual") alertas.push({ tipo: "erro", texto: "O Asaas não fez o estorno: devolva por fora (Pix manual) ou tente de novo." });
+    if (r.saldo_sem_tempo) alertas.push({ tipo: "aviso", texto: "Sinal confirmado tarde: não dá mais tempo para o link do saldo." });
+    return {
+      online,
+      modalidade: online ? (MODALIDADE[r.pagamento_modalidade] || r.pagamento_modalidade) : "—",
+      pago: online ? reais(pagoC) : "—",
+      saldo: saldoC === null ? "—" : reais(saldoC),
+      status: online ? (STATUS[st] || st || "—") : "",
+      cobranca: r.cobranca_tipo ? (TIPO[r.cobranca_tipo] || r.cobranca_tipo) + ": " + (COBRANCA[r.cobranca_status] || r.cobranca_status || "—") : "—",
+      alertas,
+      acoes: {
+        saldo: r.status === "confirmada" && st === "sinal_pago" && !r.saldo_sem_tempo,
+        reagendar: st === "pago_sem_vaga",
+        devolver: st === "pago_sem_vaga" || st === "devolucao_manual"
+      }
+    };
+  }
+
+  // Horários que servem para reagendar: os do passeio, sem bloqueio e com vaga para todo o grupo.
+  function horariosLivres(disp, plano, pax) {
+    if (!disp || !disp.ok || !disp.grade) return [];
+    const lista = (disp.horariosPorPlano && disp.horariosPorPlano[plano]) || [];
+    return lista.map(Number).filter(h => {
+      const s = disp.grade[String(h)];
+      return s && !s.bloqueado && Number(s.restam) >= Number(pax);
+    });
+  }
+
+  return { linha, horariosLivres, reais, STATUS };
+})();
+/* </painel-pagamento-puro> */
+
+function colunasPagamento(r) {
+  const l = PainelPagamento.linha(r);
+  return "<td>" + esc(l.modalidade) + '</td><td style="white-space:nowrap">' + esc(l.pago) + '</td><td style="white-space:nowrap">' + esc(l.saldo) + "</td><td>" +
+    (l.status ? '<span class="pill ' + (l.alertas.some(a => a.tipo === "erro") ? "cancelada" : l.status === "quitado" || l.status === "sinal pago" ? "confirmada" : "pendente") + '">' + esc(l.status) + "</span><br>" : "") +
+    '<span style="font-size:11px;color:var(--muted)">' + esc(l.cobranca) + "</span>" +
+    l.alertas.map(a => '<br><span style="font-size:11px;color:var(' + (a.tipo === "erro" ? "--bad" : "--warn") + ')">⚠ ' + esc(a.texto) + "</span>").join("") +
+    "</td>";
+}
+
+function acoesPagamento(r) {
+  const a = PainelPagamento.linha(r).acoes, b = [];
+  if (a.saldo) b.push('<button class="btn sm" data-pg="saldo" data-id="' + esc(r.id) + '">gerar link do saldo</button>');
+  if (a.reagendar) b.push('<button class="btn sm" data-pg="reagendar" data-id="' + esc(r.id) + '">reagendar</button>');
+  if (a.devolver) b.push('<button class="btn sm danger" data-pg="devolver" data-id="' + esc(r.id) + '">' + (r.pagamento_status === "devolucao_manual" ? "tentar devolver de novo" : "devolver") + "</button>");
+  return b.join("");
+}
+
+function alertaPagoSemVaga(reservas) {
+  const n = reservas.filter(r => r.pagamento_status === "pago_sem_vaga").length;
+  const m = reservas.filter(r => r.pagamento_status === "devolucao_manual").length;
+  const partes = [];
+  if (n) partes.push(n + (n > 1 ? " reservas pagas ficaram" : " reserva paga ficou") + " sem vaga: reagende ou devolva e avise o cliente (a página de retorno diz a ele que a equipe vai entrar em contato).");
+  if (m) partes.push(m + (m > 1 ? " devoluções precisam" : " devolução precisa") + " ser feita por fora (o Asaas recusou o estorno).");
+  return partes.length ? '<div class="msg erro" role="alert">' + partes.map(esc).join("<br>") + "</div>" : "";
+}
+
+function dialogoPagamento(html) {
+  let d = $("#dlgPagamento");
+  if (!d) {
+    d = document.createElement("dialog");
+    d.id = "dlgPagamento";
+    d.setAttribute("aria-labelledby", "dlgPagamentoTitulo");
+    document.body.appendChild(d);
+  }
+  d.innerHTML = html;
+  d.showModal();
+  return d;
+}
+
+async function gerarLinkSaldo(r) {
+  let j;
+  try { j = await api("/reservas/" + encodeURIComponent(r.id) + "/saldo", { method: "POST", body: "{}" }); }
+  catch (e) { return aviso("Falhou: " + esc(e.message), true); }
+  const expira = j.expiraEm ? new Date(j.expiraEm).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }) : "";
+  const d = dialogoPagamento(
+    '<h3 id="dlgPagamentoTitulo" style="font-size:15px;margin-bottom:8px">Link do saldo — ' + esc(r.codigo || "") + "</h3>" +
+    '<p style="font-size:12.5px;margin:0 0 10px">' + esc(money(j.valor)) + " · vale até " + esc(expira) + (j.repetido ? " · mesmo link já gerado antes" : "") + "</p>" +
+    '<label style="font-size:12px">Link (envie ao cliente pelo WhatsApp — o painel não envia nada)' +
+    '<input id="pgLink" readonly style="width:100%;margin-top:4px;padding:7px;font-family:var(--mono);font-size:11px" value="' + esc(j.link) + '"></label>' +
+    '<div class="acoes" style="margin-top:14px;justify-content:flex-end"><button class="btn sm" id="pgFechar">Fechar</button><button class="btn primary sm" id="pgCopiar">Copiar link</button></div>');
+  $("#pgFechar").onclick = () => d.close();
+  $("#pgCopiar").onclick = async () => {
+    const campo = $("#pgLink");
+    try { await navigator.clipboard.writeText(campo.value); }
+    catch (e) { campo.select(); document.execCommand("copy"); }
+    $("#pgCopiar").textContent = "Copiado";
+  };
+  $("#pgLink").focus(); $("#pgLink").select();
+  carregarReservas();
+}
+
+function reagendar(r) {
+  const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const d = dialogoPagamento(
+    '<h3 id="dlgPagamentoTitulo" style="font-size:15px;margin-bottom:8px">Reagendar ' + esc(r.codigo || "") + " — " + esc(nomePlano(r.plano)) + ", " + esc(String(r.pax)) + " pax</h3>" +
+    '<p style="font-size:12px;color:var(--muted);margin:0 0 10px">Escolha um dia e um horário com vaga. O pagamento continua o mesmo.</p>' +
+    '<div class="grade-form"><label>Data <input type="date" id="rgData" min="' + hoje + '" value="' + esc(r.data >= hoje ? r.data : hoje) + '"></label>' +
+    '<label>Horário <select id="rgHora"></select></label></div>' +
+    '<p id="rgMsg" style="font-size:12px;color:var(--muted);margin:8px 0 0" aria-live="polite"></p>' +
+    '<div class="acoes" style="margin-top:14px;justify-content:flex-end"><button class="btn sm" id="rgCancelar">Cancelar</button><button class="btn primary sm" id="rgSalvar" disabled>Reagendar</button></div>');
+  const carregarHoras = async () => {
+    $("#rgSalvar").disabled = true; $("#rgHora").innerHTML = ""; $("#rgMsg").textContent = "Carregando vagas…";
+    const data = $("#rgData").value;
+    let disp = null;
+    try { const resp = await fetch("/api/disponibilidade?data=" + encodeURIComponent(data)); disp = await resp.json(); } catch (e) { disp = null; }
+    const horas = PainelPagamento.horariosLivres(disp, r.plano, r.pax);
+    $("#rgHora").innerHTML = horas.map(h => '<option value="' + h + '">' + hLabel(h) + " (" + disp.grade[String(h)].restam + " vagas)</option>").join("");
+    $("#rgMsg").textContent = horas.length ? "" : (disp && disp.ok ? "Nenhum horário com vaga para " + r.pax + " pessoa(s) nesse dia." : "Não consegui ler as vagas desse dia.");
+    $("#rgSalvar").disabled = !horas.length;
+  };
+  $("#rgData").onchange = carregarHoras;
+  $("#rgCancelar").onclick = () => d.close();
+  $("#rgSalvar").onclick = async () => {
+    try {
+      const j = await api("/reservas/" + encodeURIComponent(r.id) + "/reagendar", { method: "POST", body: JSON.stringify({ data: $("#rgData").value, hora: Number($("#rgHora").value) }) });
+      if (!j.ok) { $("#rgMsg").textContent = Object.values(j.erros || {}).join(" ") || "Não foi possível reagendar."; return; }
+      d.close();
+      aviso("Reserva reagendada para " + esc(dataBR(j.data)) + " " + esc(hLabel(j.hora)) + ". Avise o cliente.");
+      carregarReservas();
+    } catch (e) { $("#rgMsg").textContent = e.message; carregarHoras(); }
+  };
+  carregarHoras();
+}
+
+async function devolver(r) {
+  const pagoC = Math.max(0, Number(r.pago_centavos || 0));
+  if (!confirm("Devolver " + PainelPagamento.reais(pagoC) + " por Pix (estorno integral pelo Asaas) da reserva " + (r.codigo || "") + "?\nA reserva será cancelada. Não dá para desfazer.")) return;
+  try {
+    await api("/reservas/" + encodeURIComponent(r.id) + "/devolver", { method: "POST", body: "{}" });
+    aviso("Devolução pedida ao Asaas. Avise o cliente.");
+  } catch (e) { aviso("Falhou: " + esc(e.message), true); }
+  carregarReservas();
 }
 
 $("#fAplicar").addEventListener("click", carregarReservas);

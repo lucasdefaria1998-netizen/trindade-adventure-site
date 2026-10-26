@@ -1413,7 +1413,7 @@ function pagamentoOnlineAtivo(env) {
    "mesmo dia × outro dia" por horário, limite de 15 min, link do saldo 12 h antes nem cancelamento automático.
    Enquanto isso não for definido, ele segue só pelo WhatsApp (ligado ou desligado). Para encaixar quando vier:
    1) entrada em PLANOS com preco (350, por voo), horarios e duracaoMin; 2) vaga própria do parapente — hoje a
-   vaga é por horário e somada entre todos os passeios (contaNaVaga + cfg.capacidade), então precisa de um
+   vaga é por horário e somada entre todos os passeios (contaNaVaga/cabeNoHorario com cfg.capacidade), então precisa de um
    filtro por plano ou de uma capacidade separada; 3) no app.js, tirar soWhatsApp/horarioCombinado do
    parapente (ver pagaOnline no PagamentoPuro). Esta função já passa a valer para ele sem mudança. */
 function planoPagaOnline(planoId) {
@@ -2192,7 +2192,10 @@ const SQL_LISTAR_RESERVAS_COM_PAGAMENTO =
   "(SELECT COALESCE(SUM(c.valor_centavos),0) FROM cobrancas c WHERE c.reserva_id = reservas.id AND c.status = 'paga') AS pago_centavos, " +
   "(SELECT c.link FROM cobrancas c WHERE c.reserva_id = reservas.id AND c.tipo = 'saldo' AND c.status = 'aguardando' AND c.expira_em > ?3 ORDER BY c.criado_em DESC LIMIT 1) AS saldo_link, " +
   "(SELECT c.expira_em FROM cobrancas c WHERE c.reserva_id = reservas.id AND c.tipo = 'saldo' AND c.status = 'aguardando' AND c.expira_em > ?3 ORDER BY c.criado_em DESC LIMIT 1) AS saldo_link_expira_em, " +
-  "(SELECT MIN(c.pago_em) FROM cobrancas c WHERE c.reserva_id = reservas.id AND c.tipo = 'sinal' AND c.status = 'paga') AS sinal_pago_em " +
+  "(SELECT MIN(c.pago_em) FROM cobrancas c WHERE c.reserva_id = reservas.id AND c.tipo = 'sinal' AND c.status = 'paga') AS sinal_pago_em, " +
+  // Última cobrança (sinal, integral ou saldo) — coluna "cobrança" do painel.
+  "(SELECT c.tipo FROM cobrancas c WHERE c.reserva_id = reservas.id ORDER BY c.criado_em DESC, c.rowid DESC LIMIT 1) AS cobranca_tipo, " +
+  "(SELECT c.status FROM cobrancas c WHERE c.reserva_id = reservas.id ORDER BY c.criado_em DESC, c.rowid DESC LIMIT 1) AS cobranca_status " +
   "FROM reservas WHERE data >= ?1 AND data <= ?2";
 
 async function adminListarReservas(env, url) {
@@ -2221,7 +2224,8 @@ async function adminListarReservas(env, url) {
     r.saldo_sem_tempo = r.status === "confirmada" && r.pagamento_status === "sinal_pago" && sinalSemTempoDeSaldo(r, cfg);
     delete r.sinal_pago_em;
   }
-  return ok({ ok: true, reservas: results });
+  // pagamentoOnline só com a flag ligada: com ela desligada a resposta é a de sempre e o painel não mostra nada novo.
+  return ok({ ok: true, reservas: results, ...(online ? { pagamentoOnline: true } : {}) });
 }
 
 // Código sequencial só das reservas lançadas à mão no painel (as do site usam código aleatório).

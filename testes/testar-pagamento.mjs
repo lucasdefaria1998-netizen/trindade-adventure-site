@@ -101,10 +101,10 @@ async function getJSON(caminho, env = ENV_ON, cab = {}) {
   const r = await w.default.fetch(new Request(ORIGEM + caminho, { headers: { "cf-connecting-ip": ip(), ...cab } }), env);
   return { status: r.status, corpo: await r.json().catch(() => null) };
 }
-async function admin(caminho, metodo = "GET", corpo) {
+async function admin(caminho, metodo = "GET", corpo, env = ENV_ON) {
   const r = await w.default.fetch(new Request(ORIGEM + caminho, {
     method: metodo, headers: { "X-Admin-Key": "admin-teste", origin: ORIGEM, "content-type": "application/json" }, body: corpo ? JSON.stringify(corpo) : undefined
-  }), ENV_ON);
+  }), env);
   return { status: r.status, corpo: await r.json().catch(() => null) };
 }
 const reservaPorRef = ref => linha("SELECT r.* FROM reservas r JOIN cobrancas c ON c.reserva_id = r.id WHERE c.ref_publica = ?", ref);
@@ -155,6 +155,8 @@ const pagar = (ckId, evento = "CHECKOUT_PAID", id = "evt_" + (++seqEv)) => webho
   checar("D1  desligado: /api/disponibilidade sem pagamentoOnline", disp.status === 200 && !("pagamentoOnline" in disp.corpo));
   const wh = await webhook({ id: "evt_x", event: "CHECKOUT_PAID", checkout: { id: "x" } }, TOKEN, ENV_OFF);
   checar("D1  desligado: webhook responde 404", wh.status === 404, wh.status);
+  const listaOff = await admin(`/api/admin/reservas?de=${AMANHA}&ate=${AMANHA}`, "GET", undefined, ENV_OFF);
+  checar("D1  desligado: lista do painel sem pagamentoOnline nem colunas de cobrança", listaOff.status === 200 && !("pagamentoOnline" in listaOff.corpo) && listaOff.corpo.reservas.every(x => !("cobranca_status" in x) && !("pagamento_status" in x)), JSON.stringify(listaOff.corpo).slice(0, 300));
   checar("D1  desligado: nenhuma chamada ao Asaas", asaasPedidos.length === 0);
 }
 
@@ -219,6 +221,7 @@ let refSinal, idSinal;
   const lista = await admin(`/api/admin/reservas?de=${AMANHA}&ate=${AMANHA}`);
   const item = lista.corpo.reservas.find(x => x.id === idSinal);
   checar("A1  lista do painel mostra modalidade, situação e quanto já entrou", item && item.pagamento_modalidade === "sinal" && item.pagamento_status === "sinal_pago" && item.pago_centavos === 4800, JSON.stringify(item));
+  checar("A1  lista do painel diz que o pagamento está ligado e traz a última cobrança (saldo com link aberto)", lista.corpo.pagamentoOnline === true && item.cobranca_tipo === "saldo" && item.cobranca_status === "aguardando", JSON.stringify({ p: lista.corpo.pagamentoOnline, t: item.cobranca_tipo, s: item.cobranca_status }));
   const ck = linha("SELECT asaas_id FROM cobrancas WHERE reserva_id = ? AND tipo = 'saldo'", idSinal).asaas_id;
   await pagar(ck);
   const q = linha("SELECT status, pagamento_status FROM reservas WHERE id = ?", idSinal);

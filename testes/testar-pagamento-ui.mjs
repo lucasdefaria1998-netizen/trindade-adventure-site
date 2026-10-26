@@ -133,5 +133,30 @@ checar("A1  envio: a chave de idempotência só muda quando paga online", /\.con
 checar("A1  o passo 'Pagamento' só é criado quando há configuração do servidor", /if \(!pagamentoCfg && !passo\) return;/.test(appSrc) && !/id="passoPagamento"/.test(ler("../site/index.html")));
 checar("A1  a página de volta só aparece com ?pagamento=<32 hex> em /reservar, e 404 de rota não mostra nada", /lerRota\(\)\.nome === "reservar" \? PagamentoPuro\.refDaURL\(location\.search\)/.test(appSrc) && /e\.estado === "desligado"/.test(appSrc));
 
+// ======================= PAINEL (admin.html) =======================
+const adminSrc = ler("../site/admin.html");
+const A = recortar(adminSrc, "painel-pagamento-puro", "PainelPagamento");
+const R = (o) => ({ id: "r1", codigo: "TA-1", status: "confirmada", total: 160, pax: 2, plano: "essencial", ...o });
+const sinal = A.linha(R({ pagamento_modalidade: "sinal", pagamento_status: "sinal_pago", pago_centavos: 4800, cobranca_tipo: "sinal", cobranca_status: "paga" }));
+checar("G1  linha com sinal pago: modalidade, pago R$ 48, saldo R$ 112, cobrança 'sinal: paga'", sinal.modalidade === "sinal 30%" && sinal.pago === "R$ 48" && sinal.saldo === "R$ 112" && sinal.status === "sinal pago" && sinal.cobranca === "sinal: paga", JSON.stringify(sinal));
+checar("G1  sinal pago e confirmada → botão 'gerar link do saldo'; sem reagendar/devolver", sinal.acoes.saldo && !sinal.acoes.reagendar && !sinal.acoes.devolver);
+const quit = A.linha(R({ pagamento_modalidade: "integral", pagamento_status: "quitado", pago_centavos: 16000, cobranca_tipo: "integral", cobranca_status: "paga" }));
+checar("G1  integral quitado: saldo R$ 0, sem botão de saldo", quit.modalidade === "integral" && quit.saldo === "R$ 0" && !quit.acoes.saldo && !quit.acoes.devolver);
+const semTempo = A.linha(R({ pagamento_modalidade: "sinal", pagamento_status: "sinal_pago", pago_centavos: 4800, saldo_sem_tempo: true }));
+checar("G1  saldo_sem_tempo: indicador e sem botão de saldo (o servidor recusaria)", !semTempo.acoes.saldo && semTempo.alertas.some(x => /tarde/.test(x.texto)));
+const pSemVaga = A.linha(R({ status: "pendente", pagamento_modalidade: "integral", pagamento_status: "pago_sem_vaga", pago_centavos: 16000 }));
+checar("G1  pago_sem_vaga: alerta + 'reagendar' e 'devolver'", pSemVaga.acoes.reagendar && pSemVaga.acoes.devolver && !pSemVaga.acoes.saldo && pSemVaga.alertas.some(x => x.tipo === "erro" && /reagende ou devolva/.test(x.texto)));
+const retido = A.linha(R({ status: "cancelada", pagamento_modalidade: "sinal", pagamento_status: "sinal_retido", pago_centavos: 4800 }));
+checar("G1  cancelada por saldo não pago: indicador 'sinal retido', sem ações", retido.status === "sinal retido" && retido.alertas.some(x => /sinal retido/.test(x.texto)) && !retido.acoes.saldo && !retido.acoes.devolver && !retido.acoes.reagendar);
+const manual = A.linha(R({ status: "cancelada", pagamento_modalidade: "integral", pagamento_status: "devolucao_manual", pago_centavos: 16000 }));
+checar("G1  devolucao_manual: indicador 'devolver por fora' e botão para tentar de novo", manual.status === "devolver por fora" && manual.acoes.devolver && manual.alertas.some(x => /por fora/.test(x.texto)));
+const antiga = A.linha(R({ pagamento_modalidade: null, pagamento_status: null }));
+checar("G1  reserva sem pagamento online (WhatsApp/balcão): colunas '—' e nenhum botão novo", antiga.modalidade === "—" && antiga.pago === "—" && antiga.saldo === "—" && !antiga.acoes.saldo && !antiga.acoes.reagendar && !antiga.acoes.devolver);
+const disp = { ok: true, grade: { "8": { restam: 5, bloqueado: false }, "9": { restam: 1, bloqueado: false }, "10": { restam: 20, bloqueado: true }, "8.5": { restam: 9, bloqueado: false } }, horariosPorPlano: { essencial: [8, 9, 10], boat: [8.5, 11] } };
+checar("G2  reagendar: só horários do passeio, sem bloqueio e com vaga para o grupo", A.horariosLivres(disp, "essencial", 2).join() === "8" && A.horariosLivres(disp, "essencial", 1).join() === "8,9" && A.horariosLivres(disp, "boat", 2).join() === "8.5" && A.horariosLivres(null, "boat", 1).length === 0 && A.horariosLivres({ ok: false }, "boat", 1).length === 0);
+checar("G3  painel: colunas e botões novos só quando a lista traz pagamentoOnline === true", /const pg = d\.pagamentoOnline === true;/.test(adminSrc) && /\(pg \? "<th>Modalidade<\/th><th>Pago<\/th><th>Saldo<\/th><th>Cobrança<\/th>" : ""\)/.test(adminSrc) && /\(pg \? colunasPagamento\(r\) : ""\)/.test(adminSrc));
+checar("G3  'gerar link do saldo' só mostra e copia o link (não envia nada ao cliente)", /o painel não envia nada/.test(adminSrc) && /navigator\.clipboard\.writeText/.test(adminSrc) && !/wa\.me|sendMessage|mailto:/.test(adminSrc.slice(adminSrc.indexOf("<painel-pagamento-puro>"), adminSrc.indexOf('$("#fAplicar")'))));
+checar("G3  devolver pede confirmação antes de chamar o servidor", /if \(!confirm\("Devolver "/.test(adminSrc));
+
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);
 process.exit(falhas ? 1 : 0);
