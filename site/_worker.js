@@ -1202,7 +1202,7 @@ async function criarReserva(b, env, request) {
   }
   if (Object.keys(erros).length) return ok({ ok: false, erros }, 422);
 
-  // Trilha guiada com pagamento online ligado: decide 30%/100% (mesmo dia = 100%) antes de gravar.
+  // Passeio de PLANOS com pagamento online ligado: decide 30%/100% (mesmo dia = 100%) antes de gravar.
   let pg = null;
   if (pagamentoOnlineAtivo(env) && planoPagaOnline(d.plano)) {
     pg = calcularCobranca({ totalReais: PLANOS[d.plano].preco * d.pax, data: d.data, hoje: agora.data, escolha: b.pagamento });
