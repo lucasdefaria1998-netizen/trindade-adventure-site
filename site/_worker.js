@@ -594,7 +594,26 @@ function aplicarMetadados(resposta, m, naoEncontrada, env, rota) {
   rw = reescreverTitulos(rw, rota);
 
   rw = reescreverSecoes(rw, rota);
+  rw = textosDoPagamento(rw, env);
   return rw.transform(resposta);
+}
+
+/* Termos, FAQ e "como funciona" falam do pagamento de dois jeitos. No index.html, o texto de hoje
+   (pedido pelo WhatsApp, sinal combinado depois) fica no elemento com data-pagamento="whatsapp" e, logo
+   ao lado, o texto do pagamento pelo site num <template data-pagamento="online"> (inerte: o navegador
+   não mostra, mesmo sem JavaScript). Aqui o servidor deixa só um dos dois:
+   - pagamento DESLIGADO (padrão): tira os <template> e o atributo — sai exatamente o HTML de antes;
+   - LIGADO (PAGAMENTO_ONLINE=1 + chaves do Asaas): tira o texto antigo e desembrulha o <template>.
+   Se a reescrita falhar e o Pages servir o index.html cru, o visitante vê o texto de hoje. */
+function textosDoPagamento(rw, env) {
+  const online = pagamentoOnlineAtivo(env);
+  return rw.on("[data-pagamento]", { element(el) {
+    const versao = el.getAttribute("data-pagamento");
+    const ehOnline = versao === "online";
+    if (ehOnline !== online) { el.remove(); return; }
+    if (ehOnline) el.removeAndKeepContent();
+    else el.removeAttribute("data-pagamento");
+  } });
 }
 
 /* A página já sai do servidor com o estado final: só a seção da rota visível (as outras com hidden) e,

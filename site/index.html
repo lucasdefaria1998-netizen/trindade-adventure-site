@@ -502,8 +502,8 @@
     </header>
     <ol class="rota" data-revelar>
       <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-relogio"/></svg></span><div><h3>1. Escolha</h3><p>Escolha o passeio e o horário no site.</p></div></li>
-      <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-wa"/></svg></span><div><h3>2. Envie o pedido</h3><p>O pedido vai direto para o WhatsApp da equipe.</p></div></li>
-      <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-check"/></svg></span><div><h3>3. Confirmação</h3><p>A equipe confirma a vaga e pede o sinal de 30% via Pix.</p></div></li>
+      <li data-pagamento="whatsapp"><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-wa"/></svg></span><div><h3>2. Envie o pedido</h3><p>O pedido vai direto para o WhatsApp da equipe.</p></div></li><template data-pagamento="online"><li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-wa"/></svg></span><div><h3>2. Pague por Pix</h3><p>Sinal de 30% ou o valor total, pelo site. Para o mesmo dia, só o valor total.</p></div></li></template>
+      <li data-pagamento="whatsapp"><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-check"/></svg></span><div><h3>3. Confirmação</h3><p>A equipe confirma a vaga e pede o sinal de 30% via Pix.</p></div></li><template data-pagamento="online"><li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-check"/></svg></span><div><h3>3. Confirmação</h3><p>O código da reserva sai logo depois do pagamento.</p></div></li></template>
       <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-pin"/></svg></span><div><h3>4. Encontro</h3><p>Praia do Meio — placa das trilhas. Concentração no horário cheio, saída 20 minutos depois.</p></div></li>
     </ol>
   </section>
@@ -801,7 +801,7 @@
 <section class="secao" id="reservar" data-secao="reservar">
   <header class="pagina-cabeca">
     <h1 data-titulo>Reservar horário</h1>
-    <p>Escolha o passeio, a data e o horário, preencha nome e WhatsApp e envie. A equipe confirma pelo WhatsApp, com o guia do dia — sem cadastro e sem pagamento online.</p>
+    <p data-pagamento="whatsapp">Escolha o passeio, a data e o horário, preencha nome e WhatsApp e envie. A equipe confirma pelo WhatsApp, com o guia do dia — sem cadastro e sem pagamento online.</p><template data-pagamento="online"><p>Escolha o passeio, a data e o horário, preencha nome e WhatsApp e pague pelo site, só por Pix: sinal de 30% ou o valor total (para o mesmo dia, só o valor total). O código da reserva sai logo depois do pagamento — sem cadastro.</p></template>
   </header>
 
   <!-- Sem JavaScript, o formulário não tem como montar a mensagem. Em vez de
@@ -1116,7 +1116,7 @@
       <details><summary>Precisa de preparo físico?</summary><p>A trilha do Cachadaço tem 1,5 km com trechos íngremes, escadas e corrimãos. Quem caminha normalmente no dia a dia faz sem dificuldade, no próprio ritmo.</p></details>
       <details><summary>Crianças podem ir?</summary><p>Sim, a partir de 6 anos na trilha, sempre acompanhadas de um responsável. Avise a idade nas observações da reserva.</p></details>
       <details><summary>E se chover?</summary><p>Chuva fraca não cancela. Em chuva forte, mar grosso ou risco na trilha, a operação remarca sem custo.</p></details>
-      <details><summary>Como pago?</summary><p>Para confirmar a reserva, a equipe pede pelo WhatsApp um sinal de 30% do valor via Pix. Não há pagamento pelo site.</p></details>
+      <details data-pagamento="whatsapp"><summary>Como pago?</summary><p>Para confirmar a reserva, a equipe pede pelo WhatsApp um sinal de 30% do valor via Pix. Não há pagamento pelo site.</p></details><template data-pagamento="online"><details><summary>Como pago?</summary><p>Pelo site, só por Pix: sinal de 30% ou o valor total; para o mesmo dia, só o valor total. Cartão, só na maquininha, no local. O código da reserva sai logo depois do pagamento. Quem paga o sinal recebe o link do saldo cerca de 12 horas antes da saída, ou logo após o sinal se a reserva for feita mais perto do horário.</p></details></template>
       <details><summary>Dá para estacionar?</summary><p>Sim. Há estacionamentos pagos na entrada da vila. Nos feriados, chegue cedo — a vila fecha para carros quando lota.</p></details>
     </div>
   </div>
@@ -1312,13 +1312,13 @@
   </header>
   <article class="texto-legal">
     <h2>1. O pedido de reserva</h2>
-    <p>O formulário do site monta um <b>pedido de reserva</b> e o envia para a equipe pelo WhatsApp. Ele não é um pagamento nem uma confirmação automática.</p>
+    <p data-pagamento="whatsapp">O formulário do site monta um <b>pedido de reserva</b> e o envia para a equipe pelo WhatsApp. Ele não é um pagamento nem uma confirmação automática.</p><template data-pagamento="online"><p>O formulário do site registra a reserva e leva ao pagamento por Pix. A reserva só fica garantida depois que o pagamento é confirmado.</p></template>
 
     <h2>2. Confirmação</h2>
-    <p>A vaga só fica garantida depois do pagamento do sinal de 30% via Pix e da confirmação da equipe pelo WhatsApp. Cada reserva tem até 15 pessoas. Se o horário escolhido lotar, a equipe avisa e sugere outra opção.</p>
+    <p data-pagamento="whatsapp">A vaga só fica garantida depois do pagamento do sinal de 30% via Pix e da confirmação da equipe pelo WhatsApp. Cada reserva tem até 15 pessoas. Se o horário escolhido lotar, a equipe avisa e sugere outra opção.</p><template data-pagamento="online"><p>A vaga fica garantida com o pagamento pelo site, por Pix: sinal de 30% ou o valor total; para o mesmo dia, só o valor total. O código da reserva sai logo depois do pagamento. Cada reserva tem até 15 pessoas. Se o pagamento for confirmado quando o horário já tiver lotado, a equipe entra em contato para você escolher entre reagendar ou receber o valor de volta.</p></template>
 
     <h2>3. Valores e pagamento</h2>
-    <p>Os valores por pessoa são os informados na página de cada passeio. No Trindade Adventure e no Trindade Boat, o valor já inclui um voucher de R$ 60 por pessoa para o almoço no Restaurante Hymbé. Para confirmar a reserva, é pago um sinal de 30% do valor via Pix, combinado pelo WhatsApp. Não há pagamento pelo site.</p>
+    <p data-pagamento="whatsapp">Os valores por pessoa são os informados na página de cada passeio. No Trindade Adventure e no Trindade Boat, o valor já inclui um voucher de R$ 60 por pessoa para o almoço no Restaurante Hymbé. Para confirmar a reserva, é pago um sinal de 30% do valor via Pix, combinado pelo WhatsApp. Não há pagamento pelo site.</p><template data-pagamento="online"><p>Os valores por pessoa são os informados na página de cada passeio. No Trindade Adventure e no Trindade Boat, o valor já inclui um voucher de R$ 60 por pessoa para o almoço no Restaurante Hymbé. O pagamento pelo site é só por Pix: sinal de 30% do valor total (voucher incluído) ou 100%; para o mesmo dia, só 100%. Cartão, só na maquininha, no local. Quem paga o sinal recebe o link do saldo cerca de 12 horas antes da saída, ou logo após o sinal se a reserva for feita mais perto do horário. Se o saldo não for pago até 15 minutos antes da saída, a reserva é cancelada e o sinal fica com a empresa.</p></template>
 
     <h2>4. Horário e ponto de encontro</h2>
     <p>A concentração é no horário reservado, na Praia do Meio, junto à placa das trilhas. A saída acontece 20 minutos depois — a reserva das 08:00 sai às 08:20. O Trindade Boat tem encontro às 8h30 ou às 11h (saída 20 min depois). Chegue 15 minutos antes.</p>

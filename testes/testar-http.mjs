@@ -545,6 +545,9 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   // hero — a informação de "até 15 pessoas" continua em /contato, Termos e no resumo de /reservar.
   checar("E21 /contato: 'Grupo máximo · 15 pessoas por reserva'", contato.includes("<dt>Grupo máximo</dt><dd>15 pessoas por reserva</dd>"));
   checar("E21 /reservar: texto do topo sem cadastro nem pagamento online", reservar.includes("sem cadastro e sem pagamento online"));
+  // Pagamento online desligado (o servidor de teste não tem PAGAMENTO_ONLINE=1): sai só o texto de hoje,
+  // sem <template data-pagamento> nem o atributo (HTML igual ao de antes, sem depender de JavaScript).
+  checar("E21 pagamento desligado: HTML sem data-pagamento e sem os textos do pagamento pelo site", [home, reservar, termos].every(h => !/data-pagamento/.test(h) && !h.includes("Pague por Pix") && !h.includes("Cartão, só na maquininha")) && termos.includes("Não há pagamento pelo site.") && termos.includes("e o envia para a equipe pelo WhatsApp"));
   checar("E21 /reservar: resumo mostra 'Até 15 pessoas por reserva' por padrão", reservar.includes("Até 15 pessoas por reserva."));
   checar("E21 app.js: resumo monta 'sinal de 30% via Pix' e a garantia de cancelamento", app.includes("sinal de 30% via Pix") && app.includes("Cancelamento gratuito até 12 h antes da saída"));
   checar("E21 FAQ 'Como pago?' com o sinal de 30%", reservar.includes("Para confirmar a reserva, a equipe pede pelo WhatsApp um sinal de 30% do valor via Pix. Não há pagamento pelo site."));
