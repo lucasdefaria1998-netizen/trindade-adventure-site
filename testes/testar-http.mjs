@@ -431,6 +431,8 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("HYMBE /pousadas: og:image volta para a imagem padrão (sem foto da Pousada Hymbé)", mp.ogImagem === SITE.origem + "/assets/og-capa-mirante.jpg", mp.ogImagem);
   const app = await (await pegar("/app.js")).text();
   checar("HYMBE app.js sem galeria nem fotos responsivas da Pousada Hymbé", !app.includes("pousada-hymbe") && !app.includes("fotoHymbe") && app.includes("fotoRestauranteHymbe"));
+  const css = await (await pegar("/estilo.css")).text();
+  checar("HYMBE /pousadas: com uma parceira só, card centralizado no desktop (máx. 520px), mobile igual", css.includes("@media(min-width:801px){.pousadas:has(> .parceira:only-child){grid-template-columns:minmax(0,520px);justify-content:center}}") && css.includes("@media(max-width:800px){.pousadas{grid-template-columns:minmax(0,1fr)}}"));
   const rod = pous.slice(pous.indexOf("<h2>Roteiros</h2>"), pous.indexOf("<h2>Trindade</h2>"));
   checar("RODAPE lista Roteiros sem preço e sem travessão", rod.length > 0 && !rod.includes("R$") && !rod.includes(" — ") && ["Trindade Essencial", "Trindade Adventure", "Trindade Boat", "Voo de Parapente", "Pescaria em Alto Mar"].every(t => rod.includes(`">${t}</a>`)), rod.replace(/\s+/g, " ").slice(0, 300));
 }

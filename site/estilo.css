@@ -395,6 +395,8 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 .parceira-rodape span{display:block;font-size:13.5px;color:var(--muted)}
 .parceira-acoes{display:flex;gap:8px}
 @media(max-width:800px){.pousadas{grid-template-columns:minmax(0,1fr)}}
+/* 26/10/2026: com uma parceira só, o card fica centralizado no desktop (no mobile nada muda) */
+@media(min-width:801px){.pousadas:has(> .parceira:only-child){grid-template-columns:minmax(0,520px);justify-content:center}}
 
 /* mini-galeria de fotos dos parceiros */
 .media{position:relative;overflow:hidden;background:var(--surface-2)}
