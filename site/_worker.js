@@ -639,6 +639,8 @@ async function rotearAPI(request, env, url) {
   const metodo = request.method;
 
   if (p === "/api/disponibilidade" && metodo === "GET") return disponibilidade(env, url);
+  if (p === "/api/pagamento" && metodo === "GET") return statusDoPagamento(request, env, url);
+  if (p === "/api/asaas/webhook") return webhookAsaas(request, env);
 
   if (ROTAS_PUBLICAS[p]) {
     const entrada = await receberPostPublico(request, env, p);
@@ -656,6 +658,8 @@ async function rotearAPI(request, env, url) {
     if (p === "/api/admin/resumo" && metodo === "GET") return adminResumo(env);
     if (p === "/api/admin/reservas" && metodo === "GET") return adminListarReservas(env, url);
     if (p === "/api/admin/reservas" && metodo === "POST") return adminCriarReserva(request, env);
+    if (p.match(/^\/api\/admin\/reservas\/[\w-]+\/saldo$/) && metodo === "POST")
+      return adminLinkSaldo(request, env, p.split("/")[4]);
     if (p.match(/^\/api\/admin\/reservas\/[\w-]+$/) && metodo === "PATCH")
       return adminAtualizarReserva(request, env, p.split("/").pop());
     if (p === "/api/admin/bloqueios" && metodo === "GET") return adminListarBloqueios(env);
@@ -823,9 +827,10 @@ async function lerConfig(env) {
    até 12:00 — antes ia até 15:00, com retorno perto das 21h20. */
 const RETORNO_LIMITE_PADRAO = "18:20";
 
+// categoria "trilha" = trilha guiada: segue a regra de pagamento online 30%/100% (ver PAGAMENTO, mais abaixo).
 const PLANOS = {
-  essencial: { nome: "Trindade Essencial", preco: 70, voucher: 0, duracaoMin: 180, horarios: null },
-  adventure: { nome: "Trindade Adventure", preco: 150, voucher: 60, duracaoMin: 360, horarios: null },
+  essencial: { nome: "Trindade Essencial", preco: 70, voucher: 0, duracaoMin: 180, horarios: null, categoria: "trilha" },
+  adventure: { nome: "Trindade Adventure", preco: 150, voucher: 60, duracaoMin: 360, horarios: null, categoria: "trilha" },
   // Horários fixos definidos pela operação em 24/10/2026: encontro às 8h30 OU às 11h (saída 20 min
   // depois), sem grade de hora em hora. semCorteRetorno porque a concentração das 11h + duração do
   // Boat (8h) passaria do horário-limite de retorno padrão (18:20) — o Lucas pediu o horário mesmo
@@ -1058,7 +1063,14 @@ async function disponibilidade(env, url) {
   const horariosPorPlano = {};
   for (const planoId of Object.keys(PLANOS)) horariosPorPlano[planoId] = horariosDoPlano(planoId, cfg);
 
-  return ok({ ok: true, data, capacidade: cfg.capacidade, grade, horariosPorPlano });
+  // Com o pagamento online ligado, o site fica sabendo quais passeios pagam pelo site e o "hoje" de Trindade
+  // (para mostrar 30%/100% ou só 100%). Desligado, a resposta é a mesma de antes.
+  const extra = pagamentoOnlineAtivo(env) ? {
+    pagamentoOnline: {
+      planos: Object.keys(PLANOS).filter(planoPagaOnline), percentualSinal: PAGAMENTO.percentualSinal, hoje: agoraEmTrindade().data
+    }
+  } : {};
+  return ok({ ok: true, data, capacidade: cfg.capacidade, grade, horariosPorPlano, ...extra });
 }
 
 /* ------------------------------ criar reserva ------------------------------
@@ -1066,6 +1078,8 @@ async function disponibilidade(env, url) {
    O que a reserva do site é, de ponta a ponta: o cliente envia o pedido, o
    servidor grava como "pendente" e segura a vaga; a operação confirma pelo
    WhatsApp (depois do sinal de 30% via Pix) e marca "confirmada" no painel.
+   Exceção: trilha guiada com o pagamento online ligado (ver "pagamento online",
+   mais abaixo) — aí quem confirma é o pagamento no Asaas, não a operação.
    Pendente que ninguém confirma no prazo deixa de segurar a vaga — senão um
    robô, ou um cliente que sumiu, trava horários para sempre.
 
@@ -1155,6 +1169,20 @@ async function criarReserva(b, env, request) {
   }
   if (Object.keys(erros).length) return ok({ ok: false, erros }, 422);
 
+  // Trilha guiada com pagamento online ligado: decide 30%/100% (mesmo dia = 100%) antes de gravar.
+  let pg = null;
+  if (pagamentoOnlineAtivo(env) && planoPagaOnline(d.plano)) {
+    pg = calcularCobranca({ totalReais: PLANOS[d.plano].preco * d.pax, data: d.data, hoje: agora.data, escolha: b.pagamento });
+    if (pg.erro) {
+      if (pg.motivo) return ok({ ok: false, motivo: pg.motivo, erro: pg.erro }, 409);
+      return ok({ ok: false, erros: { pagamento: pg.erro } }, 422);
+    }
+    pg.minutos = minutosDoLink(Date.now(), limiteQuitacaoMs(d.data, d.hora, cfg), PAGAMENTO.prazoPagarMin);
+    if (pg.minutos === null)
+      return ok({ ok: false, motivo: "sem_tempo_pagamento", erro: "Não dá mais tempo de pagar online para este horário. Fale com a equipe pelo WhatsApp." }, 409);
+    await garantirEsquemaPagamento(env);
+  }
+
   const plano = PLANOS[d.plano];
   const criadoMs = Date.now();
   const criadoEm = new Date(criadoMs).toISOString();
@@ -1177,7 +1205,10 @@ async function criarReserva(b, env, request) {
   const total = plano.preco * d.pax;
   const voucher = plano.voucher * d.pax;
   const limiteDuplicata = new Date(criadoMs - DUPLICADA_JANELA_MIN * 60000).toISOString();
-  const prazo = expiraEm(d.data, d.hora, criadoMs);
+  // Com pagamento online, a vaga fica segura só enquanto o link do Asaas vale (+ folga), não as 6 h do pedido.
+  const prazo = pg
+    ? new Date(criadoMs + (pg.minutos + PAGAMENTO.folgaVagaMin) * 60000).toISOString()
+    : expiraEm(d.data, d.hora, criadoMs);
 
   let codigo = null;
   for (let tentativa = 0; tentativa < 3 && !codigo; tentativa++) {
@@ -1217,6 +1248,12 @@ async function criarReserva(b, env, request) {
 
   const uso = await env.DB.prepare(SQL_USADO_NO_HORARIO).bind(d.data, d.hora, criadoEm).first();
 
+  // Pagamento online: a resposta traz o link do Asaas, e NÃO o código (ele só sai depois de pago).
+  if (pg) {
+    return iniciarPagamento(env, request, { id, plano: d.plano, data: d.data, hora: d.hora, pax: d.pax }, pg,
+      Math.max(0, cfg.capacidade - Number(uso.usado || 0)));
+  }
+
   return respostaDaReserva({
     codigo, plano, data: d.data, hora: d.hora, pax: d.pax, nome: d.nome, telefone: d.telefone, email: d.email, obs: d.obs,
     total, voucher, origem: d.origem, origemDetalhe: d.origemDetalhe, comoConheceu: d.comoConheceu,
@@ -1243,6 +1280,7 @@ async function repetirReserva(env, r, d, cfg, agoraISO) {
   const igual = r.plano === d.plano && r.data === d.data && Number(r.hora) === d.hora && Number(r.pax) === d.pax && r.telefone === d.telefone;
   if (!igual) return ok({ ok: false, motivo: "chave_em_uso", erro: "Esta chave já foi usada em outro pedido." }, 409);
   const uso = await env.DB.prepare(SQL_USADO_NO_HORARIO).bind(r.data, Number(r.hora), agoraISO).first();
+  if (r.pagamento_modalidade) return repetirPagamento(env, r, Math.max(0, cfg.capacidade - Number(uso.usado || 0)));
   return respostaDaReserva({
     codigo: r.codigo, plano: PLANOS[r.plano], data: r.data, hora: Number(r.hora), pax: Number(r.pax), nome: r.nome, telefone: r.telefone,
     email: r.email, obs: r.obs, total: Number(r.total), voucher: Number(r.voucher), origem: r.origem, origemDetalhe: r.origem_detalhe,
@@ -1272,6 +1310,383 @@ async function explicarRecusa(env, d, cfg, agoraISO, limiteDuplicata) {
   if (Number(bloq.n) > 0) return ok({ ok: false, motivo: "bloqueado", restam: 0 }, 409);
   const uso = await env.DB.prepare(SQL_USADO_NO_HORARIO).bind(d.data, d.hora, agoraISO).first();
   return ok({ ok: false, motivo: "cheio", restam: Math.max(0, cfg.capacidade - Number(uso.usado || 0)) }, 409);
+}
+
+/* ------------------------------ pagamento online (Asaas) — trilhas guiadas ------------------------------
+
+   Regra do cliente (out/2026), só para as TRILHAS GUIADAS (planos com categoria "trilha"):
+     - passeio em OUTRO dia: o cliente escolhe pagar 30% agora (sinal) ou 100% agora;
+     - passeio no MESMO dia (data do passeio = hoje no fuso de Paraty/Trindade, America/Sao_Paulo):
+       100% obrigatório;
+     - a reserva só vira "confirmada" — e o código só aparece para o cliente — depois que o Asaas
+       avisa pelo webhook que o pagamento entrou;
+     - o saldo (o que falta do total) é cobrado num segundo link, gerado no painel, que vale no
+       máximo até 15 min antes da saída.
+   Exemplo (R$ 80): outro dia, 30% → R$ 24 agora + R$ 56 no link do saldo; 100% → R$ 80 agora.
+   Mesmo dia → R$ 80 agora, sem escolha.
+
+   Liga só com PAGAMENTO_ONLINE="1" + ASAAS_API_KEY + ASAAS_WEBHOOK_TOKEN. Desligado, tudo segue
+   exatamente como antes (pedido + WhatsApp). ASAAS_API_URL tem o SANDBOX como padrão: em produção
+   é preciso configurar https://api.asaas.com de propósito.
+
+   Usa o Checkout do Asaas (POST /v3/checkouts): nome e CPF o cliente informa na própria página do
+   Asaas, então o formulário do site continua sem pedir CPF. O que confirma é o evento CHECKOUT_PAID
+   no webhook /api/asaas/webhook (header asaas-access-token = ASAAS_WEBHOOK_TOKEN); o redirecionamento
+   de volta para o site (callback) não confirma nada.
+
+   Fica de fora DE PROPÓSITO (decisão de negócio pendente — ver LEIA-ME): cancelar sozinho quem não
+   pagou o saldo, reter ou devolver sinal, estorno. Nada disso acontece automaticamente. */
+const PAGAMENTO = {
+  categorias: ["trilha"],     // categorias de PLANOS que seguem a regra (pendente: Adventure conta como trilha?)
+  percentualSinal: 30,        // sinal no "outro dia"
+  formas: ["PIX"],            // billingTypes do checkout (pendente: cartão também? → ["PIX", "CREDIT_CARD"])
+  prazoPagarMin: 30,          // validade do link do 1º pagamento (a vaga fica segura enquanto isso)
+  folgaVagaMin: 5,            // a vaga fica segura mais estes minutos além do link (webhook atrasado)
+  minimoAsaasMin: 10,         // menor minutesToExpire que o Asaas aceita
+  maximoAsaasMin: 1440,       // maior minutesToExpire que o Asaas aceita (24 h)
+  quitarAntesDaSaidaMin: 15   // tudo pago até 15 min antes da SAÍDA (concentração + saida_apos)
+};
+const ASAAS_API_PADRAO = "https://api-sandbox.asaas.com";
+const REF_PAGAMENTO = /^[a-f0-9]{32}$/;
+
+function pagamentoOnlineAtivo(env) {
+  return !!(env && env.PAGAMENTO_ONLINE === "1" && env.ASAAS_API_KEY && env.ASAAS_WEBHOOK_TOKEN);
+}
+
+function planoPagaOnline(planoId) {
+  const p = Object.prototype.hasOwnProperty.call(PLANOS, planoId) ? PLANOS[planoId] : null;
+  return !!p && PAGAMENTO.categorias.includes(p.categoria);
+}
+
+/* Quanto cobrar agora. Valores em centavos: o sinal é arredondado para o centavo mais próximo e o
+   saldo é sempre o que falta, então sinal + saldo fecham exatamente no total.
+   escolha: "sinal" (30%) ou "integral" (100%). No mesmo dia só vale "integral"; quem manda "sinal"
+   para hoje (ex.: a página ficou aberta e virou o dia) recebe recusa, para não ser cobrado de um
+   valor diferente do que viu. */
+function calcularCobranca({ totalReais, data, hoje, escolha }) {
+  const totalCentavos = Math.round(Number(totalReais) * 100);
+  const mesmoDia = data === hoje;
+  if (mesmoDia && escolha === "sinal")
+    return { erro: "Para passeio hoje o pagamento é integral (100%).", motivo: "mesmo_dia_integral", mesmoDia };
+  let modalidade;
+  if (mesmoDia) modalidade = "integral";
+  else if (escolha === "sinal" || escolha === "integral") modalidade = escolha;
+  else return { erro: "Escolha como pagar: 30% agora ou 100% agora.", mesmoDia };
+  const agoraCentavos = modalidade === "integral"
+    ? totalCentavos
+    : Math.round(totalCentavos * PAGAMENTO.percentualSinal / 100);
+  return { mesmoDia, modalidade, totalCentavos, agoraCentavos, saldoCentavos: totalCentavos - agoraCentavos };
+}
+
+// Instante (ms) da saída — concentração + saida_apos —, em Trindade (UTC−3, sem horário de verão, como expiraEm).
+function saidaMs(data, hora, cfg) {
+  return Date.parse(data + "T00:00:00Z") + (Math.round(hora * 60) + cfg.saidaApos + 180) * 60000;
+}
+function limiteQuitacaoMs(data, hora, cfg) {
+  return saidaMs(data, hora, cfg) - PAGAMENTO.quitarAntesDaSaidaMin * 60000;
+}
+// Validade de um link: até `teto` minutos, sem passar do limite de quitação. null = não dá mais tempo.
+function minutosDoLink(agoraMs, limiteMs, teto) {
+  const m = Math.min(teto, PAGAMENTO.maximoAsaasMin, Math.floor((limiteMs - agoraMs) / 60000));
+  return m >= PAGAMENTO.minimoAsaasMin ? m : null;
+}
+
+function tokenAleatorio() {
+  const b = new Uint8Array(16);
+  crypto.getRandomValues(b);
+  return [...b].map(x => x.toString(16).padStart(2, "0")).join("");
+}
+
+// Comparação de segredo sem atalho (tempo não depende de onde a diferença está).
+function mesmoSegredo(recebido, esperado) {
+  const a = new TextEncoder().encode(String(recebido || "")), b = new TextEncoder().encode(String(esperado || ""));
+  let dif = a.length ^ b.length;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) dif |= (a[i] || 0) ^ (b[i] || 0);
+  return dif === 0 && b.length > 0;
+}
+
+/* Tabela cobrancas (um link do Asaas por linha: sinal, integral ou saldo), tabela asaas_eventos
+   (ids de evento já processados — o Asaas pode mandar o mesmo evento mais de uma vez) e duas colunas
+   em reservas. Mesmo SQL de migracoes/0003_pagamento_asaas.sql. Só roda com o pagamento ligado. */
+let esquemaPagamentoPronto = false;
+async function garantirEsquemaPagamento(env) {
+  if (esquemaPagamentoPronto) return;
+  await garantirEsquemaReservas(env);
+  const { results } = await env.DB.prepare("PRAGMA table_info(reservas)").all();
+  const tem = new Set(results.map(c => c.name));
+  const novas = [
+    ["pagamento_modalidade", "ALTER TABLE reservas ADD COLUMN pagamento_modalidade TEXT"],
+    ["pagamento_status", "ALTER TABLE reservas ADD COLUMN pagamento_status TEXT"]
+  ];
+  for (const [nome, ddl] of novas) {
+    if (tem.has(nome)) continue;
+    try { await env.DB.prepare(ddl).run(); } catch (e) { if (!/duplicate column/i.test(String(e && e.message))) throw e; }
+  }
+  await env.DB.prepare(SQL_CRIAR_COBRANCAS).run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_cobrancas_reserva ON cobrancas (reserva_id)").run();
+  await env.DB.prepare(SQL_CRIAR_ASAAS_EVENTOS).run();
+  esquemaPagamentoPronto = true;
+}
+const SQL_CRIAR_COBRANCAS =
+  "CREATE TABLE IF NOT EXISTS cobrancas (id TEXT PRIMARY KEY, reserva_id TEXT NOT NULL, tipo TEXT NOT NULL, " +
+  "valor_centavos INTEGER NOT NULL, asaas_id TEXT UNIQUE, ref_publica TEXT NOT NULL UNIQUE, link TEXT, " +
+  "status TEXT NOT NULL DEFAULT 'aguardando', criado_em TEXT NOT NULL, expira_em TEXT, pago_em TEXT)";
+const SQL_CRIAR_ASAAS_EVENTOS =
+  "CREATE TABLE IF NOT EXISTS asaas_eventos (id TEXT PRIMARY KEY, evento TEXT, recebido_em TEXT NOT NULL)";
+const SQL_INSERIR_COBRANCA =
+  "INSERT INTO cobrancas (id, reserva_id, tipo, valor_centavos, asaas_id, ref_publica, link, status, criado_em, expira_em) " +
+  "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, 'aguardando', ?8, ?9)";
+const SQL_PAGO_CENTAVOS = "SELECT COALESCE(SUM(valor_centavos),0) AS pago FROM cobrancas WHERE reserva_id = ?1 AND status = 'paga'";
+
+/* Confirma a reserva paga. Se ela ainda segurava a vaga (pendente no prazo), confirma direto. Se o
+   prazo venceu antes do pagamento chegar, só confirma se o horário ainda comportar e não estiver
+   bloqueado — senão ficaria overbooking. Pagou e não coube: pagamento_status "pago_sem_vaga", para
+   a equipe resolver (devolver ou remarcar — decisão de negócio, nada automático). */
+const SQL_CONFIRMAR_PAGA =
+  "UPDATE reservas SET status = 'confirmada', pagamento_status = ?2, atualizado_em = ?3 " +
+  "WHERE id = ?1 AND (status = 'confirmada' OR (status = 'pendente' AND (expira_em IS NULL OR expira_em > ?3 OR (" +
+  "NOT EXISTS (SELECT 1 FROM bloqueios b WHERE b.data = reservas.data AND (b.hora = reservas.hora OR b.hora IS NULL)) " +
+  "AND (SELECT COALESCE(SUM(r2.pax),0) FROM reservas r2 WHERE r2.data = reservas.data AND r2.hora = reservas.hora " +
+  "AND r2.id != reservas.id AND r2.status != 'cancelada' " +
+  "AND (r2.status != 'pendente' OR r2.expira_em IS NULL OR r2.expira_em > ?3)) + reservas.pax <= ?4))))";
+
+function asaasBase(env) {
+  return String(env.ASAAS_API_URL || ASAAS_API_PADRAO).replace(/\/+$/, "");
+}
+
+// O item do Checkout do Asaas exige uma imagem (base64): usa o ícone do próprio site.
+let imagemItemCache = null;
+async function imagemDoItem(env) {
+  if (imagemItemCache) return imagemItemCache;
+  const r = await env.ASSETS.fetch(new Request("https://trindadeadventury.com.br/apple-touch-icon.png"));
+  if (!r.ok) throw new Error("ícone do item indisponível (" + r.status + ")");
+  const bytes = new Uint8Array(await r.arrayBuffer());
+  let bin = "";
+  for (const x of bytes) bin += String.fromCharCode(x);
+  imagemItemCache = btoa(bin);
+  return imagemItemCache;
+}
+
+const TIPO_COBRANCA = { sinal: "sinal " + PAGAMENTO.percentualSinal + "%", integral: "pagamento integral", saldo: "saldo" };
+
+async function criarCheckoutAsaas(env, c) {
+  const voltar = c.origemSite + "/reservar?pagamento=" + c.ref;
+  const corpo = {
+    billingTypes: PAGAMENTO.formas,
+    chargeTypes: ["DETACHED"],
+    minutesToExpire: c.minutos,
+    externalReference: c.reservaId,
+    callback: { successUrl: voltar, cancelUrl: voltar, expiredUrl: voltar },
+    items: [{
+      name: c.nome, description: c.descricao, quantity: 1, value: c.valorCentavos / 100,
+      imageBase64: await imagemDoItem(env)
+    }]
+  };
+  const r = await fetch(asaasBase(env) + "/v3/checkouts", {
+    method: "POST",
+    headers: { "content-type": "application/json", "access_token": env.ASAAS_API_KEY, "user-agent": "trindade-adventure-site" },
+    body: JSON.stringify(corpo),
+    signal: AbortSignal.timeout(10000)
+  });
+  const j = await r.json().catch(() => null);
+  if (!r.ok || !j || typeof j.id !== "string" || !j.id)
+    throw new Error("asaas checkout HTTP " + r.status + " " + JSON.stringify((j && j.errors) || "").slice(0, 300));
+  const link = typeof j.link === "string" && /^https:\/\//.test(j.link)
+    ? j.link
+    : (/sandbox/.test(asaasBase(env)) ? "https://sandbox.asaas.com" : "https://www.asaas.com") +
+      "/checkoutSession/show?id=" + encodeURIComponent(j.id);
+  return { id: j.id, link };
+}
+
+// Cria o link no Asaas e grava a cobrança. Erro do Asaas sobe (quem chama decide o que fazer).
+async function novaCobranca(env, request, r, tipo, valorCentavos, minutos) {
+  const plano = PLANOS[r.plano];
+  const agoraMs = Date.now();
+  const ref = tokenAleatorio();
+  const ck = await criarCheckoutAsaas(env, {
+    origemSite: new URL(request.url).origin, ref, reservaId: r.id, minutos, valorCentavos,
+    nome: plano.nome + " — " + TIPO_COBRANCA[tipo],
+    descricao: r.data.split("-").reverse().join("/") + " · concentração " + horaLabel(Number(r.hora)) +
+      " · " + r.pax + (Number(r.pax) === 1 ? " pessoa" : " pessoas")
+  });
+  const cob = {
+    id: crypto.randomUUID(), tipo, valorCentavos, asaasId: ck.id, ref, link: ck.link,
+    criadoEm: new Date(agoraMs).toISOString(), expiraEm: new Date(agoraMs + minutos * 60000).toISOString()
+  };
+  await env.DB.prepare(SQL_INSERIR_COBRANCA)
+    .bind(cob.id, r.id, tipo, valorCentavos, cob.asaasId, ref, cob.link, cob.criadoEm, cob.expiraEm)
+    .run();
+  return cob;
+}
+
+/* Depois de gravar a pendente (vaga segura), abre o 1º pagamento. Sem link do Asaas a reserva não
+   pode ser paga: ela é cancelada (libera a vaga na hora) e o site cai no fluxo de WhatsApp. */
+async function iniciarPagamento(env, request, r, pg, restam) {
+  await env.DB.prepare("UPDATE reservas SET pagamento_modalidade = ?1, pagamento_status = 'aguardando' WHERE id = ?2")
+    .bind(pg.modalidade, r.id).run();
+  let cob;
+  try {
+    cob = await novaCobranca(env, request, r, pg.modalidade, pg.agoraCentavos, pg.minutos);
+  } catch (e) {
+    console.error("[asaas]", mascarar(e && e.message ? e.message : String(e)));
+    await env.DB.prepare("UPDATE reservas SET status = 'cancelada', pagamento_status = 'falha_asaas', atualizado_em = ?1 WHERE id = ?2")
+      .bind(new Date().toISOString(), r.id).run();
+    return ok({ ok: false, motivo: "pagamento_indisponivel", erro: "Pagamento online indisponível agora. Fale com a equipe pelo WhatsApp." }, 503);
+  }
+  return respostaPagamento(cob, pg, restam);
+}
+
+function respostaPagamento(cob, pg, restam, extra) {
+  return ok({
+    ok: true,
+    restam,
+    pagamento: {
+      modalidade: pg.modalidade, mesmoDia: pg.mesmoDia,
+      valor: cob.valorCentavos / 100, total: pg.totalCentavos / 100, saldo: pg.saldoCentavos / 100,
+      link: cob.link, ref: cob.ref, expiraEm: cob.expiraEm
+    },
+    ...extra
+  });
+}
+
+// Reenvio (mesma Idempotency-Key) de um pedido com pagamento online: devolve o mesmo link.
+async function repetirPagamento(env, r, restam) {
+  await garantirEsquemaPagamento(env);
+  const c = await env.DB
+    .prepare("SELECT * FROM cobrancas WHERE reserva_id = ?1 AND tipo != 'saldo' ORDER BY criado_em DESC LIMIT 1")
+    .bind(r.id).first();
+  if (!c || r.status === "cancelada")
+    return ok({ ok: false, motivo: "pagamento_indisponivel", erro: "Pagamento online indisponível agora. Fale com a equipe pelo WhatsApp." }, 503);
+  const totalCentavos = Math.round(Number(r.total) * 100);
+  const pg = { modalidade: c.tipo, mesmoDia: null, totalCentavos, saldoCentavos: totalCentavos - Number(c.valor_centavos) };
+  return respostaPagamento({ valorCentavos: Number(c.valor_centavos), link: c.link, ref: c.ref_publica, expiraEm: c.expira_em }, pg, restam, { repetido: true });
+}
+
+/* GET /api/pagamento?ref=… — a página de volta do Asaas pergunta se já pagou. O código da reserva
+   só sai aqui depois do pagamento confirmado (e da reserva confirmada). A ref é um sorteio de 128
+   bits, entregue só a quem fez o pedido. */
+async function statusDoPagamento(request, env, url) {
+  if (!pagamentoOnlineAtivo(env)) return erro("Rota não encontrada.", 404);
+  const ref = url.searchParams.get("ref") || "";
+  if (!REF_PAGAMENTO.test(ref)) return erro("Referência inválida.");
+  const ip = request.headers.get("cf-connecting-ip") || "sem-ip";
+  const espera = await excedeuLimite(env, "/api/pagamento", ip, { max: 60, janelaS: 60 });
+  if (espera) return erro("Muitos pedidos. Tente de novo em instantes.", 429, { "Retry-After": String(espera) });
+  await garantirEsquemaPagamento(env);
+  const c = await env.DB
+    .prepare(
+      "SELECT c.tipo, c.status, c.valor_centavos, c.expira_em, c.reserva_id, r.codigo, r.status AS reserva_status, " +
+      "r.pagamento_status, r.plano, r.data, r.hora, r.pax, r.total FROM cobrancas c JOIN reservas r ON r.id = c.reserva_id " +
+      "WHERE c.ref_publica = ?1"
+    )
+    .bind(ref).first();
+  if (!c) return erro("Pagamento não encontrado.", 404);
+  const agoraISO = new Date().toISOString();
+  const status = c.status === "paga" ? "pago"
+    : c.status === "aguardando" && c.expira_em && c.expira_em <= agoraISO ? "expirado"
+    : c.status === "aguardando" ? "aguardando" : c.status;
+  const resp = {
+    ok: true, status, tipo: c.tipo, valor: Number(c.valor_centavos) / 100,
+    passeio: PLANOS[c.plano] ? PLANOS[c.plano].nome : c.plano, data: c.data, hora: horaLabel(Number(c.hora)), pax: Number(c.pax)
+  };
+  if (status === "pago") {
+    const pago = await env.DB.prepare(SQL_PAGO_CENTAVOS).bind(c.reserva_id).first();
+    resp.saldo = Math.max(0, Math.round(Number(c.total) * 100) - Number(pago.pago)) / 100;
+    resp.confirmada = c.reserva_status === "confirmada";
+    if (resp.confirmada) resp.codigo = c.codigo;
+  }
+  return ok(resp);
+}
+
+/* POST /api/asaas/webhook — fora do portão de Origin (quem chama é o Asaas), autenticado pelo token
+   que se cadastra no webhook do Asaas (header asaas-access-token). Responde 200 rápido para tudo que
+   for reconhecido ou ignorado, senão o Asaas pausa a fila. Idempotente: evento repetido não faz nada;
+   e o pagamento em si também é idempotente (cobrança já paga não confirma de novo). */
+async function webhookAsaas(request, env) {
+  if (!pagamentoOnlineAtivo(env)) return erro("Rota não encontrada.", 404);
+  if (request.method !== "POST") return erro("Método não permitido.", 405, { Allow: "POST" });
+  if (!mesmoSegredo(request.headers.get("asaas-access-token"), env.ASAAS_WEBHOOK_TOKEN)) return erro("Acesso restrito.", 401);
+  const lido = await lerCorpoLimitado(request, 65536);
+  if (lido.status) return erro("Pedido grande demais.", lido.status);
+  let ev;
+  try { ev = JSON.parse(lido.texto); } catch { return erro("Corpo inválido.", 400); }
+  if (!ev || typeof ev !== "object" || typeof ev.id !== "string" || !ev.id || ev.id.length > 120 || typeof ev.event !== "string")
+    return erro("Corpo inválido.", 400);
+
+  await garantirEsquemaPagamento(env);
+  const ja = await env.DB.prepare("SELECT 1 AS x FROM asaas_eventos WHERE id = ?1").bind(ev.id).first();
+  if (ja) return ok({ ok: true, repetido: true });
+
+  const checkoutId = ev.checkout && typeof ev.checkout.id === "string" ? ev.checkout.id : null;
+  if (checkoutId) {
+    const cob = await env.DB.prepare("SELECT * FROM cobrancas WHERE asaas_id = ?1").bind(checkoutId).first();
+    if (!cob) console.warn("[asaas] evento de checkout desconhecido", ev.event);
+    else if (ev.event === "CHECKOUT_PAID") await registrarPagamento(env, cob);
+    else if (ev.event === "CHECKOUT_EXPIRED" || ev.event === "CHECKOUT_CANCELED")
+      await env.DB.prepare("UPDATE cobrancas SET status = ?1 WHERE id = ?2 AND status = 'aguardando'")
+        .bind(ev.event === "CHECKOUT_EXPIRED" ? "expirada" : "cancelada", cob.id).run();
+  }
+  // Grava o evento só depois de processar: se algo falhar no meio, o Asaas reenvia e o processamento roda de novo.
+  await env.DB.prepare("INSERT OR IGNORE INTO asaas_eventos (id, evento, recebido_em) VALUES (?1, ?2, ?3)")
+    .bind(ev.id, ev.event.slice(0, 60), new Date().toISOString()).run();
+  return ok({ ok: true });
+}
+
+async function registrarPagamento(env, cob) {
+  const agoraISO = new Date().toISOString();
+  await env.DB.prepare("UPDATE cobrancas SET status = 'paga', pago_em = COALESCE(pago_em, ?2) WHERE id = ?1")
+    .bind(cob.id, agoraISO).run();
+  const r = await env.DB.prepare("SELECT id, status, pagamento_status FROM reservas WHERE id = ?1").bind(cob.reserva_id).first();
+  if (!r) return;
+  if (cob.tipo === "saldo") {
+    if (r.pagamento_status !== "quitado")
+      await env.DB.prepare("UPDATE reservas SET pagamento_status = 'quitado', atualizado_em = ?1 WHERE id = ?2").bind(agoraISO, r.id).run();
+    return;
+  }
+  if (["sinal_pago", "quitado", "pago_sem_vaga"].includes(r.pagamento_status)) return; // já processado
+  const novo = cob.tipo === "integral" ? "quitado" : "sinal_pago";
+  const cfg = await lerConfig(env);
+  const conf = await env.DB.prepare(SQL_CONFIRMAR_PAGA).bind(r.id, novo, agoraISO, cfg.capacidade).run();
+  if (!conf.meta.changes) {
+    await env.DB.prepare("UPDATE reservas SET pagamento_status = 'pago_sem_vaga', atualizado_em = ?1 WHERE id = ?2").bind(agoraISO, r.id).run();
+    console.error("[asaas] pagamento recebido sem vaga — a equipe precisa resolver", r.id);
+  }
+}
+
+/* POST /api/admin/reservas/:id/saldo — gera (ou devolve, se ainda valer) o link do saldo de uma
+   reserva confirmada com sinal pago. O link vale até 15 min antes da saída, no máximo 24 h (limite
+   do Asaas): para passeio daqui a vários dias, gere de novo mais perto. Quem envia o link para o
+   cliente (e quando) é decisão da operação — o painel só mostra o link para copiar. */
+async function adminLinkSaldo(request, env, id) {
+  if (!pagamentoOnlineAtivo(env)) return erro("Pagamento online desligado.", 409);
+  await garantirEsquemaPagamento(env);
+  const r = await env.DB
+    .prepare("SELECT id, codigo, plano, data, hora, pax, total, status, pagamento_status FROM reservas WHERE id = ?1")
+    .bind(id).first();
+  if (!r) return erro("Reserva não encontrada.", 404);
+  if (r.status !== "confirmada" || r.pagamento_status !== "sinal_pago")
+    return erro("Só reserva confirmada com sinal pago tem saldo a cobrar.", 409);
+  const pago = await env.DB.prepare(SQL_PAGO_CENTAVOS).bind(r.id).first();
+  const saldo = Math.round(Number(r.total) * 100) - Number(pago.pago);
+  if (saldo <= 0) return erro("Não há saldo a cobrar.", 409);
+  const agoraISO = new Date().toISOString();
+  const vigente = await env.DB
+    .prepare(
+      "SELECT * FROM cobrancas WHERE reserva_id = ?1 AND tipo = 'saldo' AND status = 'aguardando' AND expira_em > ?2 " +
+      "ORDER BY criado_em DESC LIMIT 1"
+    )
+    .bind(r.id, agoraISO).first();
+  if (vigente) return ok({ ok: true, repetido: true, link: vigente.link, valor: Number(vigente.valor_centavos) / 100, expiraEm: vigente.expira_em });
+  const cfg = await lerConfig(env);
+  const minutos = minutosDoLink(Date.now(), limiteQuitacaoMs(r.data, Number(r.hora), cfg), PAGAMENTO.maximoAsaasMin);
+  if (minutos === null) return erro("Passou do prazo para pagar o saldo online (15 min antes da saída). Resolva direto com o cliente.", 409);
+  let cob;
+  try { cob = await novaCobranca(env, request, r, "saldo", saldo, minutos); }
+  catch (e) {
+    console.error("[asaas]", mascarar(e && e.message ? e.message : String(e)));
+    return erro("O Asaas não respondeu. Tente de novo em instantes.", 502);
+  }
+  return ok({ ok: true, link: cob.link, valor: saldo / 100, expiraEm: cob.expiraEm });
 }
 
 // Origem de rastreio: lista fixa; "link:<fonte>" só com letras, números, ponto, hífen e sublinhado.
@@ -1459,6 +1874,18 @@ async function adminResumo(env) {
   });
 }
 
+const SQL_LISTAR_RESERVAS =
+  "SELECT id, codigo, criado_em, plano, data, hora, pax, nome, telefone, email, obs, " +
+  "total, voucher, origem, origem_detalhe, como_conheceu, instagram_cliente, " +
+  "seguiu_instagram, status, canal, expira_em FROM reservas WHERE data >= ? AND data <= ?";
+// Com o pagamento online ligado: + modalidade, situação do pagamento e quanto já entrou (centavos).
+const SQL_LISTAR_RESERVAS_COM_PAGAMENTO =
+  "SELECT id, codigo, criado_em, plano, data, hora, pax, nome, telefone, email, obs, " +
+  "total, voucher, origem, origem_detalhe, como_conheceu, instagram_cliente, " +
+  "seguiu_instagram, status, canal, expira_em, pagamento_modalidade, pagamento_status, " +
+  "(SELECT COALESCE(SUM(c.valor_centavos),0) FROM cobrancas c WHERE c.reserva_id = reservas.id AND c.status = 'paga') AS pago_centavos " +
+  "FROM reservas WHERE data >= ? AND data <= ?";
+
 async function adminListarReservas(env, url) {
   await garantirEsquemaReservas(env);
   const status = url.searchParams.get("status");
@@ -1466,10 +1893,9 @@ async function adminListarReservas(env, url) {
   const ate = url.searchParams.get("ate") || "2999-12-31";
   const limite = Math.min(500, Number(url.searchParams.get("limite") || 200));
 
-  let sql =
-    "SELECT id, codigo, criado_em, plano, data, hora, pax, nome, telefone, email, obs, " +
-    "total, voucher, origem, origem_detalhe, como_conheceu, instagram_cliente, " +
-    "seguiu_instagram, status, canal, expira_em FROM reservas WHERE data >= ? AND data <= ?";
+  const online = pagamentoOnlineAtivo(env);
+  if (online) await garantirEsquemaPagamento(env);
+  let sql = online ? SQL_LISTAR_RESERVAS_COM_PAGAMENTO : SQL_LISTAR_RESERVAS;
   const bind = [de, ate];
   if (status && status !== "todas") { sql += " AND status = ?"; bind.push(status); }
   sql += " ORDER BY data DESC, hora DESC LIMIT ?";
@@ -1658,4 +2084,7 @@ async function adminGravarConfig(request, env) {
 }
 
 // Exportadas só para os testes de testes/ (o Pages usa apenas o export default).
-export { expiraEm, normalizarTelefone, conferirData, validarReserva, verificarTurnstile, resumirRelatorioCsp, destinoRedirect };
+export {
+  expiraEm, normalizarTelefone, conferirData, validarReserva, verificarTurnstile, resumirRelatorioCsp, destinoRedirect,
+  calcularCobranca, limiteQuitacaoMs, minutosDoLink, planoPagaOnline, pagamentoOnlineAtivo, PAGAMENTO
+};
