@@ -403,7 +403,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const home = await (await pegar("/")).text();
   const grade = home.slice(home.indexOf('class="lugares-fotos"'), home.indexOf('<ul class="lugares">'));
   const imgs = [...grade.matchAll(/<img [^>]*>/g)].map(m => m[0]);
-  checar("FOTOS a grade tem as 4 fotos antigas + 8 novas (12)", imgs.length === 12, imgs.length);
+  checar("FOTOS a grade tem as 4 fotos antigas + 8 novas + 3 do Lucas com o nome do lugar (15)", imgs.length === 15, imgs.length);
   const novas = imgs.filter(i => /lugar-(vista-baia|pedras-agua|banco-areia|riacho-mata|amanhecer-pedras|enseada-palmeira|banco-areia-veleiro|baia-ilhas)-480/.test(i));
   checar("FOTOS as 8 novas estão na grade", novas.length === 8, novas.length);
   const lugares = ["Praia do Meio", "Cachadaço", "Mamanguá", "Juatinga", "Saco Bravo", "Praia Brava", "Cepilho", "Ranchos", "Pedra que Engole", "Codós", "Paraty", "Trindade", "Hymbé", "Sono", "Antigos", "Pão de Açúcar"];
@@ -417,6 +417,36 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     checar(`FOTOS ${nome}: width/height do HTML = dimensões reais da imagem de 720 (${w}×${h})`, lw === w && lh === h, lw + "×" + lh);
     checar(`FOTOS ${nome}: carregamento lazy, decoding async e classe de foco`, i.includes('loading="lazy"') && i.includes('decoding="async"') && /class="foco-(60|65|70|75)"/.test(i));
   }
+}
+
+
+// ---------- FOTOS do Lucas (26/10/2026): cada foto traz o nome do lugar escrito e só entra onde o lugar já aparece ----------
+{
+  const doc = await (await pegar("/")).text();
+  const fotos = [
+    // [arquivo do src, maior arquivo do srcset, trecho que precisa conter o <img>, lugar que o alt cita]
+    ["capa-mirante-baia-800", "capa-mirante-baia-1200", 'class="hero-foto"', "baía de Trindade"],
+    ["foto-praia-galhetas-480", "foto-praia-galhetas-640", 'id="mais-procurados"', "Praia das Galhetas"],
+    ["foto-piscina-galhetas-720", "foto-piscina-galhetas-720", 'id="roteiro-boat"', "Piscina natural das Galhetas"],
+    ["foto-cachoeira-saco-bravo-720", "foto-cachoeira-saco-bravo-720", 'id="consulta-saco-bravo"', "Cachoeira do Saco Bravo"],
+    ["lugar-praia-brava-rio-480", "lugar-praia-brava-rio-720", 'class="lugares-fotos"', "Praia Brava"],
+    ["lugar-praia-meio-480", "lugar-praia-meio-960", 'class="lugares-fotos"', "Praia do Meio"],
+    ["lugar-piscina-cachadaco-480", "lugar-piscina-cachadaco-480", 'class="lugares-fotos"', "Piscina Natural do Cachadaço"]
+  ];
+  for (const [src, maior, bloco, lugar] of fotos) {
+    const i = doc.indexOf(`src="/assets/${src}.webp"`), b = doc.lastIndexOf(bloco, i);
+    const tag = i < 0 ? "" : doc.slice(doc.lastIndexOf("<img", i), doc.indexOf(">", i) + 1);
+    checar(`FOTOS-LUCAS ${src}: no lugar certo (${bloco})`, i > 0 && b > 0 && i - b < 6000, `${i} ${b}`);
+    const alt = (tag.match(/alt="([^"]*)"/) || [])[1] || "";
+    checar(`FOTOS-LUCAS ${src}: alt cita ${lugar}`, alt.includes(lugar), alt);
+    const w = Number((tag.match(/ width="(\d+)"/) || [])[1]), h = Number((tag.match(/ height="(\d+)"/) || [])[1]);
+    const arq = readFileSync(new URL(`../site/assets/${maior}.webp`, import.meta.url)); // WebP VP8: largura/altura nos bytes 26-29
+    const lw = (arq[26] | (arq[27] << 8)) & 0x3fff, lh = (arq[28] | (arq[29] << 8)) & 0x3fff;
+    checar(`FOTOS-LUCAS ${src}: width/height do HTML = ${maior} (${w}×${h})`, lw === w && lh === h, lw + "×" + lh);
+    if (src.startsWith("capa-")) checar(`FOTOS-LUCAS ${src}: capa sem lazy`, !tag.includes('loading="lazy"') && tag.includes('fetchpriority="high"'));
+    else checar(`FOTOS-LUCAS ${src}: loading lazy e decoding async`, tag.includes('loading="lazy"') && tag.includes('decoding="async"'));
+  }
+  checar("FOTOS-LUCAS og:image continua og-v2.jpg (capa nova só no hero)", doc.includes('<meta property="og:image" content="https://trindadeadventury.com.br/assets/og-v2.jpg">'));
 }
 
 
@@ -799,8 +829,9 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   // Hero: 2 CTAs (Reservar e WhatsApp), imagem sem loading=lazy e com fetchpriority=high.
   const blocoHero = doc.slice(pontos.hero, pontos.cartoes);
   checar("E26 hero: 2 CTAs (Reservar meu passeio e Tirar dúvida no WhatsApp)", blocoHero.includes(">Reservar meu passeio<") && blocoHero.includes("Tirar dúvida no WhatsApp"));
-  checar("E26 hero: foto da enseada (og-v2, a capa de antes da home nova), sem loading=lazy, com fetchpriority=high", /<img[^>]*og-v2-800\.webp[^>]*fetchpriority="high"/.test(blocoHero) && !/<img[^>]*og-v2[^>]*loading="lazy"/.test(blocoHero) && !/parapente/i.test(blocoHero));
-  checar("E26 preload da capa aponta para a mesma foto do hero (og-v2)", /<link rel="preload" as="image" href="\/assets\/og-v2-800\.webp"/.test(doc));
+  // 26/10/2026: capa nova enviada pelo Lucas (baía de Trindade vista de um mirante). O og:image continua og-v2.jpg.
+  checar("E26 hero: foto do mirante (capa-mirante-baia), sem loading=lazy, com fetchpriority=high", /<img[^>]*capa-mirante-baia-800\.webp[^>]*fetchpriority="high"/.test(blocoHero) && !/<img[^>]*capa-mirante-baia[^>]*loading="lazy"/.test(blocoHero) && !/parapente/i.test(blocoHero));
+  checar("E26 preload da capa aponta para a mesma foto do hero (capa-mirante-baia)", /<link rel="preload" as="image" href="\/assets\/capa-mirante-baia-800\.webp" imagesrcset="[^"]*capa-mirante-baia-1200\.webp 1200w"/.test(doc));
 
   // Câmeras: fora do menu e do rodapé (a rota continua existindo).
   checar("E26 \"Câmeras\" saiu do menu e do rodapé (rota /cameras continua existindo)", !doc.includes('data-rota="cameras"') && !/<li><a href="\/cameras">/.test(doc) && SITE.paginas["/cameras"]);
