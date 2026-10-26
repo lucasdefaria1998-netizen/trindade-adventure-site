@@ -1098,9 +1098,13 @@ async function disponibilidade(env, url) {
 
   // Com o pagamento online ligado, o site fica sabendo quais passeios pagam pelo site e o "hoje" de Trindade
   // (para mostrar 30%/100% ou só 100%). Desligado, a resposta é a mesma de antes.
+  // O site mostra os valores a partir dos preços daqui (os mesmos que o servidor cobra) e esconde os horários
+  // em que já não cabe um link de pagamento (saída − quitarAntesMin − minimoLinkMin).
   const extra = pagamentoOnlineAtivo(env) ? {
     pagamentoOnline: {
-      planos: Object.keys(PLANOS).filter(planoPagaOnline), percentualSinal: PAGAMENTO.percentualSinal, hoje: agoraEmTrindade().data
+      planos: Object.keys(PLANOS).filter(planoPagaOnline), percentualSinal: PAGAMENTO.percentualSinal, hoje: agoraEmTrindade().data,
+      precos: Object.fromEntries(Object.keys(PLANOS).filter(planoPagaOnline).map(id => [id, PLANOS[id].preco])),
+      saidaAposMin: cfg.saidaApos, quitarAntesMin: PAGAMENTO.quitarAntesDaSaidaMin, minimoLinkMin: PAGAMENTO.minimoAsaasMin
     }
   } : {};
   return ok({ ok: true, data, capacidade: cfg.capacidade, grade, horariosPorPlano, ...extra });
@@ -1403,7 +1407,15 @@ function pagamentoOnlineAtivo(env) {
   return !!(env && env.PAGAMENTO_ONLINE === "1" && env.ASAAS_API_KEY && env.ASAAS_WEBHOOK_TOKEN);
 }
 
-// Todo plano de PLANOS (preço fixo e horário fixo) paga online quando o pagamento está ligado.
+/* Todo plano de PLANOS (preço fixo e horário fixo) paga online quando o pagamento está ligado.
+   PENDENTE-LUCAS: horários/vagas do parapente. Decidido: com o pagamento ligado, o parapente entra na regra
+   30/100 como os outros. Mas ele não está em PLANOS: não tem horário de saída nem vaga, e sem saída não há
+   "mesmo dia × outro dia" por horário, limite de 15 min, link do saldo 12 h antes nem cancelamento automático.
+   Enquanto isso não for definido, ele segue só pelo WhatsApp (ligado ou desligado). Para encaixar quando vier:
+   1) entrada em PLANOS com preco (350, por voo), horarios e duracaoMin; 2) vaga própria do parapente — hoje a
+   vaga é por horário e somada entre todos os passeios (contaNaVaga + cfg.capacidade), então precisa de um
+   filtro por plano ou de uma capacidade separada; 3) no app.js, tirar soWhatsApp/horarioCombinado do
+   parapente (ver pagaOnline no PagamentoPuro). Esta função já passa a valer para ele sem mudança. */
 function planoPagaOnline(planoId) {
   const p = Object.prototype.hasOwnProperty.call(PLANOS, planoId) ? PLANOS[planoId] : null;
   return !!p && Number(p.preco) > 0;

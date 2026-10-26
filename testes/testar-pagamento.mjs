@@ -137,7 +137,9 @@ const pagar = (ckId, evento = "CHECKOUT_PAID", id = "evt_" + (++seqEv)) => webho
   checar("P1  regra 30% aplicada a um voo de parapente (R$ 350 → R$ 105 + R$ 245) — cálculo puro; o parapente não tem agenda, segue no WhatsApp", para.agoraCentavos === 10500 && para.saldoCentavos === 24500);
   checar("P1  só Pix online: billingTypes = [PIX] e nenhum cartão no worker nem no app.js", w.PAGAMENTO.formas.join() === "PIX" && !/CREDIT_CARD|DEBIT_CARD/.test(src) && !/CREDIT_CARD|DEBIT_CARD|cart[aã]o de cr[eé]dito/i.test(readFileSync(new URL("../site/app.js", import.meta.url), "utf8")));
   checar("P1  SALDO_ANTECEDENCIA_H: padrão 12; '6' → 6; '0' desliga; inválido → 12", w.saldoAntecedenciaH({}) === 12 && w.saldoAntecedenciaH({ SALDO_ANTECEDENCIA_H: "6" }) === 6 && w.saldoAntecedenciaH({ SALDO_ANTECEDENCIA_H: "0" }) === null && w.saldoAntecedenciaH({ SALDO_ANTECEDENCIA_H: "abc" }) === 12);
-  checar("P1  nenhum PENDENTE-LUCAS sobrou no worker", !/PENDENTE-LUCAS/.test(src));
+  const pendentes = [...src.matchAll(/PENDENTE-LUCAS:?([^\n]*)/g)].map(m => m[1].trim());
+  checar("P1  único PENDENTE-LUCAS no worker é o do parapente (horários/vagas)", pendentes.length === 1 && /^horários\/vagas do parapente/.test(pendentes[0]), JSON.stringify(pendentes));
+  checar("P1  parapente continua fora do pagamento online (sem horário nem vaga)", !w.planoPagaOnline("parapente"));
   checar("P1  sinal configurável numa constante (30)", w.PAGAMENTO.percentualSinal === 30);
   const cfg = { saidaApos: 20 };
   checar("P1  limite para quitar = 15 min antes da saída (concentração 9h → saída 9h20 → 9h05)", new DataReal(w.limiteQuitacaoMs(AMANHA, 9, cfg)).toISOString() === "2026-10-27T12:05:00.000Z");
@@ -161,6 +163,7 @@ const pagar = (ckId, evento = "CHECKOUT_PAID", id = "evt_" + (++seqEv)) => webho
   const disp = await getJSON("/api/disponibilidade?data=" + AMANHA);
   const p = disp.corpo.pagamentoOnline;
   checar("L1  ligado: disponibilidade informa os passeios com pagamento (todos de PLANOS), 30% e o 'hoje' de Trindade", p && p.planos.join() === "essencial,adventure,boat" && p.percentualSinal === 30 && p.hoje === HOJE, JSON.stringify(p));
+  checar("L1  ligado: e os preços que o servidor cobra + limites do link (para o site mostrar e esconder horário sem tempo)", p && JSON.stringify(p.precos) === '{"essencial":80,"adventure":150,"boat":400}' && p.saidaAposMin === 20 && p.quitarAntesMin === 15 && p.minimoLinkMin === 10, JSON.stringify(p));
   relogio("2026-10-27T02:30:00Z"); // 23:30 de 26/10 em Trindade (já é 27/10 em UTC)
   const d2 = await getJSON("/api/disponibilidade?data=" + AMANHA);
   checar("L1  'hoje' segue o fuso de Trindade, não o UTC (23h30 de 26/10)", d2.corpo.pagamentoOnline.hoje === HOJE, d2.corpo.pagamentoOnline.hoje);

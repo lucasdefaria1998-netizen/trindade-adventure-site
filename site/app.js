@@ -930,12 +930,15 @@ function pintarHorarios() {
   const horaAtual = agora.hora;
 
   const grade = (dispoCache && dispoCache.data === reserva.data) ? dispoCache.grade : null;
+  // Pagamento online: horário de hoje sem tempo para pagar (link mínimo + 15 min antes da saída) fica desligado.
+  const pgOnline = pagaOnlineAgora();
 
   alvo.innerHTML = horas.map(h => {
     const passou = ehHoje && h <= horaAtual;
     const info = grade ? grade[String(h)] : null; // já normalizada em atualizarDisponibilidade(): { restam: inteiro, bloqueado: booleano }
     const semVaga = !!(info && (info.bloqueado || info.restam <= 0));
-    const off = passou || semVaga;
+    const semTempoPg = !passou && pgOnline && PagamentoPuro.semTempo(pagamentoCfg, reserva.data, h, agora);
+    const off = passou || semVaga || semTempoPg;
 
     let legenda = passou ? "já saiu" : "sai " + saidaLabel(h);
     if (!passou && info) {
@@ -943,6 +946,7 @@ function pintarHorarios() {
         : info.restam <= 0 ? "esgotado"
         : info.restam + " vaga" + (info.restam > 1 ? "s" : "");
     }
+    if (semTempoPg && !semVaga) legenda = "sem tempo p/ pagar";
     const capacidade = inteiroSeguro(dispoCache && dispoCache.capacidade, CFG.capacidade) || CFG.capacidade;
     const proporcao = info && !off ? Math.min(1, Math.max(0, info.restam / capacidade)) : 0;
 
@@ -989,6 +993,9 @@ async function atualizarDisponibilidade() {
   dispoCache = (r.status === 200 && r.corpo && r.corpo.ok)
     ? { data: dataAlvo, grade: gradeSegura, capacidade: Math.max(1, inteiroSeguro(r.corpo.capacidade, CFG.capacidade)) }
     : null;
+  // Pagamento online: o servidor diz se está ligado (só responde "pagamentoOnline" quando está).
+  // Resposta que falhou não muda o que já se sabia.
+  if (dispoCache) { pagamentoCfg = PagamentoPuro.ler(r.corpo); if (pagamentoCfg || $("#passoPagamento")) desenharResumo(); }
   if (dispoCache && r.corpo.horariosPorPlano && typeof r.corpo.horariosPorPlano === "object") {
     const porPlano = {};
     for (const [id, lista] of Object.entries(r.corpo.horariosPorPlano))
@@ -1058,6 +1065,7 @@ function desenharResumo() {
   }
   // Barra fixa do celular (ver #barraFixaReserva no HTML): mesmo total do resumo.
   if (bfTotal) bfTotal.textContent = BRL(total);
+  desenharPagamento(); // pagamento online: só age quando o servidor disse que está ligado
 }
 
 /* O primeiro horário livre da data escolhida já vem selecionado, em qualquer passeio com agenda —
@@ -1072,8 +1080,10 @@ function preSelecionarPrimeiroHorario() {
   if (!horas.length) return false;
   const agora = agoraEmTrindade();
   const grade = (dispoCache && dispoCache.data === reserva.data) ? dispoCache.grade : null;
+  const pgOnline = pagaOnlineAgora();
   const livre = horas.find(h => {
     if (reserva.data === agora.data && h <= agora.hora) return false;
+    if (pgOnline && PagamentoPuro.semTempo(pagamentoCfg, reserva.data, h, agora)) return false;
     const info = grade ? grade[String(h)] : null;
     return !(info && (info.bloqueado || info.restam <= 0));
   });
@@ -1155,9 +1165,17 @@ function validar() {
       : horaInvalida ? "Esse horário não está disponível para este passeio. Escolha outro."
       : horaPassou ? "Esse horário já passou. Escolha outro."
       : "";
+    if (!erroHora.textContent && pagaOnlineAgora() && PagamentoPuro.semTempo(pagamentoCfg, reserva.data, reserva.hora, agora))
+      erroHora.textContent = PagamentoPuro.MENSAGEM.sem_tempo;
     erroHora.hidden = !erroHora.textContent;
     if (erroHora.textContent && !primeiro) primeiro = $("#listaHorarios");
     if (horaPassou || horaInvalida) { reserva.hora = null; pintarHorarios(); desenharResumo(); }
+  }
+
+  if (pagaOnlineAgora()) {
+    const semEscolha = !PagamentoPuro.escolhaEfetiva(pagamentoCfg, reserva.data, escolhaPagamento);
+    mostrarErro(null, "#errPagamento", semEscolha ? PagamentoPuro.MENSAGEM.escolher : "");
+    if (semEscolha && !primeiro) primeiro = $("#opcoesPagamento button") || $("#passoPagamento");
   }
 
   const semAceite = !$("#fAceite").checked;
@@ -1383,6 +1401,335 @@ function mostrarConfirmacao(dados) {
   };
 }
 
+/* ==========================================================================
+   Pagamento online (Asaas, só Pix) — Sessão 2.
+
+   Só existe quando o SERVIDOR diz que está ligado: a resposta de
+   /api/disponibilidade traz "pagamentoOnline" (lista de passeios, % do sinal,
+   o "hoje" de Trindade e os preços que ele cobra). Sem esse campo (flag
+   desligada, servidor antigo, API fora do ar), pagamentoCfg fica nulo e nada
+   daqui aparece nem muda no envio: o fluxo é o de sempre, pelo WhatsApp.
+   O valor cobrado é sempre o que o servidor devolve; o que se mostra antes
+   é calculado com os mesmos preços e a mesma regra (30%, arredondado no centavo).
+   ========================================================================== */
+
+/* <pagamento-puro> — sem DOM nem variáveis de fora; testes/testar-pagamento-ui.mjs roda este trecho isolado. */
+const PagamentoPuro = (() => {
+  const REF = /^[a-f0-9]{32}$/;
+  const CODIGO = /^TA-[A-Z0-9-]{4,32}$/;
+  const DATA = /^\d{4}-\d{2}-\d{2}$/;
+  const inteiro = (v, padrao) => (Number.isInteger(Number(v)) && Number(v) >= 0 ? Number(v) : padrao);
+  const centavos = reais => Math.round(Number(reais) * 100);
+  const reais = c => "R$ " + (c % 100 ? (c / 100).toFixed(2).replace(".", ",") : String(c / 100).replace(/\B(?=(\d{3})+(?!\d))/g, "."));
+
+  function ler(corpo) {
+    const p = corpo && corpo.ok && corpo.pagamentoOnline;
+    if (!p || typeof p !== "object") return null;
+    const planos = Array.isArray(p.planos) ? p.planos.filter(x => typeof x === "string") : [];
+    const pct = Number(p.percentualSinal);
+    const hoje = typeof p.hoje === "string" && DATA.test(p.hoje) ? p.hoje : null;
+    const precos = {};
+    for (const id of planos) {
+      const v = Number(p.precos && p.precos[id]);
+      if (Number.isFinite(v) && v > 0) precos[id] = v;
+    }
+    if (!planos.length || !(pct > 0 && pct < 100) || !hoje) return null;
+    return {
+      planos, percentualSinal: pct, hoje, precos,
+      saidaAposMin: inteiro(p.saidaAposMin, 20), quitarAntesMin: inteiro(p.quitarAntesMin, 15), minimoLinkMin: inteiro(p.minimoLinkMin, 10)
+    };
+  }
+
+  // PENDENTE-LUCAS: horários/vagas do parapente. O parapente (horarioCombinado/soWhatsApp) continua no
+  // WhatsApp mesmo com o pagamento ligado: sem horário de saída e vaga não há como aplicar 30/100, o
+  // limite de 15 min nem o saldo. Quando ele ganhar horários e vaga própria, basta tirar esses dois
+  // campos dele em PLANOS e o servidor incluí-lo em pagamentoOnline.planos (ver _worker.js, planoPagaOnline).
+  function pagaOnline(cfg, plano) {
+    return !!(cfg && plano && !plano.horarioCombinado && !plano.soWhatsApp
+      && cfg.planos.includes(plano.id) && cfg.precos[plano.id] > 0);
+  }
+
+  // Opções de pagamento: outro dia = sinal (30%) ou 100%; no mesmo dia (pelo "hoje" do servidor) só 100%.
+  function opcoes(cfg, planoId, data, pax) {
+    const total = centavos(cfg.precos[planoId] * pax);
+    const sinal = Math.round(total * cfg.percentualSinal / 100);
+    const mesmoDia = data === cfg.hoje;
+    const integral = { modo: "integral", agoraCentavos: total, saldoCentavos: 0 };
+    return {
+      mesmoDia, totalCentavos: total,
+      modos: mesmoDia ? [integral] : [{ modo: "sinal", agoraCentavos: sinal, saldoCentavos: total - sinal }, integral]
+    };
+  }
+
+  function escolhaEfetiva(cfg, data, escolha) {
+    if (data === cfg.hoje) return "integral";
+    return escolha === "sinal" || escolha === "integral" ? escolha : null;
+  }
+
+  // Horário de hoje em que já não cabe um link de pagamento: o link precisa valer pelo menos
+  // minimoLinkMin (mínimo do Asaas) e tudo tem de estar pago quitarAntesMin antes da saída.
+  // agora = { data, hora } de Trindade (hora fracionada, como agoraEmTrindade()).
+  function semTempo(cfg, data, hora, agora) {
+    if (!cfg || !agora || data !== agora.data) return false;
+    const limiteMin = Math.round(hora * 60) + cfg.saidaAposMin - cfg.quitarAntesMin;
+    return limiteMin - Math.round(agora.hora * 60) < cfg.minimoLinkMin;
+  }
+
+  // Corpo do POST /api/reservas: igual ao de sempre; só ganha "pagamento" quando o passeio paga online.
+  function corpoDoPedido(base, cfg, plano, data, escolha) {
+    if (!pagaOnline(cfg, plano)) return base;
+    return Object.assign({}, base, { pagamento: escolhaEfetiva(cfg, data, escolha) });
+  }
+
+  // Só segue para link https do Asaas (asaas.com ou subdomínio), sem usuário/senha embutidos.
+  function linkSeguro(link) {
+    try {
+      const u = new URL(String(link));
+      if (u.protocol !== "https:" || u.username || u.password) return null;
+      if (u.hostname !== "asaas.com" && !u.hostname.endsWith(".asaas.com")) return null;
+      return u.href;
+    } catch (e) { return null; }
+  }
+
+  // O que fazer com a resposta do POST quando o passeio paga online. null = segue o tratamento antigo
+  // (duplicado, lotou, 422 de outro campo, 200 sem pagamento porque a flag desligou no meio).
+  function respostaDoEnvio(status, corpo) {
+    const motivo = corpo && corpo.motivo;
+    if (status === 200 && corpo && corpo.ok && corpo.pagamento) {
+      const pg = corpo.pagamento, link = linkSeguro(pg.link);
+      if (!link) return { acao: "indisponivel" };
+      return {
+        acao: "pagar", link, ref: REF.test(String(pg.ref)) ? String(pg.ref) : null,
+        modalidade: pg.modalidade === "sinal" ? "sinal" : "integral",
+        agoraCentavos: centavos(pg.valor), saldoCentavos: centavos(pg.saldo || 0), totalCentavos: centavos(pg.total)
+      };
+    }
+    if (status === 409 && motivo === "sem_tempo_pagamento") return { acao: "sem_tempo" };
+    if (status === 409 && motivo === "sem_tempo_sinal") return { acao: "so_integral" };
+    if (status === 409 && motivo === "mesmo_dia_integral") return { acao: "mesmo_dia" };
+    if (status === 422 && corpo && corpo.erros && corpo.erros.pagamento) return { acao: "escolher" };
+    if (status === 0 || status === 503 || [403, 413, 415, 429].includes(status) || status >= 500) return { acao: "indisponivel" };
+    return null;
+  }
+
+  const MENSAGEM = {
+    sem_tempo: "Não dá mais tempo de pagar para esse horário. Escolha outro horário ou fale com a equipe pelo WhatsApp.",
+    so_integral: "Não dá mais tempo de pagar sinal e saldo antes da saída. Escolha pagar 100% agora.",
+    mesmo_dia: "Para passeio hoje o pagamento é integral (100%).",
+    escolher: "Escolha como pagar: 30% agora ou 100% agora.",
+    indisponivel: "O pagamento online está indisponível agora. Nada foi cobrado. Fale com a equipe pelo WhatsApp."
+  };
+
+  function refDaURL(busca) {
+    try {
+      const ref = new URLSearchParams(String(busca || "")).get("pagamento");
+      return ref && REF.test(ref) ? ref : null;
+    } catch (e) { return null; }
+  }
+
+  // Estado da página de volta a partir de GET /api/pagamento. final = parar de consultar.
+  // "desligado": 404 que não é de pagamento (rota não existe, flag desligada) — o site não mostra nada novo.
+  function estadoDoRetorno(status, corpo) {
+    if (status === 404) return { estado: corpo && /pagamento/i.test(String(corpo.erro || "")) ? "nao_encontrado" : "desligado", final: true };
+    if (status === 400) return { estado: "nao_encontrado", final: true };
+    if (status !== 200 || !corpo || !corpo.ok) return { estado: "erro_rede", final: false };
+    const det = {
+      passeio: typeof corpo.passeio === "string" ? corpo.passeio.slice(0, 80) : "",
+      data: typeof corpo.data === "string" && DATA.test(corpo.data) ? corpo.data : "",
+      hora: typeof corpo.hora === "string" && /^\d{2}:\d{2}$/.test(corpo.hora) ? corpo.hora : "",
+      pax: inteiro(corpo.pax, 0), tipo: corpo.tipo === "saldo" ? "saldo" : corpo.tipo === "integral" ? "integral" : "sinal",
+      valorCentavos: centavos(corpo.valor || 0), saldoCentavos: centavos(corpo.saldo || 0)
+    };
+    const s = corpo.status;
+    if (s === "aguardando") return Object.assign(det, { estado: "aguardando", final: false });
+    if (s === "expirado" || s === "expirada") return Object.assign(det, { estado: "expirado", final: true });
+    if (s === "cancelado" || s === "cancelada") return Object.assign(det, { estado: "cancelado", final: true });
+    if (s === "pago") {
+      if (corpo.situacao === "confirmada" && corpo.confirmada === true && CODIGO.test(String(corpo.codigo)))
+        return Object.assign(det, { estado: "pago", final: true, codigo: String(corpo.codigo) });
+      if (corpo.situacao === "sem_vaga") return Object.assign(det, { estado: "pago_sem_vaga", final: true });
+      if (corpo.situacao === "cancelada_sem_saldo") return Object.assign(det, { estado: "cancelada_sem_saldo", final: true });
+      return Object.assign(det, { estado: "processando", final: false });
+    }
+    return Object.assign(det, { estado: "erro_rede", final: false });
+  }
+
+  function textoDoRetorno(e) {
+    switch (e.estado) {
+      case "aguardando": return { titulo: "Aguardando o pagamento", texto: "Assim que o Pix for confirmado, o código da reserva aparece aqui. Esta página se atualiza sozinha." };
+      case "processando": return { titulo: "Pagamento recebido", texto: "Estamos confirmando a sua vaga. Esta página se atualiza sozinha." };
+      case "pago": return {
+        titulo: "Reserva confirmada",
+        texto: e.tipo === "saldo" || e.saldoCentavos <= 0
+          ? "Pagamento recebido. A reserva está quitada."
+          : `Sinal recebido. Falta o saldo de ${reais(e.saldoCentavos)}: você recebe o link do saldo cerca de 12 horas antes da saída, ou logo após o sinal se a reserva for feita mais perto do horário. Se o saldo não for pago até 15 minutos antes da saída, a reserva é cancelada e o sinal fica com a empresa.`
+      };
+      case "pago_sem_vaga": return { titulo: "Pagamento recebido, mas o horário lotou", texto: "A equipe vai entrar em contato para você escolher entre reagendar e devolução." };
+      case "cancelada_sem_saldo": return { titulo: "Reserva cancelada", texto: "O saldo não foi pago até 15 minutos antes da saída, então a reserva foi cancelada e o sinal ficou com a empresa, como nos Termos do Passeio." };
+      case "expirado": return { titulo: "O prazo para pagar terminou", texto: "A vaga foi liberada e nada foi cobrado. Você pode fazer uma nova reserva." };
+      case "cancelado": return { titulo: "Pagamento cancelado", texto: "Nada foi cobrado. Você pode fazer uma nova reserva." };
+      case "nao_encontrado": return { titulo: "Pagamento não encontrado", texto: "Confira o link ou fale com a equipe pelo WhatsApp." };
+      default: return { titulo: "Consultando o pagamento", texto: "Não conseguimos consultar agora. Tentando de novo…" };
+    }
+  }
+
+  return { ler, pagaOnline, opcoes, escolhaEfetiva, semTempo, corpoDoPedido, linkSeguro, respostaDoEnvio, MENSAGEM, refDaURL, estadoDoRetorno, textoDoRetorno, reais };
+})();
+/* </pagamento-puro> */
+
+let pagamentoCfg = null;      // null = pagamento online desligado (ou o servidor não disse que está ligado)
+let escolhaPagamento = null;  // "sinal" | "integral" | null (ainda não escolheu)
+const TEXTO_PAGAR = "Pagar com Pix";
+
+const pagaOnlineAgora = () => PagamentoPuro.pagaOnline(pagamentoCfg, planoPor(reserva.plano));
+
+/* Passo "Pagamento" (entre Horário e Seus dados), criado só quando o passeio paga online. Com a flag
+   desligada ele nunca é criado e esta função não mexe em nada da página. */
+function desenharPagamento() {
+  let passo = $("#passoPagamento");
+  if (!pagamentoCfg && !passo) return;
+  const online = pagaOnlineAgora();
+  const passoDados = $("#fNome") && $("#fNome").closest("fieldset");
+  const numDados = passoDados && $(".passo-titulo > span", passoDados);
+  const rotuloSinal = $("#rsSinal") && $("#rsSinal").previousElementSibling;
+  const botoes = [$('#formReserva button[type="submit"]'), $('#barraFixaReserva button[type="submit"]')].filter(Boolean);
+
+  if (!online) {
+    if (passo) passo.hidden = true;
+    if (numDados && numDados.dataset.original) numDados.textContent = numDados.dataset.original;
+    if (rotuloSinal && rotuloSinal.dataset.original) rotuloSinal.textContent = rotuloSinal.dataset.original;
+    botoes.forEach(b => { if (b.dataset.htmlOriginal !== undefined) { b.innerHTML = b.dataset.htmlOriginal; delete b.dataset.htmlOriginal; } });
+    return;
+  }
+
+  if (!passo) {
+    passo = document.createElement("fieldset");
+    passo.className = "passo";
+    passo.id = "passoPagamento";
+    passo.innerHTML = `<legend class="sr">Pagamento</legend>
+      <div class="passo-linha">
+        <h2 class="passo-titulo" id="tituloPagamento"><span>4</span>Pagamento</h2>
+        <p class="passo-dica">só Pix</p>
+      </div>
+      <div class="planos-opcoes" id="opcoesPagamento" role="group" aria-labelledby="tituloPagamento" aria-describedby="avisoPagamento"></div>
+      <p class="passo-dica" id="avisoPagamento" aria-live="polite"></p>
+      <p class="err" id="errPagamento" hidden></p>`;
+    const passoHorario = $("#passoHorario");
+    if (passoHorario) passoHorario.after(passo);
+    else if (passoDados) passoDados.before(passo);
+  }
+  passo.hidden = false;
+  if (numDados) { if (!numDados.dataset.original) numDados.dataset.original = numDados.textContent; numDados.textContent = "5"; }
+
+  const op = PagamentoPuro.opcoes(pagamentoCfg, reserva.plano, reserva.data, reserva.pax);
+  const escolha = PagamentoPuro.escolhaEfetiva(pagamentoCfg, reserva.data, escolhaPagamento);
+  const R = PagamentoPuro.reais;
+  $("#opcoesPagamento").innerHTML = op.modos.map(m => `<button type="button" class="plano-opcao" data-pg-modo="${m.modo}" aria-pressed="${escolha === m.modo}">
+      <span class="plano-nome">${m.modo === "sinal" ? `Sinal de ${pagamentoCfg.percentualSinal}% agora` : "Pagar 100% agora"}</span>
+      <span class="plano-preco"><b>${esc(R(m.agoraCentavos))}</b> <span>agora</span></span>
+      <span class="plano-info">${m.modo === "sinal" ? `Saldo de ${esc(R(m.saldoCentavos))} depois, por Pix, até 15 min antes da saída` : "Reserva quitada"}</span>
+    </button>`).join("");
+  $("#avisoPagamento").textContent = (op.mesmoDia ? "Para passeio hoje o pagamento é integral (100%). " : "")
+    + "Pagamento só por Pix, na página segura do Asaas. O código da reserva sai logo depois do pagamento.";
+
+  // Resumo e botões falam de pagamento, não de WhatsApp.
+  const modo = op.modos.find(m => m.modo === escolha);
+  if (rotuloSinal) { if (!rotuloSinal.dataset.original) rotuloSinal.dataset.original = rotuloSinal.textContent; rotuloSinal.textContent = "Pagar agora"; }
+  const rsSinal = $("#rsSinal"), rsGarantia = $("#rsGarantia"), resumoNota = $("#resumoNota");
+  if (rsSinal) rsSinal.textContent = modo ? R(modo.agoraCentavos) + (modo.modo === "sinal" ? ` (${pagamentoCfg.percentualSinal}%)` : " (100%)") : "escolha como pagar";
+  if (rsGarantia) rsGarantia.textContent = modo && modo.saldoCentavos
+    ? `Pix agora · saldo de ${R(modo.saldoCentavos)} por Pix até 15 min antes da saída.`
+    : "Pix agora, na página segura do Asaas.";
+  if (resumoNota) resumoNota.textContent = "Até 15 pessoas por reserva. O código da reserva sai logo depois do pagamento.";
+  botoes.forEach(b => { if (b.dataset.htmlOriginal === undefined) b.dataset.htmlOriginal = b.innerHTML; if (!b.disabled) b.textContent = TEXTO_PAGAR; });
+}
+
+/* Pagamento online indisponível (503, rede, sem token anti-robô, link estranho): nada foi cobrado e
+   a pessoa tem um caminho — o WhatsApp com os dados do pedido. Não abre nada sozinho. */
+function mostrarPagamentoIndisponivel(dadosForm) {
+  const p = planoPor(reserva.plano);
+  const texto = `Olá! Tentei reservar pelo site e o pagamento online não funcionou.\n` +
+    `Passeio: ${p.nome}\nData: ${dataBR(reserva.data)} · ${horaLabel(reserva.hora)}\nPessoas: ${reserva.pax}\nNome: ${dadosForm.nome}`;
+  const alvo = $("#errPagamento");
+  if (!alvo) return;
+  alvo.innerHTML = `${esc(PagamentoPuro.MENSAGEM.indisponivel)} <a class="link-texto" href="${esc(linkWA(texto))}" target="_blank" rel="noopener">Falar pelo WhatsApp</a>`;
+  alvo.hidden = false;
+  rolarAte($("#passoPagamento"));
+}
+
+function erroPagamento(msg) {
+  mostrarErro(null, "#errPagamento", msg);
+  if (msg) rolarAte($("#passoPagamento"));
+}
+
+/* Indo para o Asaas: avisa com o valor que o SERVIDOR vai cobrar e segue para o link. */
+function irParaPagamento(acao) {
+  const alvo = $("#reservaFeita");
+  const R = PagamentoPuro.reais;
+  alvo.innerHTML = `<div class="caixa confirma" role="status">
+      <div><h2 tabindex="-1" id="tituloIndoPagar">Indo para o pagamento por Pix…</h2>
+      <p>Valor agora: <b class="num">${esc(R(acao.agoraCentavos))}</b>${acao.saldoCentavos ? ` · saldo depois: <b class="num">${esc(R(acao.saldoCentavos))}</b>` : ""}.
+      O link vale por 30 minutos; depois disso a vaga é liberada.</p></div>
+      <a class="btn btn-primario btn-largo" href="${esc(acao.link)}" rel="noopener">Abrir a página de pagamento</a>
+    </div>`;
+  alvo.hidden = false;
+  $("#formReserva").hidden = true;
+  if ($("#barraFixaReserva")) $("#barraFixaReserva").hidden = true;
+  $("#tituloIndoPagar").focus();
+  location.assign(acao.link);
+}
+
+/* Página de volta do Asaas: /reservar?pagamento=<ref>. Consulta GET /api/pagamento até ter uma
+   resposta final. 404 que não é de pagamento (flag desligada) = não mostra nada e o formulário fica. */
+async function acompanharPagamento(ref) {
+  const inicio = Date.now();
+  let caixa = null, tentativas = 0;
+  const consultar = async () => {
+    tentativas++;
+    const r = await chamarAPI("/api/pagamento?ref=" + encodeURIComponent(ref));
+    const e = PagamentoPuro.estadoDoRetorno(r.status, r.corpo);
+    const barra = $("#barraFixaReserva");
+    if (e.estado === "desligado") { if (caixa) { caixa.hidden = true; $("#formReserva").hidden = false; if (barra) barra.hidden = false; } return; }
+    if (!caixa) {
+      caixa = $("#reservaFeita");
+      $("#formReserva").hidden = true;
+      caixa.hidden = false;
+      if (barra) barra.hidden = true; // a barra do celular envia o formulário, que não está na tela
+    }
+    const t = PagamentoPuro.textoDoRetorno(e);
+    const R = PagamentoPuro.reais;
+    caixa.innerHTML = `<div class="caixa confirma">
+        <div aria-live="polite"><h2 tabindex="-1" id="tituloRetorno">${esc(t.titulo)}</h2><p>${esc(t.texto)}</p></div>
+        ${e.codigo ? `<div class="codigo"><p>Código da reserva</p><p class="num">${esc(e.codigo)}</p></div>` : ""}
+        ${e.passeio ? `<div class="linhas">
+          <div class="linha"><span>Passeio</span><b>${esc(e.passeio)}</b></div>
+          ${e.data ? `<div class="linha"><span>Data e horário</span><b class="num">${esc(dataBR(e.data))}${e.hora ? " · " + esc(e.hora) : ""}</b></div>` : ""}
+          ${e.pax ? `<div class="linha"><span>Pessoas</span><b class="num">${e.pax}</b></div>` : ""}
+          ${e.valorCentavos ? `<div class="linha"><span>${e.estado === "pago" || e.estado === "pago_sem_vaga" || e.estado === "cancelada_sem_saldo" ? "Pago" : "Valor"}</span><b class="num">${esc(R(e.valorCentavos))}</b></div>` : ""}
+        </div>` : ""}
+        ${e.estado === "pago" ? `<p class="nota">Ponto de encontro: ${esc(CFG.pontoEncontro)}. Chegue 15 minutos antes, com protetor solar, água e calçado fechado.</p>` : ""}
+        ${["expirado", "cancelado", "nao_encontrado", "cancelada_sem_saldo"].includes(e.estado) ? `<button class="btn btn-secundario btn-largo" type="button" id="btnNovaReserva">Fazer uma nova reserva</button>` : ""}
+        ${e.final ? "" : `<p class="passo-dica">Atualizando sozinha…</p>`}
+      </div>`;
+    if (tentativas === 1) $("#tituloRetorno").focus();
+    const nova = $("#btnNovaReserva");
+    if (nova) nova.onclick = () => {
+      history.replaceState(null, "", "/reservar");
+      caixa.hidden = true;
+      $("#formReserva").hidden = false;
+      if ($("#barraFixaReserva")) $("#barraFixaReserva").hidden = false;
+      reserva.hora = null;
+      desenharReserva();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+    if (e.final) return;
+    if (Date.now() - inicio > 30 * 60000) return; // meia hora consultando: o link já venceu de qualquer jeito
+    const espera = e.estado === "erro_rede" ? Math.min(30000, 3000 * tentativas) : (Date.now() - inicio < 120000 ? 3000 : 10000);
+    setTimeout(consultar, espera);
+  };
+  consultar();
+}
+
 /* ------------------------------ eventos da reserva ------------------------------ */
 
 function ligarReserva() {
@@ -1406,6 +1753,9 @@ function ligarReserva() {
 
     const bd = ev.target.closest("[data-data]");
     if (bd) { reserva.data = bd.dataset.data; reserva.hora = null; desenharDatas(); desenharHorarios(); desenharResumo(); return; }
+
+    const bpg = ev.target.closest("[data-pg-modo]");
+    if (bpg) { escolhaPagamento = bpg.dataset.pgModo; mostrarErro(null, "#errPagamento", ""); desenharResumo(); return; }
 
     const bh = ev.target.closest("[data-hora]");
     if (bh && !bh.disabled) {
@@ -1464,7 +1814,9 @@ function ligarReserva() {
     // A aba do WhatsApp precisa abrir dentro do mesmo gesto de clique, senão
     // o navegador entende como pop-up indesejado e bloqueia. Por isso ela
     // abre em branco agora e só recebe o endereço quando o servidor responder.
-    const abaWA = window.open("", "_blank");
+    // Pagamento online: não abre o WhatsApp; segue para o link do Asaas que o servidor devolver.
+    const pgOnline = pagaOnlineAgora();
+    const abaWA = pgOnline ? null : window.open("", "_blank");
 
     const planoAtual = planoPor(reserva.plano);
     // Parapente (soWhatsApp): sem horário nem vaga para confirmar com o servidor — não faz sentido
@@ -1484,18 +1836,19 @@ function ligarReserva() {
     if (botao) { botao.disabled = true; botao.textContent = "Enviando…"; }
 
     const o = Origem.detectar();
-    const chave = chaveDoEnvio([reserva.plano, reserva.data, reserva.hora, reserva.pax, dadosForm.tel, dadosForm.nome].join("|"));
+    const escolhaPg = pgOnline ? PagamentoPuro.escolhaEfetiva(pagamentoCfg, reserva.data, escolhaPagamento) : null;
+    const chave = chaveDoEnvio([reserva.plano, reserva.data, reserva.hora, reserva.pax, dadosForm.tel, dadosForm.nome].concat(pgOnline ? [escolhaPg] : []).join("|"));
     // Token novo do desafio anti-robô a cada envio. Sem ele (script bloqueado, rede ruim) não
     // adianta chamar o servidor: vai direto para o WhatsApp, abaixo, com a mesma aba já aberta.
     const tokenAnti = await Turnstile.token();
     let resultado;
     if (!tokenAnti) {
       resultado = { status: 0, corpo: null };
-      torrada("Não deu para registrar no site agora. Seguimos pelo WhatsApp.");
+      if (!pgOnline) torrada("Não deu para registrar no site agora. Seguimos pelo WhatsApp.");
     } else resultado = await chamarAPI("/api/reservas", {
       method: "POST",
       headers: { "content-type": "application/json", "Idempotency-Key": chave },
-      body: JSON.stringify({
+      body: JSON.stringify(PagamentoPuro.corpoDoPedido({
         plano: reserva.plano, data: reserva.data, hora: reserva.hora, pax: reserva.pax,
         nome: dadosForm.nome, telefone: dadosForm.tel, email: dadosForm.email, obs: dadosForm.obs,
         origem: origemEfetiva(o, reserva.comoConheceu), origemDetalhe: o.detalhe,
@@ -1503,10 +1856,29 @@ function ligarReserva() {
         instagramCliente: reserva.instagramCliente, seguiuInstagram: reserva.seguiuInstagram,
         sessao: Origem.sessao(),
         "cf-turnstile-response": tokenAnti
-      })
+      }, pagamentoCfg, planoAtual, reserva.data, escolhaPg))
     });
 
-    if (botao) { botao.disabled = false; botao.textContent = "Enviar reserva no WhatsApp"; }
+    if (botao) { botao.disabled = false; botao.textContent = pgOnline ? TEXTO_PAGAR : "Enviar reserva no WhatsApp"; }
+
+    if (pgOnline) {
+      const acao = PagamentoPuro.respostaDoEnvio(resultado.status, resultado.corpo);
+      if (acao) {
+        if (acao.acao === "pagar") { irParaPagamento(acao); return; }
+        if (acao.acao === "indisponivel") { mostrarPagamentoIndisponivel(dadosForm); return; }
+        if (acao.acao === "sem_tempo") {
+          reserva.hora = null;
+          mostrarErro(null, "#errHora", PagamentoPuro.MENSAGEM.sem_tempo);
+          torrada(PagamentoPuro.MENSAGEM.sem_tempo);
+          rolarAte($("#passoHorario"));
+          atualizarDisponibilidade();
+          return;
+        }
+        if (acao.acao === "so_integral") { escolhaPagamento = null; desenharResumo(); erroPagamento(PagamentoPuro.MENSAGEM.so_integral); return; }
+        if (acao.acao === "mesmo_dia") { escolhaPagamento = "integral"; erroPagamento(PagamentoPuro.MENSAGEM.mesmo_dia); atualizarDisponibilidade(); return; }
+        if (acao.acao === "escolher") { erroPagamento(PagamentoPuro.MENSAGEM.escolher); atualizarDisponibilidade(); return; }
+      }
+    }
 
     if (resultado.status === 409) {
       if (abaWA) abaWA.close();
@@ -1558,6 +1930,10 @@ function ligarReserva() {
   });
 
   desenharReserva();
+
+  // Volta do Asaas (/reservar?pagamento=<ref>): mostra a situação do pagamento no lugar do formulário.
+  const refPagamento = lerRota().nome === "reservar" ? PagamentoPuro.refDaURL(location.search) : null;
+  if (refPagamento) acompanharPagamento(refPagamento);
 }
 
 /* ==========================================================================
