@@ -403,7 +403,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const home = await (await pegar("/")).text();
   const grade = home.slice(home.indexOf('class="lugares-fotos"'), home.indexOf('<ul class="lugares">'));
   const imgs = [...grade.matchAll(/<img [^>]*>/g)].map(m => m[0]);
-  checar("FOTOS a grade tem as 4 fotos antigas + 8 novas + 3 do Lucas com o nome do lugar (15)", imgs.length === 15, imgs.length);
+  checar("FOTOS a grade tem as 4 fotos antigas + 8 novas + 2 do Lucas com o nome do lugar (14)", imgs.length === 14, imgs.length);
   const novas = imgs.filter(i => /lugar-(vista-baia|pedras-agua|banco-areia|riacho-mata|amanhecer-pedras|enseada-palmeira|banco-areia-veleiro|baia-ilhas)-480/.test(i));
   checar("FOTOS as 8 novas estão na grade", novas.length === 8, novas.length);
   const lugares = ["Praia do Meio", "Cachadaço", "Mamanguá", "Juatinga", "Saco Bravo", "Praia Brava", "Cepilho", "Ranchos", "Pedra que Engole", "Codós", "Paraty", "Trindade", "Hymbé", "Sono", "Antigos", "Pão de Açúcar"];
@@ -426,12 +426,12 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const fotos = [
     // [arquivo do src, maior arquivo do srcset, trecho que precisa conter o <img>, lugar que o alt cita]
     ["capa-mirante-baia-800", "capa-mirante-baia-1200", 'class="hero-foto"', "baía de Trindade"],
-    ["foto-praia-galhetas-480", "foto-praia-galhetas-640", 'id="mais-procurados"', "Praia das Galhetas"],
-    ["foto-piscina-galhetas-720", "foto-piscina-galhetas-720", 'id="roteiro-boat"', "Piscina natural das Galhetas"],
+    // Galhetas: recortadas sem o texto gravado ("Galeta", grafia diferente da do site)
+    ["foto-praia-galhetas-recorte-480", "foto-praia-galhetas-recorte-720", 'id="mais-procurados"', "Praia das Galhetas"],
+    ["foto-piscina-galhetas-recorte-410", "foto-piscina-galhetas-recorte-410", 'id="roteiro-boat"', "Piscina natural das Galhetas"],
     ["foto-cachoeira-saco-bravo-720", "foto-cachoeira-saco-bravo-720", 'id="consulta-saco-bravo"', "Cachoeira do Saco Bravo"],
     ["lugar-praia-brava-rio-480", "lugar-praia-brava-rio-720", 'class="lugares-fotos"', "Praia Brava"],
-    ["lugar-praia-meio-480", "lugar-praia-meio-960", 'class="lugares-fotos"', "Praia do Meio"],
-    ["lugar-piscina-cachadaco-480", "lugar-piscina-cachadaco-480", 'class="lugares-fotos"', "Piscina Natural do Cachadaço"]
+    ["lugar-praia-meio-480", "lugar-praia-meio-960", 'class="lugares-fotos"', "Praia do Meio"]
   ];
   for (const [src, maior, bloco, lugar] of fotos) {
     const i = doc.indexOf(`src="/assets/${src}.webp"`), b = doc.lastIndexOf(bloco, i);
@@ -446,6 +446,9 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     if (src.startsWith("capa-")) checar(`FOTOS-LUCAS ${src}: capa sem lazy`, !tag.includes('loading="lazy"') && tag.includes('fetchpriority="high"'));
     else checar(`FOTOS-LUCAS ${src}: loading lazy e decoding async`, tag.includes('loading="lazy"') && tag.includes('decoding="async"'));
   }
+  // fotos com o nome escrito em grafia diferente da do site ficam fora (Galeta, Caixadaço)
+  for (const fora of ["foto-praia-galhetas-480", "foto-praia-galhetas-640", "foto-piscina-galhetas-720", "lugar-piscina-cachadaco"])
+    checar(`FOTOS-LUCAS ${fora} não é usada (texto gravado com grafia diferente)`, !doc.includes(`/assets/${fora}`));
   checar("FOTOS-LUCAS og:image continua og-v2.jpg (capa nova só no hero)", doc.includes('<meta property="og:image" content="https://trindadeadventury.com.br/assets/og-v2.jpg">'));
 }
 
