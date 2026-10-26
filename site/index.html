@@ -231,7 +231,7 @@
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap"></noscript>
 <link rel="stylesheet" href="/estilo.css?v=20261024-home-nova">
-<link rel="preload" as="image" href="/assets/parapente-voo-01-praia-vila-1280.webp" imagesrcset="/assets/parapente-voo-01-praia-vila-480.webp 480w, /assets/parapente-voo-01-praia-vila-960.webp 960w, /assets/parapente-voo-01-praia-vila-1280.webp 1280w" imagesizes="(max-width: 720px) 100vw, 1240px" fetchpriority="high">
+<link rel="preload" as="image" href="/assets/og-v2-800.webp" imagesrcset="/assets/og-v2-480.webp 480w, /assets/og-v2-800.webp 800w, /assets/og-v2-1200.webp 1200w" imagesizes="(max-width: 720px) 100vw, 1240px" fetchpriority="high">
 
 <!-- Dados estruturados (schema.org) para o Google: quem é a empresa, onde fica
      o ponto de encontro e o preço de cada roteiro com agenda. Só entra aqui o
@@ -400,11 +400,11 @@
 <section class="secao" id="inicio" data-secao="inicio">
   <div class="hero">
     <figure class="hero-foto">
-      <img src="/assets/parapente-voo-01-praia-vila-1280.webp" srcset="/assets/parapente-voo-01-praia-vila-480.webp 480w, /assets/parapente-voo-01-praia-vila-960.webp 960w, /assets/parapente-voo-01-praia-vila-1280.webp 1280w" sizes="(max-width: 720px) 100vw, 1240px" width="1280" height="720" alt="Passageira rindo em voo duplo de parapente sobre uma praia com vila, com o mar verde-azulado ao fundo" fetchpriority="high" decoding="async">
+      <img src="/assets/og-v2-800.webp" srcset="/assets/og-v2-480.webp 480w, /assets/og-v2-800.webp 800w, /assets/og-v2-1200.webp 1200w" sizes="(max-width: 720px) 100vw, 1240px" width="1200" height="630" alt="Enseada de Trindade vista do alto, com a Mata Atlântica descendo até a praia" fetchpriority="high" decoding="async">
     </figure>
     <div class="hero-texto">
-      <h1 data-titulo class="hero-titulo" aria-label="Passeios e voo de parapente saindo de Trindade, de hora em hora, a partir de R$ 70."><span class="hero-linha" aria-hidden="true"><span>Passeios e parapente</span></span><span class="hero-linha" aria-hidden="true"><span>saindo de <em>Trindade.</em></span></span></h1>
-      <p class="hero-lede">Trilha até a Piscina Natural do Cachadaço, passeio de barco pela costa e voo duplo de parapente — de hora em hora, a partir de R$ 70. Encontro na Praia do Meio.</p>
+      <h1 data-titulo class="hero-titulo" aria-label="Passeios saindo de Trindade, de hora em hora, a partir de R$ 70."><span class="hero-linha" aria-hidden="true"><span>Passeios</span></span><span class="hero-linha" aria-hidden="true"><span>saindo de <em>Trindade.</em></span></span></h1>
+      <p class="hero-lede">Trilha até a Piscina Natural do Cachadaço e passeio de barco pela costa — de hora em hora, a partir de R$ 70. Encontro na Praia do Meio.</p>
       <div class="hero-acoes">
         <a class="btn btn-claro" href="/reservar">Reservar meu passeio</a>
         <a class="btn btn-contorno-claro" href="https://wa.me/5524993337247" data-wa="Olá! Vim pelo site da Trindade Adventure e quero informações sobre os passeios. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Tirar dúvida no WhatsApp</a>
@@ -412,18 +412,20 @@
     </div>
   </div>
 
-  <!-- ======================= 4 CARTÕES (home nova) =======================
+  <!-- ======================= CARTÕES (home nova) =======================
        Reescrito em 24/10/2026: substitui a seção de categorias e o catálogo
        duplicado "Sete passeios" (que viraram texto grande demais no celular).
        Preço, duração e inclusos são cópia dos cartões de /passeios — mude os
-       dois juntos se algo mudar. O parapente não tem horário fixo (ver app.js
-       PLANOS, plano "parapente"), por isso o WhatsApp dele também pede peso. -->
+       dois juntos se algo mudar.
+       26/10/2026: a pedido do cliente, o parapente saiu da home (capa, cartão,
+       galeria "Voos de verdade") e voltou a aparecer só no menu, como antes da
+       home nova. A página /voo-de-parapente e o cartão em /passeios continuam. -->
   <section class="bloco" id="mais-procurados" aria-labelledby="titulo-mais-procurados">
     <header class="cabeca">
       <h2 id="titulo-mais-procurados">Escolha o passeio</h2>
       <p>Preço, duração e o que está incluso — sem letra miúda.</p>
     </header>
-    <div class="tours tours-consulta">
+    <div class="tours tours-agenda">
       <article class="tour" data-revelar>
         <div class="tour-media"><img src="/assets/lugar-trilha-480.webp" srcset="/assets/lugar-trilha-480.webp 480w, /assets/lugar-trilha-720.webp 720w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 300px" width="1200" height="1600" alt="Trilha estreita dentro da Mata Atlântica" loading="lazy" decoding="async"></div>
         <div class="tour-corpo">
@@ -480,25 +482,6 @@
           </div>
         </div>
       </article>
-
-      <article class="tour" data-revelar>
-        <div class="tour-media"><img src="/assets/parapente-voo-04-costao-mar-480.webp" srcset="/assets/parapente-voo-04-costao-mar-480.webp 480w, /assets/parapente-voo-04-costao-mar-960.webp 960w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 300px" width="960" height="540" alt="Passageiro sorrindo em voo duplo de parapente, com a vela azul ao lado, sobre costão de mata, praia e mar" loading="lazy" decoding="async"></div>
-        <div class="tour-corpo">
-          <h3>Voo de Parapente</h3>
-          <p class="tour-preco"><b>R$ 350</b><span>por voo</span></p>
-          <p class="tour-meta"><svg class="ico" aria-hidden="true"><use href="#i-relogio"/></svg>5–15 min</p>
-          <ul class="lista-check tour-inclusos">
-            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Traslado</li>
-            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Fotos e vídeo do voo</li>
-            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Imagens em 360° (GoPro Max)</li>
-          </ul>
-          <p class="tour-garantia">Sinal de R$ 50 · se o tempo não permitir, o voo é remarcado</p>
-          <div class="tour-acoes">
-            <a class="btn btn-primario" href="/reservar?plano=parapente">Reservar</a>
-            <a class="btn btn-secundario" href="https://wa.me/5524993337247" data-wa="Olá! Quero agendar o Voo de Parapente (R$ 350). Data: ___ · Pessoas: ___ · Peso aprox. de cada pessoa: ___ kg" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>WhatsApp</a>
-          </div>
-        </div>
-      </article>
     </div>
   </section>
 
@@ -513,20 +496,6 @@
     </div>
   </section>
 
-  <section class="bloco" aria-labelledby="titulo-prova">
-    <header class="cabeca">
-      <h2 id="titulo-prova">Voos de verdade, clientes de verdade</h2>
-      <p>Registros de voos de parapente com a Voar Parapente, parceira da Trindade Adventure.</p>
-    </header>
-    <div class="parapente-galeria" data-revelar>
-      <figure class="h"><img src="/assets/parapente-voo-02-mata-sorriso-960.webp" srcset="/assets/parapente-voo-02-mata-sorriso-480.webp 480w, /assets/parapente-voo-02-mata-sorriso-960.webp 960w" sizes="(max-width: 900px) 92vw, 560px" width="960" height="540" alt="Passageira sorrindo ao lado do piloto, em voo duplo de parapente sobre a Mata Atlântica, com o mar ao fundo" loading="lazy" decoding="async"></figure>
-      <figure class="v"><img src="/assets/parapente-voo-06-vertical-praia-vila-720.webp" srcset="/assets/parapente-voo-06-vertical-praia-vila-360.webp 360w, /assets/parapente-voo-06-vertical-praia-vila-720.webp 720w" sizes="(max-width: 900px) 46vw, 270px" width="720" height="1280" alt="Passageira rindo em voo duplo de parapente sobre praia e vila, em imagem vertical com a vela azul no alto" loading="lazy" decoding="async"></figure>
-      <figure class="v"><img src="/assets/parapente-voo-07-vertical-costa-720.webp" srcset="/assets/parapente-voo-07-vertical-costa-360.webp 360w, /assets/parapente-voo-07-vertical-costa-720.webp 720w" sizes="(max-width: 900px) 46vw, 270px" width="720" height="1280" alt="Passageiro fazendo sinal de paz em voo duplo de parapente, sobre uma costa de mata e mar, com a vela azul no alto" loading="lazy" decoding="async"></figure>
-      <figure class="h"><img src="/assets/parapente-voo-03-mata-selfie-960.webp" srcset="/assets/parapente-voo-03-mata-selfie-480.webp 480w, /assets/parapente-voo-03-mata-selfie-960.webp 960w" sizes="(max-width: 900px) 92vw, 560px" width="960" height="540" alt="Piloto e passageira em voo duplo de parapente, fazendo selfie sobre a mata, com enseada e morros ao fundo" loading="lazy" decoding="async"></figure>
-    </div>
-    <p class="nota-rodape">Fotos: Voar Parapente. Registros de voos de clientes.</p>
-  </section>
-
   <section class="bloco" aria-labelledby="titulo-como-funciona">
     <header class="cabeca">
       <h2 id="titulo-como-funciona">Como funciona</h2>
@@ -534,7 +503,7 @@
     <ol class="rota" data-revelar>
       <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-relogio"/></svg></span><div><h3>1. Escolha</h3><p>Escolha o passeio e o horário no site.</p></div></li>
       <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-wa"/></svg></span><div><h3>2. Envie o pedido</h3><p>O pedido vai direto para o WhatsApp da equipe.</p></div></li>
-      <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-check"/></svg></span><div><h3>3. Confirmação</h3><p>A equipe confirma a vaga e pede o sinal de 30% via Pix (voo de parapente: sinal de R$ 50).</p></div></li>
+      <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-check"/></svg></span><div><h3>3. Confirmação</h3><p>A equipe confirma a vaga e pede o sinal de 30% via Pix.</p></div></li>
       <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-pin"/></svg></span><div><h3>4. Encontro</h3><p>Praia do Meio — placa das trilhas. Concentração no horário cheio, saída 20 minutos depois.</p></div></li>
     </ol>
   </section>
@@ -550,7 +519,7 @@
   <section class="bloco" aria-labelledby="titulo-quem-guia">
     <header class="cabeca">
       <h2 id="titulo-quem-guia">Quem leva você</h2>
-      <p>Guias locais — quem realmente conhece e ama esse lugar. O voo de parapente é com o piloto Alef Magno, da Voar Parapente, parceira da Trindade Adventure.</p>
+      <p>Guias locais — quem realmente conhece e ama esse lugar.</p>
     </header>
   </section>
 
