@@ -523,6 +523,17 @@ async function cancelarCliente(codigo, telefone) {
   const errado = await cancelarCliente(res.codigo, "21988887777");
   checar("K1  WhatsApp diferente → 404, sem novo estorno", errado.status === 404 && asaasPedidos.length === 2);
 
+  const telPar = tel();
+  const par = await reservar({ data: D4, hora: 15, pagamento: "sinal", telefone: telPar });
+  await pagar(checkoutPorRef(par.corpo.pagamento.ref));
+  const resPar = reservaPorRef(par.corpo.pagamento.ref);
+  asaasPedidos = [];
+  const [pA, pB] = await Promise.all([cancelarCliente(resPar.codigo, telPar), cancelarCliente(resPar.codigo, telPar)]);
+  const estornos = asaasPedidos.filter(x => x.metodo === "POST" && /\/refund$/.test(x.url));
+  const umPediu = [pA, pB].filter(x => x.corpo && x.corpo.estorno === "solicitado").length;
+  const outroEsperou = [pA, pB].filter(x => x.corpo && x.corpo.estorno === "em_andamento").length;
+  checar("K1  dois cancelamentos ao mesmo tempo geram um único estorno", umPediu === 1 && outroEsperou === 1 && estornos.length === 1 && reservaPorRef(par.corpo.pagamento.ref).pagamento_status === "estorno_solicitado", JSON.stringify({ pA: pA.corpo, pB: pB.corpo, estornos: estornos.length }));
+
   const telT = tel();
   const tarde = await reservar({ data: D4, hora: 14, pagamento: "sinal", telefone: telT });
   await pagar(checkoutPorRef(tarde.corpo.pagamento.ref));
