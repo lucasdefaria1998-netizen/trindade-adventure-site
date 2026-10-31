@@ -365,6 +365,24 @@ let reservaComParceiroId, reservaComCupomId, reservaSemParceiroId;
   checar("B5 não sobrou o padrão antigo 'prompt(...) || \"\"' que ignorava o Cancelar", !/prompt\([^)]*\)\s*\|\|\s*""/.test(html));
 }
 
+// ---------- Bloco 10 [P1] (estático): a11y/mobile — sem prompt() no check-in, rótulos, contraste, alvo de toque ----------
+{
+  const html = readFileSync(new URL("../site/admin.html", import.meta.url), "utf8");
+  checar("B10 check-in não usa mais prompt() (substituído por <dialog>)", !/prompt\(\s*"Quantas/.test(html));
+  checar("B10 existe o diálogo de check-in com stepper e campo de motivo", /id="dlgCheckin"/.test(html) && /id="ckMotivo"/.test(html) && /id="ckMenos"/.test(html) && /id="ckMais"/.test(html));
+  checar("B10 #cParceiro e #cStatus têm aria-label", /id="cParceiro" aria-label=/.test(html) && /id="cStatus" aria-label=/.test(html));
+  checar("B10 --muted mais escuro (contraste AA) que o original #6b7768", /--muted:#5b6558/.test(html) && !/--muted:#6b7768/.test(html));
+  checar("B10 media query de alvo de toque ≥44px no celular", /@media \(max-width:640px\)\{[\s\S]{0,200}min-height:44px/.test(html));
+}
+
+// ---------- Bloco 12 [P1] (estático): escala de guias — UI de designação + lista do dia ----------
+{
+  const html = readFileSync(new URL("../site/admin.html", import.meta.url), "utf8");
+  checar("B12 existe o card 'Escala de guias' com select por reserva", /id="cardEscala"/.test(html) && /data-guia-reserva/.test(html));
+  checar("B12 designação usa a rota PATCH existente (reaproveita o Bloco 8c)", /\/reservas\/" \+ encodeURIComponent\(sel\.dataset\.guiaReserva\)/.test(html));
+  checar("B12 sem número de capacidade por guia inventado (TODO(DECISAO-D8) documentado)", /TODO\(DECISAO-D8\)/.test(html));
+}
+
 // ---------- Bloco 3 [P0]: validar config (comissão/parceiros_ativo/validade/regra) ----------
 {
   const antes = sql("SELECT valor FROM config WHERE chave = 'comissao_por_pax_centavos'")[0]?.valor;

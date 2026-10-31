@@ -12,7 +12,7 @@
    e-mail). Não é indexada e não tem link a partir do site público. */
 :root{
   --bg:#f4f0e6; --surface:#fbf9f3; --surface-2:#ece6d7; --line:#ddd5c0; --line-2:#c9bfa4;
-  --ink:#1c2a20; --ink-2:#41503f; --muted:#6b7768;
+  --ink:#1c2a20; --ink-2:#41503f; --muted:#5b6558; /* [Bloco 10] 5.3:1 em --bg/--surface (era 4.1–4.5:1, abaixo de AA) */
   --accent:#0d6b38; --accent-ink:#fbf9f3;
   --ok:#0d6b38; --ok-bg:#e2ede5; --warn:#8a6a1e; --warn-bg:#f3ead3;
   --bad:#8f3524; --bad-bg:#f3e0da; --gold:#7a6a45;
@@ -94,9 +94,20 @@ tr:last-child td{border-bottom:none}
 .vazio{padding:30px;text-align:center;color:var(--muted);font-size:13px}
 .grade-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
 .grade-form label{display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
-.grade-form input{background:var(--bg);border:1px solid var(--line-2);border-radius:4px;padding:8px;font-family:var(--display);font-size:14px;text-transform:none;letter-spacing:0;color:var(--ink)}
+.grade-form input,.grade-form textarea{background:var(--bg);border:1px solid var(--line-2);border-radius:4px;padding:8px;font-family:var(--display);font-size:14px;text-transform:none;letter-spacing:0;color:var(--ink)}
+.grade-form textarea{resize:vertical;min-height:48px;grid-column:1/-1}
 dialog{border:1px solid var(--line-2);border-radius:8px;background:var(--surface);color:var(--ink);max-width:440px;width:92vw;padding:20px}
 dialog::backdrop{background:rgba(6,26,15,.5)}
+.stepper{display:flex;align-items:center;justify-content:center;gap:16px;margin:4px 0 16px}
+.stepper button{width:44px;height:44px;border-radius:50%;border:1px solid var(--line-2);background:var(--surface);font-size:20px;display:flex;align-items:center;justify-content:center}
+.stepper button:disabled{opacity:.4}
+.stepper output{font-family:var(--mono);font-size:26px;font-weight:600;min-width:60px;text-align:center;font-variant-numeric:tabular-nums}
+/* [Bloco 10] Alvo de toque ≥44px no celular: abas e botões (inclusive check-in) ficavam com ~27px de altura. */
+@media (max-width:640px){
+  .abas button{min-height:44px}
+  .btn{min-height:44px;padding:9px 14px}
+  .btn.sm{min-height:44px;padding:9px 12px;font-size:12px}
+}
 </style>
 </head>
 <body>
@@ -126,6 +137,14 @@ dialog::backdrop{background:rgba(6,26,15,.5)}
       <h3>Próximos 7 dias — ocupação por horário</h3>
       <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Toque em "bloquear" para fechar um horário. Toque de novo para reabrir.</p>
       <div id="agenda"></div>
+    </div>
+    <!-- [Bloco 12] Escala de guias — só UI para designar guia às reservas de hoje (rota já existente,
+         PATCH /reservas/:id {guiaId}) e ver ocupação × capacidade atual do horário. Sem números de
+         capacidade por guia/saída nem regras do parque — isso é TODO(DECISAO-D8), decisão do Lucas. -->
+    <div class="card" id="cardEscala" hidden>
+      <h3>Escala de guias — hoje</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Designe um guia por reserva. Ocupação é a soma de pessoas confirmadas/pendentes no horário (reservas canceladas não contam).</p>
+      <div id="escalaConteudo"></div>
     </div>
   </section>
 
@@ -260,6 +279,26 @@ dialog::backdrop{background:rgba(6,26,15,.5)}
   </div>
 </dialog>
 
+<!-- [Bloco 10/F11] Check-in sem prompt(): dialog nativo (foco preso e Esc de graça), stepper 0..pax,
+     botão "faltou" com confirmação própria, e motivo obrigatório só ao refazer (bloco 4). -->
+<dialog id="dlgCheckin">
+  <h3 style="font-size:15px;margin-bottom:4px">Check-in — <span id="ckCodigo"></span></h3>
+  <p style="margin:0 0 14px;color:var(--muted);font-size:12.5px" id="ckLegenda"></p>
+  <div class="stepper">
+    <button type="button" id="ckMenos" aria-label="Diminuir o número de presentes">−</button>
+    <output id="ckValor" aria-live="polite">0</output>
+    <button type="button" id="ckMais" aria-label="Aumentar o número de presentes">+</button>
+  </div>
+  <button type="button" class="btn sm danger" id="ckFaltou" style="width:100%;justify-content:center;margin-bottom:14px">Ninguém veio (faltou)</button>
+  <div class="grade-form" id="ckMotivoWrap" hidden>
+    <label>Motivo do reajuste <textarea id="ckMotivo" rows="2" placeholder="Por que o check-in está sendo refeito?"></textarea></label>
+  </div>
+  <div class="acoes" style="margin-top:4px;justify-content:flex-end">
+    <button type="button" class="btn sm" id="ckCancelar">Cancelar</button>
+    <button type="button" class="btn primary sm" id="ckConfirmar">Confirmar check-in</button>
+  </div>
+</dialog>
+
 <script src="/vendor/qrcode-generator-0.14.0.js" defer></script>
 <script>
 "use strict";
@@ -271,6 +310,7 @@ const d2 = n => String(n).padStart(2, "0");
 const hLabel = h => d2(Math.floor(h)) + ":" + d2(Math.round((h % 1) * 60));
 const dataBR = iso => iso ? iso.split("-").reverse().join("/") : "";
 const diaSemana = iso => ["dom","seg","ter","qua","qui","sex","sáb"][new Date(iso + "T12:00:00").getDay()];
+const HOJE_ISO = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" }); // [Bloco 12]
 
 async function api(caminho, opts) {
   const r = await fetch(API + caminho, Object.assign({ headers: { "content-type": "application/json" } }, opts || {}));
@@ -339,6 +379,49 @@ async function carregarHoje() {
   }).join("");
 
   $$("#agenda [data-bloq]").forEach(btn => btn.addEventListener("click", () => alternarBloqueio(btn.dataset.bloq, d.bloqueios)));
+
+  carregarEscala(d.agenda[HOJE_ISO] || {});
+}
+
+/* [Bloco 12] Escala de guias: lista as reservas de hoje por horário (ocupação × capacidade do
+   horário, vinda do resumo) com um <select> por reserva para designar o guia — PATCH
+   /reservas/:id {guiaId}, a mesma rota que o Bloco 8c já usa para atribuir parceiro manualmente.
+   Sem capacidade por guia/saída: isso fica como TODO(DECISAO-D8). */
+async function carregarEscala(capacidadePorHora) {
+  const card = $("#cardEscala");
+  let d;
+  try { d = await api("/reservas?de=" + HOJE_ISO + "&ate=" + HOJE_ISO); } catch (e) { card.hidden = true; return; }
+  if (!d.parceirosAtivo) { card.hidden = true; return; }
+  card.hidden = false;
+
+  let guias = [];
+  try { guias = (await api("/guias")).guias.filter(g => g.ativo); } catch (e) { /* papel sem acesso a /guias (guia) — select fica só com "sem guia" */ }
+
+  const porHora = {};
+  d.reservas.filter(r => r.status !== "cancelada").forEach(r => (porHora[r.hora] = porHora[r.hora] || []).push(r));
+  const horas = Object.keys(porHora).map(Number).sort((a, b) => a - b);
+
+  $("#escalaConteudo").innerHTML = !horas.length ? '<div class="vazio">Nenhuma reserva ativa hoje.</div>' :
+    horas.map(h => {
+      const lista = porHora[h];
+      const usado = lista.reduce((s, r) => s + r.pax, 0);
+      const cap = capacidadePorHora[String(h)] ? capacidadePorHora[String(h)].capacidade : null;
+      return '<div class="dia-bloco"><div class="rot">' + hLabel(h) + " — " + usado + (cap != null ? "/" + cap : "") + ' pessoas</div>' +
+        '<div class="scroll-x"><table><thead><tr><th>Código</th><th>Pax</th><th>Guia</th></tr></thead><tbody>' +
+        lista.map(r =>
+          "<tr><td>" + esc(r.codigo) + "</td><td>" + r.pax + '</td><td><select data-guia-reserva="' + esc(r.id) +
+          '" aria-label="Guia designado para ' + esc(r.codigo) + '"><option value="">Sem guia</option>' +
+          guias.map(g => '<option value="' + esc(g.id) + '"' + (g.id === r.guiaId ? " selected" : "") + ">" + esc(g.nome) + "</option>").join("") +
+          "</select></td></tr>"
+        ).join("") + "</tbody></table></div></div>";
+    }).join("");
+
+  $$("#escalaConteudo [data-guia-reserva]").forEach(sel => sel.addEventListener("change", async () => {
+    try {
+      await api("/reservas/" + encodeURIComponent(sel.dataset.guiaReserva), { method: "PATCH", body: JSON.stringify({ guiaId: sel.value || null }) });
+      aviso("Guia atualizado.");
+    } catch (e) { aviso("Falhou: " + esc(e.message), true); }
+  }));
 }
 
 async function alternarBloqueio(chave, bloqueios) {
@@ -429,17 +512,24 @@ function acaoCheckin(r) {
   const label = r.checkin ? "refazer check-in" : "check-in";
   return '<button class="btn sm" data-checkin data-id="' + esc(r.id) + '">' + label + "</button>";
 }
-async function fazerCheckin(r) {
-  const atual = r.checkin ? String(r.checkin.presentes) : String(r.pax);
-  const resp = prompt("Quantas pessoas de " + r.pax + " (" + esc(r.codigo || "") + ") estiveram presentes? 0 = faltou.", atual);
-  if (resp === null) return;
-  const presentes = Number(resp);
-  if (!Number.isInteger(presentes) || presentes < 0 || presentes > r.pax) return aviso("Informe um número entre 0 e " + r.pax + ".", true);
-  try {
-    await api("/reservas/" + encodeURIComponent(r.id) + "/checkin", { method: "POST", body: JSON.stringify({ presentes }) });
-    aviso("Check-in registrado.");
-    carregarReservas();
-  } catch (e) { aviso("Falhou: " + esc(e.message), true); }
+// [Bloco 10/F11] Diálogo nativo em vez de prompt(): foco preso e Esc já vêm do <dialog>; stepper
+// 0..pax; "faltou" tem confirmação própria (zera tudo de uma vez); motivo só aparece ao refazer
+// (bloco 4 exige o campo no servidor).
+let ckEstado = null;
+function ckAtualizarValor() {
+  $("#ckValor").textContent = String(ckEstado.valor);
+  $("#ckMenos").disabled = ckEstado.valor <= 0;
+  $("#ckMais").disabled = ckEstado.valor >= ckEstado.r.pax;
+}
+function fazerCheckin(r) {
+  const refazendo = !!r.checkin;
+  ckEstado = { r, valor: refazendo ? r.checkin.presentes : r.pax, refazendo };
+  $("#ckCodigo").textContent = r.codigo || "";
+  $("#ckLegenda").textContent = "Quantas das " + r.pax + " pessoas estiveram presentes?";
+  $("#ckMotivoWrap").hidden = !refazendo;
+  $("#ckMotivo").value = "";
+  ckAtualizarValor();
+  $("#dlgCheckin").showModal();
 }
 
 function acoesReserva(r) {
@@ -826,6 +916,30 @@ $("#gSalvar").addEventListener("click", async () => {
     aviso("Guia cadastrado.");
     carregarParceiros();
   } catch (e) { aviso("Falhou: " + e.message, true); }
+});
+
+const dlgCk = $("#dlgCheckin");
+$("#ckMenos").addEventListener("click", () => { if (ckEstado.valor > 0) { ckEstado.valor--; ckAtualizarValor(); } });
+$("#ckMais").addEventListener("click", () => { if (ckEstado.valor < ckEstado.r.pax) { ckEstado.valor++; ckAtualizarValor(); } });
+$("#ckFaltou").addEventListener("click", () => {
+  if (!confirm("Confirma que ninguém da reserva " + (ckEstado.r.codigo || "") + " compareceu?\n\nIsto zera o check-in (sem comissão; voucher, se houver, é cancelado).")) return;
+  ckEstado.valor = 0;
+  ckAtualizarValor();
+});
+$("#ckCancelar").addEventListener("click", () => dlgCk.close());
+$("#ckConfirmar").addEventListener("click", async () => {
+  const { r, valor, refazendo } = ckEstado;
+  const motivo = $("#ckMotivo").value.trim();
+  if (refazendo && !motivo) return aviso("Informe o motivo para refazer o check-in.", true);
+  try {
+    await api("/reservas/" + encodeURIComponent(r.id) + "/checkin", {
+      method: "POST",
+      body: JSON.stringify(Object.assign({ presentes: valor }, refazendo ? { motivo } : {}))
+    });
+    dlgCk.close();
+    aviso("Check-in registrado.");
+    carregarReservas();
+  } catch (e) { aviso("Falhou: " + esc(e.message), true); }
 });
 
 /* ------- CONFIG ------- */
