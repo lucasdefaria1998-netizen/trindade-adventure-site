@@ -22,7 +22,7 @@ para o Cloudflare. `testes/` e este LEIA-ME ficam fora do deploy.
 | `_worker.js` | O backend. Um arquivo só, porque o deploy por arraste-e-solta do Cloudflare não compila a pasta `/functions` — só aceita `_worker.js`. Responde `/api/*` (reservas, disponibilidade, painel), entrega cada página com título e metadados próprios e responde 404 de verdade para endereço ou arquivo que não existe. |
 | `admin.html` | O painel da operação (agenda, reservas, origem dos clientes, ajustes). Só abre para quem faz login — ver seção "Painel da operação" abaixo. |
 | `assets/` | Fotos. `og-v2.jpg` é a imagem que aparece quando alguém cola o link no WhatsApp. |
-| `vendor/` | Leaflet 1.9.4, a biblioteca do mapa, servida pelo próprio site. Não editar. |
+| `vendor/` | Leaflet 1.9.4 (mapa), Lenis (rolagem) e `qrcode-generator-0.14.0.js` (QR do link do parceiro, painel — MIT, Kazuhiko Arase, github.com/kazuhikoarase/qrcode-generator), servidos pelo próprio site. Não editar. |
 
 **Por que os arquivos de foto terminam em `-v2`:** um deploy antigo subiu quebrado
 e os navegadores que passaram por ele guardaram o erro por um ano (`immutable`
@@ -230,6 +230,11 @@ localhost — grava no D1 local e confere a contagem de linhas:
     node testes/testar-api.mjs
     node testes/check-versao.mjs
 
+Rede de parceiros indicadores (cadastro, QR/link, check-in, comissão) — mesmo `wrangler pages dev`,
+Node 22.5+ (usa `node:sqlite`, como o `testar-api.mjs`):
+
+    node testes/testar-parceiros.mjs
+
 Pagamento online (Asaas, só Pix) — sem wrangler e sem rede, com Node 22.5+ (usa `node:sqlite`):
 
     node testes/testar-pagamento.mjs            # regra 30/100, webhook, saldo 12 h, cancelamento aos 15 min, reagendar/devolver (Asaas simulado)
@@ -423,6 +428,68 @@ e POST/PATCH/DELETE exigem `Origin` do próprio site e corpo JSON. Os certificad
 Para testar localmente sem o Access: `testes/wrangler.toml` já traz um `ACCESS_AUD` de teste e
 `ACCESS_CERTS_URL` apontando para um servidor de certificados de teste que o `testar-api.mjs` sobe na porta 8791
 (`ACCESS_CERTS_URL` não existe em produção). `ADMIN_KEY` é só para desenvolvimento: **deixe sem valor em produção**.
+
+## Rede de parceiros indicadores
+
+Estacionamentos, restaurantes, pousadas e comércio locais indicam turistas por um link/QR próprio
+(`/p/<código>`) ou por cupom; a reserva registra o parceiro e, depois do check-in do guia, calcula a
+comissão (R$ 10 por pessoa presente). **Desligada por padrão** — `config.parceiros_ativo = '0'`. Com a
+flag desligada: nenhuma rota nova existe (404), nenhuma tabela nova é criada e a reserva funciona
+exatamente como antes, mesmo que venha com campos de parceiro (eles são ignorados).
+
+**Para ligar (local ou produção, depois de aplicar a migração — ver abaixo):**
+`POST /api/admin/config` com `{"parceiros_ativo":"1"}`, ou pelo painel → aba **Parceiros** → aviso com
+o nome da variável.
+
+**Como funciona:**
+- Painel → aba Parceiros: cadastra o parceiro (nome, tipo, cupom opcional); o painel sorteia um
+  **código não adivinhável** (não é o nome nem um slug do parceiro — ver nota de segurança abaixo) e
+  mostra o QR/link (`/p/<código>`) para impressão, gerado no navegador por
+  `vendor/qrcode-generator-0.14.0.js` (sem serviço externo).
+- Turista escaneia o QR (ou clica no link, ou digita o cupom na reserva): `/p/<código>` redireciona para
+  `/reservar?parceiro=<código>&parceiroVia=qr`. O `app.js` guarda isso no navegador por 7 dias (objeto
+  `Parceiro`) e manda `parceiroCodigo`/`parceiroCupom` no `POST /api/reservas`. **O servidor sempre
+  resolve e valida** o parceiro (código/cupom existe e está ativo) — um `parceiro_id` mandado pelo
+  cliente é sempre ignorado; código inválido ou de parceiro inativo não trava nada, a reserva segue sem
+  parceiro. Cupom digitado em qualquer caixa é aceito (comparado em caixa alta).
+- Painel → aba Reservas: com a flag ligada ganha as colunas Parceiro/Guia/Check-in e o botão
+  **check-in** (nº de presentes, 0 = faltou). O check-in pode ser refeito (recalcula sem duplicar
+  linha). Comissão = presentes × `config.comissao_por_pax_centavos` (padrão R$ 10,00), fica "pendente"
+  até o admin marcar como paga (aba Parceiros → Comissões). Cancelar ou marcar "não compareceu" numa
+  reserva cancela a comissão pendente dela (nunca uma já paga).
+- Guias: cadastro simples (aba Parceiros). Designar guia a uma reserva e a escala por saída/capacidade
+  **não entraram nesta fase** — ver pendências abaixo.
+
+**O que NÃO está pronto (ver `migracoes/0004_parceiros.sql` e o código para os detalhes):**
+- Portal do parceiro (ele não tem login nesta fase — relatório fica só no painel do admin).
+- Voucher de alimentação (R$ 60, planos Adventure/Boat): só a estrutura (tabela `vouchers`, emitido no
+  check-in); validade, restaurante e baixa ficam por definir.
+- Escala de guias por saída/capacidade do dia (hoje é só cadastro; designar guia a uma reserva é
+  manual, por `PATCH /api/admin/reservas/<id>` com `{"guiaId": "..."}`).
+- Repasse ao parceiro: fica manual (marcar "pago" com observação) — nada de Pix/Asaas automático.
+- Login do guia: a decisão foi Cloudflare Access com papel restrito (nunca PIN); o Access em si
+  **não foi configurado** (ver "O que conferir no Zero Trust" abaixo) — até lá, qualquer e-mail que já
+  tem acesso ao painel também faz check-in.
+
+**Segurança:** código do QR/link e do cupom nunca aparecem como o nome do parceiro; a consulta pública
+(`GET /api/parceiro?codigo=`) só devolve o nome de um código exato e ativo, nunca lista parceiros, e
+responde 404 tanto para código inexistente quanto inativo (não dá para diferenciar por fora). Dado de
+turista nunca é devolvido a essa rota. `pix_chave`/`contato` do parceiro só aparecem nas rotas do
+admin. Tudo isso é testado em `testes/testar-parceiros.mjs`.
+
+**Testar localmente:** depois do `wrangler pages dev` (ver "Testar antes de publicar"),
+`node testes/testar-parceiros.mjs` (precisa de Node 22.5+, mesma exigência de `testar-api.mjs`/
+`testar-pagamento*.mjs` — usa `node:sqlite`). O script liga e desliga `parceiros_ativo` sozinho e
+termina com os dados de teste apagados.
+
+**Passos manuais de produção (para o Lucas — nada disso foi executado):**
+1. Aplicar a migração: `npx wrangler d1 execute trindade-adventure --remote --file=migracoes/0004_parceiros.sql`
+   (idempotente — se já rodou pelo worker, os `ALTER`/`CREATE` que já existem são ignorados).
+2. Ligar a flag quando quiser estrear: `parceiros_ativo = "1"` em Ajustes do painel (ou
+   `POST /api/admin/config`).
+3. Cloudflare Access (Zero Trust): nenhuma mudança foi feita. Se guias forem logar com papel restrito,
+   criar uma política separada (grupo "guia") cobrindo só o que eles precisam — ou, por ora, aceitar que
+   guia usa o mesmo acesso de admin.
 
 ## Notas que ficavam como comentário no HTML
 
