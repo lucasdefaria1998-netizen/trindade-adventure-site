@@ -2728,15 +2728,34 @@ async function adminAtualizarGuia(request, env, id) {
 
 /* ------------------------------ check-in (admin) ------------------------------
    Nº de presentes por reserva (0..pax; 0 = faltou). Refazer o check-in é permitido e idempotente:
-   recalcula a comissão sem duplicar linha (UNIQUE em checkins.reserva_id e comissoes.reserva_id). */
+   recalcula a comissão sem duplicar linha (UNIQUE em checkins.reserva_id e comissoes.reserva_id).
+
+   DECISAO-CEO-1: comissão só com reserva paga/quitada E check-in confirmado — nunca em cancelada,
+   pendente ou não-compareceu. Por isso o check-in inteiro (não só a comissão) exige reservas.status
+   'confirmada'; com pagamento online (migracoes/0003, hoje desligado em produção) exige também o
+   pagamento confirmado (sinal pago, quitado ou saldo pago no local). Sem pagamento online, "confirmada"
+   já significa pago: a operação só marca esse status depois de receber o sinal via WhatsApp/Pix
+   (ver comentário em criarReserva) — não há aqui nenhuma mudança na regra de pagamento (DECISAO-CEO-9). */
+const PAGAMENTO_STATUS_CONFIRMA_COMISSAO = new Set(["sinal_pago", "quitado", "saldo_no_local"]);
+
 async function adminCheckin(request, env, reservaId) {
   const cfg = await lerConfig(env);
   if (!cfg.parceirosAtivo) return semFlagParceiros();
   await garantirEsquemaParceiros(env);
   let b;
   try { b = await request.json(); } catch { return erro("Corpo inválido."); }
-  const r = await env.DB.prepare("SELECT id, pax, plano, status, parceiro_id, guia_id FROM reservas WHERE id = ?").bind(reservaId).first();
+
+  const online = pagamentoOnlineAtivo(env);
+  if (online) await garantirEsquemaPagamento(env);
+  const sqlReserva = "SELECT id, pax, plano, status, parceiro_id, guia_id" +
+    (online ? ", pagamento_modalidade, pagamento_status" : "") + " FROM reservas WHERE id = ?";
+  const r = await env.DB.prepare(sqlReserva).bind(reservaId).first();
   if (!r) return erro("Reserva não encontrada.", 404);
+
+  if (r.status !== "confirmada") return erro("Check-in exige reserva confirmada (status atual: " + r.status + ").", 409);
+  if (r.pagamento_modalidade && !PAGAMENTO_STATUS_CONFIRMA_COMISSAO.has(r.pagamento_status))
+    return erro("Check-in exige pagamento confirmado (sinal pago ou quitado).", 409);
+
   const presentes = Number(b.presentes);
   if (!Number.isInteger(presentes) || presentes < 0 || presentes > r.pax) return erro("Presentes deve ser um número entre 0 e " + r.pax + ".", 422);
 
@@ -2851,5 +2870,5 @@ async function adminGravarConfig(request, env) {
 export {
   expiraEm, normalizarTelefone, conferirData, validarReserva, verificarTurnstile, resumirRelatorioCsp, destinoRedirect,
   calcularCobranca, limiteQuitacaoMs, minutosDoLink, planoPagaOnline, pagamentoOnlineAtivo, PAGAMENTO,
-  saldoAntecedenciaH, executarTarefasPagamento
+  saldoAntecedenciaH, executarTarefasPagamento, PAGAMENTO_STATUS_CONFIRMA_COMISSAO
 };

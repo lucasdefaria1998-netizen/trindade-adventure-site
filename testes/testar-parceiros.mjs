@@ -7,6 +7,11 @@ import {
   checar, resumo, post, reservaValida, ipNovo, telNovo, exec, sql, BASE, contar,
   iniciarServidorDeCertificados, criarJwtAccess, ACCESS_AUD_TESTE, PORTA_CERTS
 } from "./lib-testes.mjs";
+import { readFileSync } from "node:fs";
+
+// Funções puras do _worker.js, importadas direto do arquivo-fonte (sem servidor) — mesma técnica de
+// testes/testar-pagamento-ui.mjs — para testar regras que não dependem de HTTP/D1.
+const worker = await import("data:text/javascript;base64," + Buffer.from(readFileSync(new URL("../site/_worker.js", import.meta.url))).toString("base64"));
 
 await iniciarServidorDeCertificados();
 const jwt = criarJwtAccess();
@@ -22,6 +27,14 @@ for (const t of ["reservas", "eventos", "checkins", "comissoes", "vouchers", "pa
 exec("UPDATE config SET valor = '0' WHERE chave = 'parceiros_ativo'");
 
 console.log(`\nTestando a rede de parceiros em ${BASE}\n`);
+
+// ---------- Bloco 1 [P0] (unitário): estados de pagamento que liberam comissão (DECISAO-CEO-1) ----------
+{
+  const s = worker.PAGAMENTO_STATUS_CONFIRMA_COMISSAO;
+  checar("B1u sinal_pago/quitado/saldo_no_local liberam comissão", s.has("sinal_pago") && s.has("quitado") && s.has("saldo_no_local"));
+  checar("B1u aguardando/sinal_retido/pago_sem_vaga/devolucao_manual/falha_asaas NÃO liberam comissão",
+    !s.has("aguardando") && !s.has("sinal_retido") && !s.has("pago_sem_vaga") && !s.has("devolucao_manual") && !s.has("falha_asaas"));
+}
 
 // ---------- Flag desligada: nada novo responde, nada novo roda ----------
 {
@@ -130,6 +143,39 @@ let reservaComParceiroId, reservaComCupomId, reservaSemParceiroId;
   const linha = sql("SELECT parceiro_id FROM reservas WHERE codigo = ?", j.codigo)[0];
   checar("P8 …parceiro_id vazio", linha.parceiro_id === null);
   await admin("/parceiros/" + parceiroId, { method: "PATCH", body: JSON.stringify({ ativo: true }) }); // reativa para o resto do teste
+}
+
+// ---------- Bloco 1 [P0]: check-in exige reserva confirmada (DECISAO-CEO-1) ----------
+{
+  const antesCk = sql("SELECT COUNT(*) AS n FROM checkins")[0].n;
+  const antesCom = sql("SELECT COUNT(*) AS n FROM comissoes")[0].n;
+
+  // reservaSemParceiroId segue "pendente" desde P7 (nunca foi confirmada).
+  const rPendente = await admin("/reservas/" + reservaSemParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1 }) });
+  checar("B1 check-in em reserva pendente → 409", rPendente.status === 409, rPendente.status);
+
+  const rvCanc = await post("/api/reservas", { corpo: reservaValida({ parceiroCodigo }) });
+  const linhaCanc = sql("SELECT id FROM reservas WHERE codigo = ?", (await jsonDe(rvCanc)).codigo)[0];
+  await admin("/reservas/" + linhaCanc.id, { method: "PATCH", body: JSON.stringify({ status: "confirmada" }) });
+  await admin("/reservas/" + linhaCanc.id, { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) });
+  const rCancelada = await admin("/reservas/" + linhaCanc.id + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1 }) });
+  checar("B1 check-in em reserva cancelada → 409", rCancelada.status === 409, rCancelada.status);
+
+  const rvFaltou = await post("/api/reservas", { corpo: reservaValida({ parceiroCodigo }) });
+  const linhaFaltou = sql("SELECT id FROM reservas WHERE codigo = ?", (await jsonDe(rvFaltou)).codigo)[0];
+  await admin("/reservas/" + linhaFaltou.id, { method: "PATCH", body: JSON.stringify({ status: "confirmada" }) });
+  await admin("/reservas/" + linhaFaltou.id, { method: "PATCH", body: JSON.stringify({ status: "nao_compareceu" }) });
+  const rNaoCompareceu = await admin("/reservas/" + linhaFaltou.id + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1 }) });
+  checar("B1 check-in em reserva não-compareceu → 409", rNaoCompareceu.status === 409, rNaoCompareceu.status);
+
+  checar("B1 nenhum dos 409 acima gravou checkins", sql("SELECT COUNT(*) AS n FROM checkins")[0].n === antesCk, sql("SELECT COUNT(*) AS n FROM checkins")[0].n);
+  checar("B1 nenhum dos 409 acima gravou comissoes", sql("SELECT COUNT(*) AS n FROM comissoes")[0].n === antesCom, sql("SELECT COUNT(*) AS n FROM comissoes")[0].n);
+
+  // Confirma as reservas usadas pelos testes de check-in a seguir (fluxo normal: a operação confirma
+  // depois do sinal via WhatsApp/Pix — ver criarReserva).
+  await admin("/reservas/" + reservaComParceiroId, { method: "PATCH", body: JSON.stringify({ status: "confirmada" }) });
+  await admin("/reservas/" + reservaComCupomId, { method: "PATCH", body: JSON.stringify({ status: "confirmada" }) });
+  await admin("/reservas/" + reservaSemParceiroId, { method: "PATCH", body: JSON.stringify({ status: "confirmada" }) });
 }
 
 // ---------- Check-in: presentes 0..pax, comissão = presentes × comissao_por_pax_centavos ----------
