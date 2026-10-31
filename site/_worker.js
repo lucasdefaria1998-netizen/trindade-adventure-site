@@ -692,6 +692,19 @@ async function rotearAPI(request, env, url) {
     const recusada = mutacaoAdminRecusada(request, env);
     if (recusada) return recusada;
 
+    // [DECISAO-CEO-8] Papel por allowlist de e-mails (env.ADMIN_EMAILS/GUIA_EMAILS — ver papelDoEmail).
+    // Guia só vê a lista de reservas (para saber quem checar) e faz check-in; o resto do painel
+    // (parceiros, comissões, config, guias, bloqueios…) continua só para admin.
+    const papel = papelDoEmail(auth.email, env);
+    if (!papel) return erro("Acesso restrito: e-mail sem papel configurado no painel.", 403);
+    const PERMITIDO_PARA_GUIA = [
+      [/^\/api\/admin\/reservas$/, "GET"],
+      [/^\/api\/admin\/reservas\/[\w-]+\/checkin$/, "POST"]
+    ];
+    if (papel !== "admin" && !PERMITIDO_PARA_GUIA.some(([re, m]) => re.test(p) && metodo === m)) {
+      return erro("Acesso restrito a administradores.", 403);
+    }
+
     if (p === "/api/admin/resumo" && metodo === "GET") return adminResumo(env);
     if (p === "/api/admin/reservas" && metodo === "GET") return adminListarReservas(env, url);
     if (p === "/api/admin/reservas" && metodo === "POST") return adminCriarReserva(request, env);
@@ -823,6 +836,27 @@ async function checarAdmin(request, env) {
     if (chave && chave === env.ADMIN_KEY) return { ok: true, email: "chave-dev" };
   }
   return { ok: false };
+}
+
+/* [DECISAO-CEO-8] Papéis admin/guia por allowlist de e-mails do Access — não por RBAC dentro do
+   próprio Access (fica mais simples de configurar sem criar grupos lá). env.ADMIN_EMAILS/GUIA_EMAILS:
+   lista separada por vírgula, comparação sem diferenciar maiúsculas/minúsculas.
+
+   Sem NENHUMA das duas configuradas, o comportamento é o de sempre: qualquer e-mail que passou pelo
+   Access é admin (nunca travar o painel por falta de configuração). Assim que env.ADMIN_EMAILS é
+   definida (mesmo com um único e-mail), ela passa a valer: quem não está nela deixa de ser admin —
+   e vira 'guia' só se também estiver (separadamente) em env.GUIA_EMAILS. Configurar isto em produção
+   antes de dar acesso de guia a alguém é responsabilidade do Lucas (ver LEIA-ME). */
+function listaDeEmails(valor) {
+  return new Set(String(valor || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean));
+}
+function papelDoEmail(email, env) {
+  const e = String(email || "").trim().toLowerCase();
+  if (!e) return null;
+  const admins = listaDeEmails(env.ADMIN_EMAILS);
+  if (admins.size === 0 || admins.has(e)) return "admin";
+  if (listaDeEmails(env.GUIA_EMAILS).has(e)) return "guia";
+  return null;
 }
 
 /* Mutações do painel (POST, PATCH, PUT, DELETE): Origin do próprio site (ou same-origin) e, quando há corpo, JSON. */
@@ -3125,5 +3159,5 @@ async function adminGravarConfig(request, env) {
 export {
   expiraEm, normalizarTelefone, conferirData, validarReserva, verificarTurnstile, resumirRelatorioCsp, destinoRedirect,
   calcularCobranca, limiteQuitacaoMs, minutosDoLink, planoPagaOnline, pagamentoOnlineAtivo, PAGAMENTO,
-  saldoAntecedenciaH, executarTarefasPagamento, PAGAMENTO_STATUS_CONFIRMA_COMISSAO
+  saldoAntecedenciaH, executarTarefasPagamento, PAGAMENTO_STATUS_CONFIRMA_COMISSAO, papelDoEmail
 };

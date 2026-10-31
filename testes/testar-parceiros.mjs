@@ -36,6 +36,20 @@ console.log(`\nTestando a rede de parceiros em ${BASE}\n`);
     !s.has("aguardando") && !s.has("sinal_retido") && !s.has("pago_sem_vaga") && !s.has("devolucao_manual") && !s.has("falha_asaas"));
 }
 
+// ---------- Bloco 14 [DECISAO-CEO-8] (unitário): papel por allowlist de e-mails do Access ----------
+{
+  const { papelDoEmail } = worker;
+  checar("B14 sem ADMIN_EMAILS nem GUIA_EMAILS: qualquer e-mail do Access é admin (back-compat)",
+    papelDoEmail("qualquer@exemplo.com", {}) === "admin");
+  checar("B14 ADMIN_EMAILS configurado: e-mail de dentro é admin",
+    papelDoEmail("Dono@Trindade.com", { ADMIN_EMAILS: "dono@trindade.com, outro@x.com" }) === "admin");
+  checar("B14 …e-mail de fora (e sem GUIA_EMAILS) não tem papel",
+    papelDoEmail("estranho@fora.com", { ADMIN_EMAILS: "dono@trindade.com" }) === null);
+  checar("B14 e-mail em GUIA_EMAILS (fora de ADMIN_EMAILS) é guia",
+    papelDoEmail("Guia1@Trindade.com", { ADMIN_EMAILS: "dono@trindade.com", GUIA_EMAILS: "guia1@trindade.com" }) === "guia");
+  checar("B14 e-mail vazio nunca tem papel", papelDoEmail("", { ADMIN_EMAILS: "" }) === null && papelDoEmail(null, {}) === null);
+}
+
 // ---------- Flag desligada: nada novo responde, nada novo roda ----------
 {
   const r1 = await admin("/parceiros");
@@ -66,6 +80,29 @@ console.log(`\nTestando a rede de parceiros em ${BASE}\n`);
   checar("P3 sem nome/tipo → 422", r2.status === 422, r2.status);
   const r3 = await admin("/parceiros", { method: "POST", headers: { origin: "https://evil.example" }, body: JSON.stringify({ nome: "X", tipo: "outro" }) });
   checar("P3 mutação com Origin de fora → 403 (mesmo portão do resto do admin)", r3.status === 403, r3.status);
+}
+
+// ---------- DECISAO-CEO-8: papéis admin/guia por allowlist de e-mails do Access ----------
+{
+  const guia = { "cf-access-jwt-assertion": criarJwtAccess({ email: "guia-teste@example.com" }) };
+  const semPapel = { "cf-access-jwt-assertion": criarJwtAccess({ email: "ninguem@example.com" }) };
+
+  const rSemPapel = await admin("/reservas", { headers: semPapel });
+  checar("CEO8 e-mail fora das duas listas → 403", rSemPapel.status === 403, rSemPapel.status);
+
+  const rGuiaLista = await admin("/reservas", { headers: guia });
+  checar("CEO8 guia pode listar reservas (precisa saber quem checar)", rGuiaLista.status === 200, rGuiaLista.status);
+
+  const rGuiaParceiros = await admin("/parceiros", { headers: guia });
+  checar("CEO8 guia NÃO pode listar parceiros", rGuiaParceiros.status === 403, rGuiaParceiros.status);
+  const rGuiaConfig = await admin("/config", { headers: guia });
+  checar("CEO8 guia NÃO pode ler config", rGuiaConfig.status === 403, rGuiaConfig.status);
+  const rGuiaCriarParceiro = await admin("/parceiros", { method: "POST", headers: guia, body: JSON.stringify({ nome: "X", tipo: "outro" }) });
+  checar("CEO8 guia NÃO pode cadastrar parceiro", rGuiaCriarParceiro.status === 403, rGuiaCriarParceiro.status);
+
+  // admin (teste@example.com, em ADMIN_EMAILS) continua podendo tudo — nada muda para o papel de sempre.
+  const rAdminOk = await admin("/parceiros");
+  checar("CEO8 admin continua acessando o resto do painel normalmente", rAdminOk.status === 200, rAdminOk.status);
 }
 
 // ---------- Cadastro, código não adivinhável, cupom em caixa alta ----------

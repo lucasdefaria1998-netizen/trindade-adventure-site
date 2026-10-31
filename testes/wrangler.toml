@@ -17,3 +17,8 @@ TURNSTILE_SECRET = "1x0000000000000000000000000000000AA"
 # Cloudflare Access de teste (S23): AUD fictício e certificados servidos pelo próprio teste (testar-api.mjs, porta 8791).
 ACCESS_AUD = "aud-de-teste-local-0123456789abcdef"
 ACCESS_CERTS_URL = "http://127.0.0.1:8791/certs"
+# DECISAO-CEO-8: papéis admin/guia por allowlist de e-mails (ver papelDoEmail em _worker.js). O e-mail
+# padrão dos testes (teste@example.com, criarJwtAccess()) continua admin; "guia-teste@example.com" é
+# usado só nos testes de papel restrito (testar-parceiros.mjs).
+ADMIN_EMAILS = "teste@example.com"
+GUIA_EMAILS = "guia-teste@example.com"
