@@ -25,7 +25,7 @@ window.__e2e = async function (plano, opcoes = {}) {
     const campo = (sel, v, ev = "input") => { const e = $(sel); e.value = v; e.dispatchEvent(new Event(ev, { bubbles: true })); };
     campo("#fNome", opcoes.nome || "Teste E2E Automatizado"); campo("#fTel", tel); campo("#fEmail", "teste.e2e@example.com");
     campo("#fObs", opcoes.obs || "Reserva de teste local"); campo("#fPax", String(opcoes.pax || 2), "change");
-    const ac = $("#fAceite"); ac.checked = true; ac.dispatchEvent(new Event("change", { bubbles: true }));
+    const ac = $("#fAceiteTermos"); ac.checked = true; ac.dispatchEvent(new Event("change", { bubbles: true }));
     $("#formReserva").requestSubmit();
     for (let i = 0; i < 100 && ($("#reservaFeita").hidden); i++) await esp(250);
     const feita = !$("#reservaFeita").hidden;

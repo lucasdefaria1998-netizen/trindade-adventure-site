@@ -113,6 +113,7 @@ dialog::backdrop{background:rgba(6,26,15,.5)}
     <button role="tab" data-aba="reservas" aria-current="false">Reservas</button>
     <button role="tab" data-aba="origem" aria-current="false">Origem</button>
     <button role="tab" data-aba="config" aria-current="false">Ajustes</button>
+    <button role="tab" data-aba="aceites" aria-current="false">Aceites</button>
   </nav>
 
   <section class="painel" id="painel-hoje">
@@ -144,6 +145,14 @@ dialog::backdrop{background:rgba(6,26,15,.5)}
     </div>
     <div class="card" style="padding:0">
       <div class="scroll-x"><table id="tabelaReservas"></table></div>
+    </div>
+  </section>
+
+  <section class="painel" id="painel-aceites" hidden>
+    <div class="card">
+      <h3>Aceites dos Termos do Passeio</h3>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Somente leitura. O IP e o navegador ficam no banco e não aparecem aqui. Retenção: 5 anos.</p>
+      <div class="scroll-x"><table id="tabelaAceites"></table></div>
     </div>
   </section>
 
@@ -232,6 +241,7 @@ $$(".abas button").forEach(b => b.addEventListener("click", () => {
   if (b.dataset.aba === "reservas") carregarReservas();
   if (b.dataset.aba === "origem") carregarOrigem();
   if (b.dataset.aba === "config") carregarConfig();
+  if (b.dataset.aba === "aceites") carregarAceites();
 }));
 
 /* ------- HOJE + AGENDA ------- */
@@ -389,6 +399,18 @@ $("#mSalvar").addEventListener("click", async () => {
     carregarReservas();
   } catch (e) { aviso("Falhou: " + e.message, true); }
 });
+
+/* ------- ACEITES (somente leitura; sem IP e sem user-agent) ------- */
+async function carregarAceites() {
+  let d;
+  try { d = await api("/aceites?limite=100"); } catch (e) { return aviso("Erro: " + e.message, true); }
+  const t = $("#tabelaAceites");
+  if (!d.aceites.length) { t.innerHTML = '<tbody><tr><td class="vazio">Nenhum aceite registrado.</td></tr></tbody>'; return; }
+  t.innerHTML = "<thead><tr><th>Quando (UTC)</th><th>Código</th><th>Data do passeio</th><th>Passeio</th><th>Versão</th><th>Hash</th><th>WhatsApp</th></tr></thead><tbody>" +
+    d.aceites.map(a => "<tr><td>" + esc(a.aceito_em) + "</td><td>" + esc(a.codigo || "—") + "</td><td>" + esc(a.data || "—") +
+      "</td><td>" + esc(nomePlano(a.plano)) + "</td><td>" + esc(a.termo_versao) + "</td><td style=\"font-family:var(--mono);font-size:11px\">" +
+      esc(a.termo_hash) + "</td><td>" + (a.consentiu_whatsapp ? "autorizou" : "não autorizou") + "</td></tr>").join("") + "</tbody>";
+}
 
 /* ------- ORIGEM ------- */
 async function carregarOrigem() {

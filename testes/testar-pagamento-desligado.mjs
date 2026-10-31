@@ -46,7 +46,25 @@ function criarD1() {
     async all() { return { results: db.prepare(this.sql).all(...this.args) }; }
     async run() { const r = db.prepare(this.sql).run(...this.args); return { meta: { changes: Number(r.changes) } }; }
   }
-  return { DB: { prepare: sql => new Stmt(sql) }, db, sqls };
+  const DB = {
+    prepare: sql => new Stmt(sql),
+    async batch(stmts) {
+      db.exec("BEGIN");
+      const out = [];
+      try {
+        for (const s of stmts) {
+          const r = db.prepare(s.sql).run(...s.args);
+          out.push({ meta: { changes: Number(r.changes) } });
+        }
+        db.exec("COMMIT");
+        return out;
+      } catch (e) {
+        try { db.exec("ROLLBACK"); } catch { /* a transação já foi desfeita */ }
+        throw e;
+      }
+    }
+  };
+  return { DB, db, sqls };
 }
 const carregar = src => import("data:text/javascript;base64," + Buffer.from(src).toString("base64") + "#" + Math.random());
 const srcNovo = readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
@@ -54,7 +72,7 @@ const srcRef = execFileSync("git", ["show", REF + ":site/_worker.js"], { cwd: ne
 // Cada rodada carrega os workers de novo (o worker guarda em memória que já ajustou o esquema do banco).
 
 const ORIGEM = "https://trindadeadventury.com.br";
-const ASSETS = { fetch: async () => new Response("<!doctype html><html><head></head><body>ok</body></html>", { headers: { "content-type": "text/html" } }) };
+const ASSETS = { fetch: async () => new Response(readFileSync(new URL("../site/index.html", import.meta.url), "utf8"), { headers: { "content-type": "text/html; charset=utf-8" } }) };
 const BASE_ENV = { ASSETS, TURNSTILE_SECRET: "1x0000000000000000000000000000000AA", ADMIN_KEY: "admin-teste" };
 // Variações da flag "desligada": ausente, "0", outros valores, e "1" sem as chaves do Asaas.
 const FLAGS = [
@@ -111,7 +129,7 @@ for (const [nomeFlag, flag] of FLAGS) {
   for (const [nome, p] of PEDIDOS) {
     seq++;
     const tel = "2499" + String(1000000 + seq).padStart(7, "0");
-    const corpo = { nome: "Teste Desligado", telefone: tel, origem: "direto", "cf-turnstile-response": "XXXX.DUMMY.TOKEN.XXXX", ...p };
+    const corpo = { nome: "Teste Desligado", telefone: tel, origem: "direto", aceiteTermos: true, termoVersao: "v0-provisorio", "cf-turnstile-response": "XXXX.DUMMY.TOKEN.XXXX", ...p };
     const cab = { "idempotency-key": "chave-desligado-" + String(seq).padStart(6, "0") };
     const rn = await chamar(novo, envNovo, "/api/reservas", { metodo: "POST", corpo, cab });
     const rr = await chamar(ref, envRef, "/api/reservas", { metodo: "POST", corpo, cab });

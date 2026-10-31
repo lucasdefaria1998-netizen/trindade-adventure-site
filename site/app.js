@@ -79,6 +79,39 @@ const PLANOS = [
 
 const planoPor = id => PLANOS.find(p => p.id === id) || PLANOS[1];
 
+/* Selos do passeio. O texto visível fica no HTML; o ícone é só apoio (aria-hidden).
+   O selo de snorkel não entra aqui até o dono dizer em qual passeio o equipamento é incluso.
+   "pagamento" só aparece com o pagamento online ligado. "reserva" aparece sempre. */
+const SELOS = {
+  guia: { titulo: "Guia local", icone: "i-selo-guia" },
+  seguranca: { titulo: "Orientações de segurança", icone: "i-selo-seguranca" },
+  pagamento: { titulo: "Pagamento protegido", icone: "i-selo-pagamento", soOnline: true },
+  reserva: { titulo: "Reserva digital confirmada", icone: "i-selo-reserva" }
+};
+const SELOS_POR_PLANO = {
+  essencial: ["guia", "seguranca", "reserva"],
+  adventure: ["guia", "seguranca", "reserva"],
+  boat: ["guia", "seguranca", "reserva"],
+  parapente: ["guia", "seguranca", "reserva"]
+};
+const TERMO_VERSAO_ATUAL = "v0-provisorio";
+const pagamentoOnlineNoHtml = () => document.documentElement.dataset.pagamentoOnline === "1";
+
+function selosDoPlano(id) {
+  const online = pagamentoOnlineNoHtml();
+  const chaves = SELOS_POR_PLANO[id] || [];
+  return chaves
+    .concat(online ? ["pagamento"] : [])
+    .map(k => SELOS[k])
+    .filter(Boolean);
+}
+
+function htmlSelos(id) {
+  return selosDoPlano(id).map(s =>
+    `<li><svg class="ico" aria-hidden="true"><use href="#${s.icone}"/></svg><span>${esc(s.titulo)}</span></li>`
+  ).join("");
+}
+
 /* ------------------------------ utilidades ------------------------------ */
 
 const $  = (s, r) => (r || document).querySelector(s);
@@ -1119,6 +1152,8 @@ function desenharResumo() {
   }
   // Barra fixa do celular (ver #barraFixaReserva no HTML): mesmo total do resumo.
   if (bfTotal) bfTotal.textContent = BRL(total);
+  const listaSelos = $("#selosReserva");
+  if (listaSelos) listaSelos.innerHTML = htmlSelos(reserva.plano);
 }
 
 /* O primeiro horário livre da data escolhida já vem selecionado, em qualquer passeio com agenda —
@@ -1230,11 +1265,11 @@ function validar() {
     falha("#fCriancas", "#fCriancas", "#errCriancas", msgCrianca);
   }
 
-  const semAceite = !$("#fAceite").checked;
+  const semAceite = !($("#fAceiteTermos") && $("#fAceiteTermos").checked);
   const erroAceite = $("#errAceite");
-  erroAceite.textContent = semAceite ? "Para enviar, é preciso concordar com os Termos do Passeio e a Política de Privacidade." : "";
+  erroAceite.textContent = semAceite ? "Para enviar, é preciso aceitar os Termos do Passeio." : "";
   erroAceite.hidden = !semAceite;
-  if (semAceite && !primeiro) primeiro = $("#fAceite");
+  if (semAceite && !primeiro) primeiro = $("#fAceiteTermos");
 
   return primeiro;
 }
@@ -1419,7 +1454,11 @@ function mostrarPagamento(pg) {
     alvo.hidden = true;
     $("#formReserva").hidden = false;
     reserva.hora = null;
-    $("#fAceite").checked = false;
+    const termos = $("#fAceiteTermos");
+    if (termos) termos.checked = false;
+    const wa = $("#fAceiteWhatsapp");
+    if (wa) wa.checked = false;
+    atualizarBotaoEnvio();
     desenharReserva();
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -1486,13 +1525,61 @@ function mostrarConfirmacao(dados) {
     alvo.hidden = true;
     $("#formReserva").hidden = false;
     reserva.hora = null;
-    $("#fAceite").checked = false;
+    const termos = $("#fAceiteTermos");
+    if (termos) termos.checked = false;
+    const wa = $("#fAceiteWhatsapp");
+    if (wa) wa.checked = false;
+    atualizarBotaoEnvio();
     desenharReserva();
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 }
 
 /* ------------------------------ eventos da reserva ------------------------------ */
+
+function atualizarBotaoEnvio() {
+  const ok = !!($("#fAceiteTermos") && $("#fAceiteTermos").checked);
+  for (const id of ["#btnEnviarReserva", "#btnEnviarBarra"]) {
+    const b = $(id);
+    if (b) b.disabled = !ok;
+  }
+}
+
+function abrirModalTermos() {
+  const dlg = $("#modalTermos");
+  if (!dlg || typeof dlg.showModal !== "function") {
+    location.href = "/termos-do-passeio";
+    return;
+  }
+  const corpo = $("#modalTermosCorpo");
+  const origem = document.querySelector("#termos .texto-legal");
+  if (corpo && origem && corpo.dataset.pronto !== "1") {
+    corpo.replaceChildren(origem.cloneNode(true));
+    corpo.dataset.pronto = "1";
+  }
+  const voltar = document.activeElement;
+  const focaveis = () => [...dlg.querySelectorAll("button, a[href], [tabindex]:not([tabindex='-1'])")]
+    .filter(el => !el.disabled && el.getAttribute("aria-hidden") !== "true");
+  function trap(ev) {
+    if (ev.key !== "Tab") return;
+    const lista = focaveis();
+    if (!lista.length) { ev.preventDefault(); return; }
+    const primeiro = lista[0];
+    const ultimo = lista[lista.length - 1];
+    if (ev.shiftKey && document.activeElement === primeiro) { ev.preventDefault(); ultimo.focus(); }
+    else if (!ev.shiftKey && document.activeElement === ultimo) { ev.preventDefault(); primeiro.focus(); }
+  }
+  function aoFechar() {
+    dlg.removeEventListener("keydown", trap);
+    dlg.removeEventListener("close", aoFechar);
+    if (voltar && typeof voltar.focus === "function") voltar.focus();
+  }
+  dlg.addEventListener("keydown", trap);
+  dlg.addEventListener("close", aoFechar);
+  dlg.showModal();
+  const fechar = $("#fecharTermos");
+  if (fechar) fechar.focus();
+}
 
 function ligarReserva() {
   const form = $("#formReserva");
@@ -1615,7 +1702,7 @@ function ligarReserva() {
     }
 
     const botao = form.querySelector('button[type="submit"]');
-    if (botao) { botao.disabled = true; botao.textContent = "Enviando…"; }
+    if (botao) botao.disabled = true;
 
     const o = Origem.detectar();
     const gEnvio = grupoDaReserva();
@@ -1634,6 +1721,8 @@ function ligarReserva() {
         plano: reserva.plano, data: reserva.data, hora: reserva.hora,
         pax: gEnvio.pessoas, adultos: gEnvio.pagantes, criancas: gEnvio.criancas,
         idadesCriancas: gEnvio.idades.map(n => Number(n)),
+        aceiteTermos: true, termoVersao: TERMO_VERSAO_ATUAL,
+        consentiuWhatsapp: !!($("#fAceiteWhatsapp") && $("#fAceiteWhatsapp").checked),
         nome: dadosForm.nome, telefone: dadosForm.tel, email: dadosForm.email, obs: dadosForm.obs,
         origem: origemEfetiva(o, reserva.comoConheceu), origemDetalhe: o.detalhe,
         comoConheceu: rotuloComoConheceu(reserva.comoConheceu),
@@ -1643,7 +1732,7 @@ function ligarReserva() {
       })
     });
 
-    if (botao) { botao.disabled = false; botao.textContent = "Enviar reserva no WhatsApp"; }
+    atualizarBotaoEnvio();
 
     if (resultado.status === 409) {
       if (abaWA) abaWA.close();
@@ -1706,6 +1795,14 @@ function ligarReserva() {
     evento("envio_whatsapp", { reservaCodigo: dados.codigo });
     mostrarConfirmacao(dados);
   });
+
+  const aceite = $("#fAceiteTermos");
+  if (aceite) aceite.addEventListener("change", atualizarBotaoEnvio);
+  const abrir = $("#abrirTermos");
+  if (abrir) abrir.addEventListener("click", abrirModalTermos);
+  const fecharTermos = $("#fecharTermos");
+  if (fecharTermos) fecharTermos.addEventListener("click", () => { const dlg = $("#modalTermos"); if (dlg && dlg.open) dlg.close(); });
+  atualizarBotaoEnvio();
 
   const btnCancelar = $("#btnCancelarReserva");
   if (btnCancelar) btnCancelar.addEventListener("click", async () => {

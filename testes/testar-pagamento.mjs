@@ -39,7 +39,30 @@ class Stmt {
   async all() { return { results: db.prepare(this.sql).all(...this.args) }; }
   async run() { const r = db.prepare(this.sql).run(...this.args); return { meta: { changes: Number(r.changes) } }; }
 }
-const DB = { prepare: sql => new Stmt(sql) };
+// O worker grava reserva e aceite num batch (uma transação). Se o aceite falha, a reserva também sai.
+let aceiteDeveFalhar = false;
+const DB = {
+  prepare: sql => new Stmt(sql),
+  async batch(stmts) {
+    db.exec("BEGIN");
+    const out = [];
+    try {
+      for (const s of stmts) {
+        if (aceiteDeveFalhar && /INSERT INTO aceite_termos/i.test(s.sql)) {
+          aceiteDeveFalhar = false;
+          throw new Error("falha simulada no aceite");
+        }
+        const r = db.prepare(s.sql).run(...s.args);
+        out.push({ meta: { changes: Number(r.changes) } });
+      }
+      db.exec("COMMIT");
+      return out;
+    } catch (e) {
+      try { db.exec("ROLLBACK"); } catch { /* a transação já foi desfeita */ }
+      throw e;
+    }
+  }
+};
 const linha = (q, ...p) => db.prepare(q).get(...p);
 
 // ---------- Asaas e Turnstile simulados ----------
@@ -74,7 +97,11 @@ const w = await import("data:text/javascript;base64," + Buffer.from(src).toStrin
 const TOKEN = "token-webhook-de-teste-0123456789abcdef";
 const ORIGEM = "https://trindadeadventury.com.br";
 const ENV_ON = {
-  DB, ASSETS: { fetch: async () => new Response(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10])) },
+  DB, ASSETS: { fetch: async (req) => {
+    const u = String(req && req.url || "");
+    if (u.includes("apple-touch-icon")) return new Response(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
+    return new Response(readFileSync(new URL("../site/index.html", import.meta.url), "utf8"), { headers: { "content-type": "text/html; charset=utf-8" } });
+  } },
   TURNSTILE_SECRET: "1x0000000000000000000000000000000AA",
   PAGAMENTO_ONLINE: "1", ASAAS_API_KEY: "chave-asaas-de-teste", ASAAS_WEBHOOK_TOKEN: TOKEN, ASAAS_API_URL: "http://asaas.teste",
   ADMIN_KEY: "admin-teste"
@@ -85,7 +112,7 @@ let seq = 0;
 const tel = () => "2499" + String(1000000 + (++seq)).padStart(7, "0");
 const ip = () => "10.9.8." + (++seq % 250);
 async function reservar(extra = {}, env = ENV_ON, cab = {}) {
-  const corpo = { plano: "essencial", data: AMANHA, hora: 9, pax: 1, nome: "Teste Pagamento", telefone: tel(), origem: "direto", "cf-turnstile-response": "XXXX.DUMMY.TOKEN.XXXX", ...extra };
+  const corpo = { plano: "essencial", data: AMANHA, hora: 9, pax: 1, nome: "Teste Pagamento", telefone: tel(), origem: "direto", aceiteTermos: true, termoVersao: "v0-provisorio", "cf-turnstile-response": "XXXX.DUMMY.TOKEN.XXXX", ...extra };
   const r = await w.default.fetch(new Request(ORIGEM + "/api/reservas", {
     method: "POST", headers: { origin: ORIGEM, "content-type": "application/json", "cf-connecting-ip": ip(), ...cab }, body: JSON.stringify(corpo)
   }), env);
@@ -157,6 +184,54 @@ const pagar = (ckId, evento = "CHECKOUT_PAID", id = "evt_" + (++seqEv)) => webho
   const wh = await webhook({ id: "evt_x", event: "CHECKOUT_PAID", checkout: { id: "x" } }, TOKEN, ENV_OFF);
   checar("D1  desligado: webhook responde 404", wh.status === 404, wh.status);
   checar("D1  desligado: nenhuma chamada ao Asaas", asaasPedidos.length === 0);
+}
+
+// ======================= aceite dos termos antes de qualquer cobrança =======================
+{
+  asaasPedidos = [];
+  const sem = await reservar({ aceiteTermos: false });
+  checar("T0  sem aceite dos termos → 422 e nenhuma chamada ao Asaas", sem.status === 422 && sem.corpo.erros && sem.corpo.erros.aceiteTermos && asaasPedidos.length === 0, JSON.stringify(sem));
+  const velho = await reservar({ termoVersao: "v9-inexistente" });
+  checar("T0  versão de termo diferente da atual → 422 e nenhuma chamada ao Asaas", velho.status === 422 && asaasPedidos.length === 0, JSON.stringify(velho));
+  const html = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
+  const textoOff = w.textoTermosDe(html, false);
+  checar("T0  v0-provisorio reusa o texto já publicado dos Termos (sem texto novo)", textoOff.length > 200 && textoOff.includes("O cancelamento é gratuito até 12 horas antes da saída.") && textoOff.includes("Não há pagamento pelo site.") && !/snorkel incluso/.test(textoOff), textoOff.slice(0, 180));
+  const hash = await w.hashTexto(w.textoTermosDe(html, true));
+  checar("T0  hash SHA-256 do texto tem 64 hex", /^[a-f0-9]{64}$/.test(hash) && hash === await w.hashTexto(w.textoTermosDe(html, true)), hash);
+  const okAceite = await reservar({ consentiuWhatsapp: false, pagamento: "sinal" });
+  const ref = okAceite.corpo && okAceite.corpo.pagamento && okAceite.corpo.pagamento.ref;
+  const res = ref && reservaPorRef(ref);
+  const aceite = res && linha("SELECT termo_versao, termo_hash, ip, user_agent FROM aceite_termos WHERE reserva_id = ?", res.id);
+  checar("T0  aceite gravado com versão, hash e IP completo; a resposta pública não leva IP nem user-agent", okAceite.status === 200 && aceite && aceite.termo_versao === "v0-provisorio" && aceite.termo_hash === hash && aceite.ip.startsWith("10.9.8.") && !JSON.stringify(okAceite.corpo).includes(aceite.ip) && !("user_agent" in okAceite.corpo), JSON.stringify(aceite));
+  let bloqueou = false;
+  try { db.prepare("DELETE FROM aceite_termos WHERE reserva_id = ?").run(res.id); } catch { bloqueou = true; }
+  checar("T0  a tabela de aceite recusa DELETE", bloqueou);
+  let bloqueouUp = false;
+  try { db.prepare("UPDATE aceite_termos SET termo_versao = 'x' WHERE reserva_id = ?").run(res.id); } catch { bloqueouUp = true; }
+  checar("T0  a tabela de aceite recusa UPDATE", bloqueouUp);
+
+  const nReservas = () => linha("SELECT COUNT(*) AS n FROM reservas").n;
+  const nAceites = () => linha("SELECT COUNT(*) AS n FROM aceite_termos").n;
+  const chaveAtom = "chave-aceite-atomica-01";
+  const corpoAtom = { pagamento: "sinal", telefone: tel(), pax: 1 };
+  const antesR = nReservas(), antesA = nAceites(), antesAsaas = asaasPedidos.length;
+  aceiteDeveFalhar = true;
+  const falhou = await reservar(corpoAtom, ENV_ON, { "idempotency-key": chaveAtom });
+  checar("T0  falha ao gravar o aceite desfaz a reserva e não chama o Asaas", falhou.status === 500 && nReservas() === antesR && nAceites() === antesA && asaasPedidos.length === antesAsaas && aceiteDeveFalhar === false, JSON.stringify(falhou));
+  const gravou = await reservar(corpoAtom, ENV_ON, { "idempotency-key": chaveAtom });
+  const rowAtom = linha("SELECT id FROM reservas WHERE chave_idempotencia = ?", chaveAtom);
+  const aceiteAtom = rowAtom && linha("SELECT termo_hash FROM aceite_termos WHERE reserva_id = ? AND termo_versao = 'v0-provisorio'", rowAtom.id);
+  checar("T0  a mesma chave, depois da falha, grava a reserva e o aceite juntos", gravou.status === 200 && nReservas() === antesR + 1 && nAceites() === antesA + 1 && aceiteAtom && aceiteAtom.termo_hash === hash && asaasPedidos.length === antesAsaas + 1, JSON.stringify(gravou.corpo));
+
+  db.exec("DROP TRIGGER aceite_termos_bloqueia_delete");
+  db.prepare("DELETE FROM aceite_termos WHERE reserva_id = ?").run(rowAtom.id);
+  db.exec("CREATE TRIGGER aceite_termos_bloqueia_delete BEFORE DELETE ON aceite_termos BEGIN SELECT RAISE(ABORT, 'aceite_termos é somente inclusão'); END");
+  const semAceite = await reservar(corpoAtom, ENV_ON, { "idempotency-key": chaveAtom });
+  checar("T0  reenvio sem o aceite da versão atual → 409 aceite_ausente, sem nova reserva nem novo checkout", semAceite.status === 409 && semAceite.corpo && semAceite.corpo.motivo === "aceite_ausente" && nReservas() === antesR + 1 && nAceites() === antesA && asaasPedidos.length === antesAsaas + 1, JSON.stringify(semAceite.corpo));
+
+  db.prepare("INSERT INTO aceite_termos (reserva_id, termo_versao, termo_hash, aceito_em, ip, user_agent) VALUES (?,?,?,?,?,?)").run(rowAtom.id, "v0-provisorio", "0".repeat(64), "2026-10-26T13:00:00.000Z", "10.0.0.1", "teste");
+  const hashRuim = await reservar(corpoAtom, ENV_ON, { "idempotency-key": chaveAtom });
+  checar("T0  reenvio com hash diferente da versão atual → 409 aceite_ausente", hashRuim.status === 409 && hashRuim.corpo && hashRuim.corpo.motivo === "aceite_ausente" && nReservas() === antesR + 1 && asaasPedidos.length === antesAsaas + 1, JSON.stringify(hashRuim.corpo));
 }
 
 // ======================= ligado: disponibilidade =======================

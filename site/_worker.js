@@ -562,6 +562,9 @@ function aplicarMetadados(resposta, m, naoEncontrada, env, rota) {
   if (env && /^[0-9A-Za-z_-]{10,64}$/.test(String(env.TURNSTILE_SITEKEY || ""))) {
     rw = rw.on('meta[name="turnstile-sitekey"]', attr("content", env.TURNSTILE_SITEKEY));
   }
+  if (pagamentoOnlineAtivo(env)) {
+    rw = rw.on("html", { element(el) { el.setAttribute("data-pagamento-online", "1"); } });
+  }
 
   if (m.canonical) {
     rw = rw
@@ -707,6 +710,7 @@ async function rotearAPI(request, env, url) {
     if (p.match(/^\/api\/admin\/bloqueios\/[\w-]+$/) && metodo === "DELETE")
       return adminRemoverBloqueio(env, p.split("/").pop());
     if (p === "/api/admin/origem" && metodo === "GET") return adminOrigem(env, url);
+    if (p === "/api/admin/aceites" && metodo === "GET") return adminListarAceites(env, url);
     if (p === "/api/admin/config" && metodo === "GET") return adminLerConfig(env);
     if (p === "/api/admin/config" && metodo === "POST") return adminGravarConfig(request, env);
 
@@ -1218,7 +1222,8 @@ async function garantirEsquemaReservas(env) {
     ["chave_idempotencia", "ALTER TABLE reservas ADD COLUMN chave_idempotencia TEXT"],
     ["adultos", "ALTER TABLE reservas ADD COLUMN adultos INTEGER"],
     ["criancas", "ALTER TABLE reservas ADD COLUMN criancas INTEGER"],
-    ["idades_criancas", "ALTER TABLE reservas ADD COLUMN idades_criancas TEXT"]
+    ["idades_criancas", "ALTER TABLE reservas ADD COLUMN idades_criancas TEXT"],
+    ["consentiu_whatsapp", "ALTER TABLE reservas ADD COLUMN consentiu_whatsapp INTEGER NOT NULL DEFAULT 0"]
   ];
   for (const [nome, ddl] of novas) {
     if (tem.has(nome)) continue;
@@ -1242,15 +1247,113 @@ const SQL_INSERIR_RESERVA =
   "(id, codigo, criado_em, plano, data, hora, pax, nome, telefone, email, obs, " +
   "total, voucher, origem, origem_detalhe, como_conheceu, instagram_cliente, " +
   "seguiu_instagram, status, canal, atualizado_em, expira_em, chave_idempotencia, " +
-  "adultos, criancas, idades_criancas) " +
-  "SELECT ?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,'pendente','site',?3,?20,?21,?23,?24,?25 " +
+  "adultos, criancas, idades_criancas, consentiu_whatsapp) " +
+  "SELECT ?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,'pendente','site',?3,?20,?21,?23,?24,?25,?26 " +
   "WHERE NOT EXISTS (SELECT 1 FROM bloqueios WHERE data = ?5 AND (hora = ?6 OR hora IS NULL)) " +
   "AND (SELECT COALESCE(SUM(pax),0) FROM reservas WHERE data = ?5 AND hora = ?6 AND " + contaNaVaga(3) + ") + ?7 <= ?19 " +
   "AND NOT EXISTS (SELECT 1 FROM reservas WHERE telefone = ?9 AND data = ?5 AND hora = ?6 AND plano = ?4 " +
   "AND status != 'cancelada' AND criado_em > ?22)";
 
+const TERMO_VERSAO_ATUAL = "v0-provisorio";
+let cacheTermo = { chave: "", hash: "" };
+
+/* Texto visível de /termos-do-passeio, já com a variante de pagamento (online ou WhatsApp).
+   Não inventa frase: só tira as tags do artigo que já está no HTML. */
+function textoTermosDe(html, online) {
+  const m = String(html || "").match(/<section[^>]*\bid="termos"[\s\S]*?<article class="texto-legal">([\s\S]*?)<\/article>/);
+  if (!m) return "";
+  let bloco = m[1];
+  if (online) {
+    bloco = bloco.replace(/<([a-z0-9]+)\b[^>]*\bdata-pagamento="whatsapp"[^>]*>[\s\S]*?<\/\1>/gi, "");
+    bloco = bloco.replace(/<template\b[^>]*data-pagamento="online"[^>]*>([\s\S]*?)<\/template>/gi, "$1");
+  } else {
+    bloco = bloco.replace(/<template\b[^>]*data-pagamento="online"[^>]*>[\s\S]*?<\/template>/gi, "");
+  }
+  return bloco
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function hashTexto(texto) {
+  const dig = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(texto)));
+  return [...new Uint8Array(dig)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function validarAceiteTermos(b) {
+  if (!b || b.aceiteTermos !== true) return "É preciso aceitar os Termos do Passeio.";
+  if (b.termoVersao !== TERMO_VERSAO_ATUAL) return "Os termos mudaram. Abra os Termos do Passeio e aceite de novo.";
+  return "";
+}
+
+async function termoAtual(env) {
+  const online = pagamentoOnlineAtivo(env);
+  const chave = online ? "on" : "off";
+  if (cacheTermo.chave === chave && cacheTermo.hash) return cacheTermo;
+  const r = await env.ASSETS.fetch(new Request("https://trindadeadventury.com.br/"));
+  const html = await r.text();
+  const texto = textoTermosDe(html, online);
+  if (texto.length < 200) throw new Error("texto dos termos indisponível");
+  const hash = await hashTexto(texto);
+  cacheTermo = { chave, hash, versao: TERMO_VERSAO_ATUAL };
+  return cacheTermo;
+}
+
+let esquemaAceitePronto = false;
+async function garantirEsquemaAceite(env) {
+  if (esquemaAceitePronto) return;
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS aceite_termos (" +
+    "id INTEGER PRIMARY KEY AUTOINCREMENT, reserva_id TEXT NOT NULL, termo_versao TEXT NOT NULL, " +
+    "termo_hash TEXT NOT NULL, aceito_em TEXT NOT NULL, ip TEXT NOT NULL, user_agent TEXT NOT NULL, " +
+    "UNIQUE (reserva_id, termo_versao))"
+  ).run();
+  await env.DB.prepare(
+    "CREATE TRIGGER IF NOT EXISTS aceite_termos_bloqueia_update BEFORE UPDATE ON aceite_termos " +
+    "BEGIN SELECT RAISE(ABORT, 'aceite_termos é somente inclusão'); END"
+  ).run();
+  await env.DB.prepare(
+    "CREATE TRIGGER IF NOT EXISTS aceite_termos_bloqueia_delete BEFORE DELETE ON aceite_termos " +
+    "BEGIN SELECT RAISE(ABORT, 'aceite_termos é somente inclusão'); END"
+  ).run();
+  esquemaAceitePronto = true;
+}
+
+const SQL_INSERIR_ACEITE =
+  "INSERT INTO aceite_termos (reserva_id, termo_versao, termo_hash, aceito_em, ip, user_agent) " +
+  "SELECT ?1, ?2, ?3, ?4, ?5, ?6 WHERE EXISTS (SELECT 1 FROM reservas WHERE id = ?1)";
+
+async function aceiteDaVersaoAtual(env, reservaId) {
+  await garantirEsquemaAceite(env);
+  const row = await env.DB.prepare(
+    "SELECT termo_hash FROM aceite_termos WHERE reserva_id = ?1 AND termo_versao = ?2"
+  ).bind(reservaId, TERMO_VERSAO_ATUAL).first();
+  if (!row) return false;
+  const termo = await termoAtual(env);
+  return row.termo_hash === termo.hash;
+}
+
+async function adminListarAceites(env, url) {
+  await garantirEsquemaReservas(env);
+  await garantirEsquemaAceite(env);
+  const limite = Math.min(200, Math.max(1, Number(url.searchParams.get("limite")) || 50));
+  const { results } = await env.DB.prepare(
+    "SELECT a.termo_versao, a.termo_hash, a.aceito_em, r.codigo, r.data, r.plano, r.consentiu_whatsapp " +
+    "FROM aceite_termos a LEFT JOIN reservas r ON r.id = a.reserva_id ORDER BY a.aceito_em DESC LIMIT ?1"
+  ).bind(limite).all();
+  return ok({ ok: true, retencaoAnos: 5, aceites: results });
+}
+
 async function criarReserva(b, env, request) {
   await garantirEsquemaReservas(env);
+  await garantirEsquemaAceite(env);
   const cfg = await lerConfig(env);
   const agora = agoraEmTrindade();
   const { erros, dados: d } = validarReserva(b, cfg, agora);
@@ -1263,6 +1366,16 @@ async function criarReserva(b, env, request) {
     else erros.idempotencyKey = "Chave inválida.";
   }
   if (Object.keys(erros).length) return ok({ ok: false, erros }, 422);
+
+  const erroAceite = validarAceiteTermos(b);
+  if (erroAceite) return ok({ ok: false, erros: { aceiteTermos: erroAceite } }, 422);
+  let termo;
+  try { termo = await termoAtual(env); }
+  catch (e) {
+    console.error("[termos]", mascarar(e && e.message ? e.message : String(e)));
+    return erro("Não foi possível registrar o aceite dos termos. Tente de novo.", 503);
+  }
+  const consentiuWhatsapp = b.consentiuWhatsapp === true ? 1 : 0;
 
   // Passeio de PLANOS com pagamento online ligado: decide 30%/100% (mesmo dia = 100%) antes de gravar.
   let pg = null;
@@ -1307,25 +1420,32 @@ async function criarReserva(b, env, request) {
     ? new Date(criadoMs + (pg.minutos + PAGAMENTO.folgaVagaMin) * 60000).toISOString()
     : expiraEm(d.data, d.hora, criadoMs);
 
+  const ipAceite = String(request.headers.get("cf-connecting-ip") || "sem-ip").slice(0, 80);
+  const uaAceite = String(request.headers.get("user-agent") || "").slice(0, 1024);
+  const aceitoEm = new Date().toISOString();
   let codigo = null;
   for (let tentativa = 0; tentativa < 3 && !codigo; tentativa++) {
     const candidato = gerarCodigo();
     try {
-      const r = await env.DB
-        .prepare(SQL_INSERIR_RESERVA)
-        .bind(
+      // Um batch do D1 é uma transação: se o aceite falha, a reserva não fica gravada.
+      // O aceite só insere se a reserva com este id existir (o INSERT acima não inseriu = 0 linhas).
+      const resultados = await env.DB.batch([
+        env.DB.prepare(SQL_INSERIR_RESERVA).bind(
           id, candidato, criadoEm, d.plano, d.data, d.hora, d.pax, d.nome, d.telefone, d.email, d.obs,
           total, voucher, d.origem, d.origemDetalhe, d.comoConheceu, d.igCliente, d.seguiu, cfg.capacidade,
-          prazo, chave, limiteDuplicata, d.adultos, d.criancas, d.idades.length ? JSON.stringify(d.idades) : null
-        )
-        .run();
-      if (r.meta.changes !== 1) {
+          prazo, chave, limiteDuplicata, d.adultos, d.criancas, d.idades.length ? JSON.stringify(d.idades) : null,
+          consentiuWhatsapp
+        ),
+        env.DB.prepare(SQL_INSERIR_ACEITE).bind(id, termo.versao, termo.hash, aceitoEm, ipAceite, uaAceite)
+      ]);
+      if (resultados[0].meta.changes !== 1) {
         if (chave) {
           const antiga = await env.DB.prepare(SQL_RESERVA_POR_CHAVE).bind(chave).first();
           if (antiga) return await repetirReserva(env, antiga, d, cfg, criadoEm);
         }
         return await explicarRecusa(env, d, cfg, criadoEm, limiteDuplicata);
       }
+      if (resultados[1].meta.changes !== 1) throw new Error("aceite não gravado junto com a reserva");
       codigo = candidato;
     } catch (err) {
       const msg = String(err && err.message);
@@ -1381,6 +1501,12 @@ async function repetirReserva(env, r, d, cfg, agoraISO) {
   const igual = r.plano === d.plano && r.data === d.data && Number(r.hora) === d.hora && Number(r.pax) === d.pax
     && adultosGravados === d.adultos && criancasGravadas === d.criancas && r.telefone === d.telefone;
   if (!igual) return ok({ ok: false, motivo: "chave_em_uso", erro: "Esta chave já foi usada em outro pedido." }, 409);
+  if (!(await aceiteDaVersaoAtual(env, r.id))) {
+    return ok({
+      ok: false, motivo: "aceite_ausente",
+      erro: "Esta reserva não tem o aceite da versão atual dos termos."
+    }, 409);
+  }
   const uso = await env.DB.prepare(SQL_USADO_NO_HORARIO).bind(r.data, Number(r.hora), agoraISO).first();
   if (r.pagamento_modalidade) return repetirPagamento(env, r, Math.max(0, cfg.capacidade - Number(uso.usado || 0)));
   return respostaDaReserva({
@@ -2566,5 +2692,6 @@ async function adminGravarConfig(request, env) {
 export {
   expiraEm, normalizarTelefone, conferirData, validarReserva, verificarTurnstile, resumirRelatorioCsp, destinoRedirect,
   calcularCobranca, dentroDoPrazoDeEstorno, minutosDoLink, planoPagaOnline, pagamentoOnlineAtivo, PAGAMENTO,
-  saldoAntecedenciaH, executarTarefasPagamento, comporGrupo
+  saldoAntecedenciaH, executarTarefasPagamento, comporGrupo,
+  textoTermosDe, hashTexto, validarAceiteTermos
 };
