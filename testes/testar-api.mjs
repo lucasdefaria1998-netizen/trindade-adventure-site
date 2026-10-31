@@ -1,7 +1,7 @@
 // Testes da API (portão dos POST, validação, idempotência, Turnstile, admin…).
 // Uso:  node testes/testar-api.mjs      (wrangler pages dev em http://127.0.0.1:8788)
 // Só localhost. Grava reservas de teste no D1 LOCAL; confere a contagem de linhas antes e depois.
-import { checar, resumo, contar, post, reservaValida, ipNovo, telNovo, exec, sql, BASE, hojeSP, somaDias, limparDadosDeTeste, iniciarServidorDeCertificados, criarJwtAccess, ACCESS_AUD_TESTE } from "./lib-testes.mjs";
+import { checar, resumo, contar, post, reservaValida, ipNovo, telNovo, exec, sql, BASE, hojeSP, somaDias, limparDadosDeTeste, iniciarServidorDeCertificados, criarJwtAccess, ACCESS_AUD_TESTE, ACCESS_CERTS_URL_TESTE } from "./lib-testes.mjs";
 await iniciarServidorDeCertificados(); // certificados de teste do Access (S23)
 
 limparDadosDeTeste();
@@ -436,7 +436,7 @@ const restamEm = async (dia, hora) => (await (await fetch(`${BASE}/api/disponibi
   // Sem ACCESS_AUD configurado: tudo no painel é 403, mesmo com um JWT bem assinado
   const src = (await import("node:fs")).readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
   const w = await import("data:text/javascript;base64," + Buffer.from(src).toString("base64"));
-  const envSemAud = { DB: {}, ASSETS: { fetch: async () => new Response("painel") }, ACCESS_CERTS_URL: "http://127.0.0.1:8791/certs" };
+  const envSemAud = { DB: {}, ASSETS: { fetch: async () => new Response("painel") }, ACCESS_CERTS_URL: ACCESS_CERTS_URL_TESTE };
   for (const caminho of ["/api/admin/resumo", "/admin"]) {
     const r = await w.default.fetch(new Request("http://127.0.0.1:8788" + caminho, { headers: { "Cf-Access-Jwt-Assertion": jwt } }), envSemAud);
     checar(`E23 sem env.ACCESS_AUD, ${caminho} responde 403 mesmo com JWT válido`, r.status === 403, r.status);
