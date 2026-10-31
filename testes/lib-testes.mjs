@@ -63,7 +63,8 @@ export function post(caminho, { corpo, tipo = "application/json", origem = ORIGE
 // Reserva válida (Essencial, amanhã às 9h) — sobrescreva o que precisar.
 export const reservaValida = (extra = {}) => ({
   plano: "essencial", data: somaDias(hojeSP(), 1), hora: 9, pax: 2,
-  nome: "Teste Automatizado", telefone: telNovo(), origem: "direto", sessao: "teste-sessao-01", ...extra
+  nome: "Teste Automatizado", telefone: telNovo(), origem: "direto", sessao: "teste-sessao-01",
+  aceiteTermos: true, termoVersao: "v0-provisorio", ...extra
 });
 
 // Começa cada execução de testes com o banco LOCAL vazio (nunca toca produção): sem isso, as

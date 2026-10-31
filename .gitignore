@@ -2,3 +2,5 @@
 node_modules/
 _copiados-da-sessao/
 .claude/
+test-results/
+playwright-report/

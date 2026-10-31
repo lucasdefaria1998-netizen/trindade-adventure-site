@@ -4,8 +4,8 @@
     "sha256": "4759b0358431d0b5902fc8de4ef12f4101a176cfe18784df1d897c47a54cc821"
   },
   "app.js": {
-    "v": "20261031-regras-pagamento",
-    "sha256": "f035d9ea5431e62135e9a1e66edbcf07c3124ff2df4abbef71d65c3103d8378c"
+    "v": "20261031-aceite",
+    "sha256": "977f45483c116db36b6c073edf5da9bdcc4cbcf4265f65406172b7c5fc65a740"
   },
   "motion.js": {
     "v": "20261020-s15",
@@ -16,7 +16,7 @@
     "sha256": "fd0e859e0fbfd486f8840402c3eb610a3dbf71504af0469ef34c44c4cca9c183"
   },
   "estilo.css": {
-    "v": "20261026-pousadas",
-    "sha256": "5e58fc295d8807043c628f64f9f15380de51979431da7dbd3a305584109f99e7"
+    "v": "20261031-selos",
+    "sha256": "eaf6e49e1790dfc37c7f7df9510d281e5d784fd8f9c0a6ede9239a8155b9e9cd"
   }
 }

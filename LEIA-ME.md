@@ -242,6 +242,18 @@ Para publicar e para ligar o pagamento: variáveis, migração 0003, webhook e a
 `/api/csp-report`, redirecionamento de domínio.) Se rodar `testar-api` duas vezes em menos de 1 minuto, o worker
 ainda guarda os certificados de teste da rodada anterior (por até 60 s) e as chamadas do painel falham: espere.
 
+## Selos e aceite dos termos
+
+Os cinco ícones (Guia local, Orientações de segurança, Equipamento de snorkel incluso, Pagamento protegido, Reserva digital confirmada) estão no sprite do `index.html`. O mapa `SELOS_POR_PLANO` em `site/app.js` diz qual selo cada passeio mostra. Snorkel não entra em nenhum passeio até o dono confirmar. Pagamento protegido só aparece com `PAGAMENTO_ONLINE=1`. Reserva digital confirmada aparece sempre. Os selos estão nos cartões, nas páginas de passeio e no resumo de `/reservar`.
+
+Quem reserva pelo site precisa aceitar os Termos do Passeio (checkbox nunca vem marcado). O botão de enviar fica desabilitado até lá. O servidor recusa com 422, sem chamar o Asaas, se `aceiteTermos` não for `true` ou se `termoVersao` não for a versão atual (`v0-provisorio`, o texto que já está em `/termos-do-passeio`). O contato por WhatsApp é um checkbox separado e opcional.
+
+O registro fica na tabela `aceite_termos` (migração `migracoes/0005_aceite_termos.sql`; o worker também cria sozinho). Colunas: reserva, versão, hash SHA-256 do texto, hora UTC, IP completo e user-agent. Há `UNIQUE (reserva_id, termo_versao)`. Triggers bloqueiam `UPDATE` e `DELETE`. O painel (`/admin`, aba Aceites, atrás do Access) lista versão, hash, hora e código — sem IP e sem user-agent. Retenção: 5 anos. O expurgo não roda sozinho; o passo a passo (derrubar os triggers, apagar o que for mais velho que o corte UTC, recriar os triggers) está no comentário da 0005. Não aplique essa migração no banco remoto a partir daqui.
+
+O teste de navegador está em `testes/aceite-selos.spec.js` (Playwright, 360px e 1280px), com o site em `http://127.0.0.1:8788`:
+
+    npx --yes playwright test testes/aceite-selos.spec.js
+
 O teste ponta a ponta da reserva no navegador está em
 `testes/e2e-reserva.browser.js` (cole no console de http://127.0.0.1:8788/reservar;
 ele troca o `window.open` por um stub e nunca abre o WhatsApp).

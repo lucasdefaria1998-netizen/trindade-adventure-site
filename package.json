@@ -1,0 +1,10 @@
+{
+  "name": "trindade-adventure-site",
+  "private": true,
+  "scripts": {
+    "test:selos": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}
