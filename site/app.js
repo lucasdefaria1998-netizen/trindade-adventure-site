@@ -249,22 +249,27 @@ const Origem = {
 };
 
 /* Rede de parceiros indicadores (QR/link — E5/F2): captura ?parceiro= (e ?parceiroVia=) na chegada e
-   guarda no navegador até a validade (TODO(DECISAO-D1): dias configuráveis; aqui, 7 dias fixos — mesmo
-   padrão do servidor, que é quem de fato decide se o código existe e está ativo). Último clique vence
-   (sobrescreve o anterior), como recomendado em D1. O servidor sempre revalida o código: um valor
-   forjado ou de parceiro inativo aqui não gera atribuição nenhuma, só é ignorado silenciosamente. */
+   guarda no navegador até a validade. [Bloco 8a] A validade não é mais um número fixo aqui: o código só
+   é guardado depois que o servidor confirma que existe e está ativo (GET /api/parceiro), e a validade
+   gravada junto (validadeDias) é a de config.parceiro_validade_dias — quem decide é o servidor, não o
+   cliente. Consequência também desejada: com a rede desligada (/api/parceiro sempre 404), nada é
+   gravado no navegador do turista. Último clique vence (sobrescreve o anterior), como recomendado em
+   D1 (TODO(DECISAO-D1): cupom como segunda forma de atribuição, ver mostrarFaixaParceiro). Um código
+   forjado ou de parceiro inativo também não gera atribuição nenhuma, só é ignorado silenciosamente. */
 const Parceiro = {
   CHAVE: "trindade.parceiro",
-  VALIDADE_DIAS: 7,
+  VALIDADE_DIAS_PADRAO: 7, // só para localStorage escrito antes deste código existir; o servidor manda o valor de agora em diante.
 
-  capturar() {
+  async capturar() {
     try {
       const params = new URLSearchParams(location.search);
       const codigo = (params.get("parceiro") || "").trim().toLowerCase();
-      if (codigo && /^[a-z0-9]{6,32}$/.test(codigo)) {
-        const via = params.get("parceiroVia") === "qr" ? "qr" : "link";
-        localStorage.setItem(this.CHAVE, JSON.stringify({ codigo, via, ts: Date.now() }));
-      }
+      if (!codigo || !/^[a-z0-9]{6,32}$/.test(codigo)) return;
+      const r = await chamarAPI("/api/parceiro?codigo=" + encodeURIComponent(codigo));
+      if (r.status !== 200 || !r.corpo || !r.corpo.nome) return; // inexistente, inativo ou rede desligada
+      const via = params.get("parceiroVia") === "qr" ? "qr" : "link";
+      const validadeDias = Number(r.corpo.validadeDias) > 0 ? Number(r.corpo.validadeDias) : this.VALIDADE_DIAS_PADRAO;
+      localStorage.setItem(this.CHAVE, JSON.stringify({ codigo, via, ts: Date.now(), validadeDias, nome: r.corpo.nome }));
     } catch (e) {}
   },
 
@@ -272,24 +277,21 @@ const Parceiro = {
     try {
       const salvo = JSON.parse(localStorage.getItem(this.CHAVE) || "null");
       if (!salvo || !salvo.codigo || !salvo.ts) return null;
-      if (Date.now() - salvo.ts > this.VALIDADE_DIAS * 86400000) { localStorage.removeItem(this.CHAVE); return null; }
+      const validadeDias = Number(salvo.validadeDias) > 0 ? Number(salvo.validadeDias) : this.VALIDADE_DIAS_PADRAO;
+      if (Date.now() - salvo.ts > validadeDias * 86400000) { localStorage.removeItem(this.CHAVE); return null; }
       return salvo;
     } catch (e) { return null; }
   }
 };
 
-// Faixa discreta "Indicado por …" na página de reserva (F2). Só confirma o nome com o servidor — nunca
-// lista parceiros, só resolve o código exato já guardado; código inválido/inativo não mostra nada
-// (nem erro), a reserva segue normal.
-async function mostrarFaixaParceiro() {
+// Faixa discreta "Indicado por …" na página de reserva (F2). Usa o nome já confirmado na captura
+// (Parceiro.ativo().nome) — nunca lista parceiros, nunca pede de novo um código que já foi validado.
+function mostrarFaixaParceiro() {
   const faixa = document.getElementById("faixaParceiro");
   const ativo = Parceiro.ativo();
-  if (!faixa || !ativo) return;
-  const r = await chamarAPI("/api/parceiro?codigo=" + encodeURIComponent(ativo.codigo));
-  if (r.status === 200 && r.corpo && r.corpo.nome) {
-    faixa.textContent = "Indicado por " + r.corpo.nome;
-    faixa.hidden = false;
-  }
+  if (!faixa || !ativo || !ativo.nome) return;
+  faixa.textContent = "Indicado por " + ativo.nome;
+  faixa.hidden = false;
 }
 
 /* Um relato do próprio cliente ("como conheceu") só deve sobrepor a detecção
@@ -2293,8 +2295,8 @@ function ajustarCanaisDeContato(raiz) {
 function iniciar() {
   // Link antigo (#/passeios?plano=boat) vira o endereço novo antes de tudo.
   migrarEnderecoAntigo();
-  Parceiro.capturar();
-  mostrarFaixaParceiro();
+  Parceiro.capturar().then(mostrarFaixaParceiro); // captura é assíncrona (confirma com o servidor antes de gravar — Bloco 8a)
+  mostrarFaixaParceiro(); // mostra de imediato se já havia uma atribuição válida guardada de uma visita anterior
   ligarMenu();
   ligarLinksWhatsApp();
   ajustarCanaisDeContato();

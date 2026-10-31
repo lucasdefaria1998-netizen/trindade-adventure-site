@@ -398,9 +398,13 @@ async function servirSite(request, env, url) {
 
   // Link curto do QR do parceiro (rede de parceiros — E5/C6): /p/<codigo> → /reservar?parceiro=<codigo>.
   // Redirecionamento simples (302, não é um endereço permanente); o app.js resolve e guarda a atribuição.
-  // Sempre existe (mesmo com a rede desligada): resolverParceiro() não acha nada e a reserva segue normal.
+  // [Bloco 8a] Com a rede desligada, nem o redirecionamento com os parâmetros acontece — cai no fluxo
+  // normal da rota (404 ou página), sem vazar que /p/ existe nem gravar nada no navegador do turista.
   const codigoQr = p.match(/^\/p\/([a-z0-9]{6,32})$/i);
-  if (codigoQr) return Response.redirect(url.origin + "/reservar?parceiro=" + codigoQr[1].toLowerCase() + "&parceiroVia=qr", 302);
+  if (codigoQr) {
+    const cfgQr = await lerConfig(env);
+    if (cfgQr.parceirosAtivo) return Response.redirect(url.origin + "/reservar?parceiro=" + codigoQr[1].toLowerCase() + "&parceiroVia=qr", 302);
+  }
 
   // Endereços que mudaram de lugar: 301 permanente, mantendo a query string. Vale com ou sem
   // barra no fim (um salto só, sem passar pelo endereço sem barra).
@@ -1373,7 +1377,9 @@ async function parceiroInfoPublico(request, env, url) {
   await garantirEsquemaParceiros(env);
   const p = await env.DB.prepare("SELECT nome FROM parceiros WHERE codigo = ? AND ativo = 1").bind(codigo).first();
   if (!p) return erro("Não encontrado.", 404);
-  return ok({ ok: true, nome: p.nome });
+  // [Bloco 8a] validadeDias vem da config do servidor (parceiro_validade_dias) — o app.js guarda este
+  // valor junto com o código em vez de usar um número fixo, e é o servidor quem decide quando revalida.
+  return ok({ ok: true, nome: p.nome, validadeDias: cfg.parceiroValidadeDias });
 }
 
 const CHAVE_IDEMPOTENCIA = /^[A-Za-z0-9_-]{16,64}$/;
@@ -2527,22 +2533,49 @@ async function adminCriarReserva(request, env) {
   const codigo = "TA-" + (Number(inc.valor) - 1);
   const agora = new Date().toISOString();
   const pax = Math.floor(Number(b.pax));
+  const id = crypto.randomUUID();
 
+  // [Bloco 8c] Reserva fechada por WhatsApp/balcão também pode levar um parceiro — o admin escolhe
+  // direto (não há QR/cupom numa ligação), por isso é parceiroId (não código/cupom) e exige existir e
+  // estar ativo. Fora disso (flag desligada ou campo ausente) segue sem parceiro, como sempre.
+  const cfg = await lerConfig(env);
+  let parceiroId = null;
+  if (cfg.parceirosAtivo && typeof b.parceiroId === "string" && b.parceiroId) {
+    await garantirEsquemaParceiros(env);
+    const p = await env.DB.prepare("SELECT 1 FROM parceiros WHERE id = ? AND ativo = 1").bind(b.parceiroId).first();
+    if (!p) return erro("Parceiro não encontrado ou inativo.", 422);
+    parceiroId = b.parceiroId;
+  }
+
+  // Colunas parceiro_id/via/em só existem depois que a rede foi ligada ao menos uma vez (ver
+  // garantirEsquemaParceiros) — com a flag desligada o INSERT nem as menciona, para não quebrar a
+  // reserva manual comum (fluxo que existe independente da rede de parceiros).
   await env.DB
     .prepare(
       "INSERT INTO reservas " +
       "(id, codigo, criado_em, plano, data, hora, pax, nome, telefone, email, obs, " +
-      "total, voucher, origem, status, canal, atualizado_em) " +
-      "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?, 'balcao', ?, 'manual', ?)"
+      "total, voucher, origem, status, canal, atualizado_em" + (cfg.parceirosAtivo ? ", parceiro_id, parceiro_via, parceiro_em" : "") + ") " +
+      "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?, 'balcao', ?, 'manual', ?" + (cfg.parceirosAtivo ? ", ?, ?, ?" : "") + ")"
     )
     .bind(
-      crypto.randomUUID(), codigo, agora, b.plano, b.data, hora, pax,
-      String(b.nome || "Reserva manual").trim(), String(b.telefone || "").replace(/\D/g, ""),
-      b.email || null, String(b.obs || "").slice(0, 500) || null,
-      plano.preco * pax, plano.voucher * pax,
-      b.status || "confirmada", agora
+      ...[
+        id, codigo, agora, b.plano, b.data, hora, pax,
+        String(b.nome || "Reserva manual").trim(), String(b.telefone || "").replace(/\D/g, ""),
+        b.email || null, String(b.obs || "").slice(0, 500) || null,
+        plano.preco * pax, plano.voucher * pax,
+        b.status || "confirmada", agora,
+        ...(cfg.parceirosAtivo ? [parceiroId, parceiroId ? "manual" : null, parceiroId ? agora : null] : [])
+      ]
     )
     .run();
+
+  if (parceiroId) {
+    const auth = await checarAdmin(request, env);
+    await registrarAuditoria(env, {
+      email: auth.email, acao: "parceiro_atribuido_manual", entidade: "reserva", entidadeId: id,
+      antes: null, depois: { parceiroId }, motivo: "reserva manual (balcão/WhatsApp)"
+    });
+  }
 
   return ok({ ok: true, codigo });
 }
@@ -2551,26 +2584,46 @@ async function adminAtualizarReserva(request, env, id) {
   let b;
   try { b = await request.json(); } catch { return erro("Corpo inválido."); }
 
-  // Designar guia (rede de parceiros — E8): não exige status junto.
-  if (typeof b.guiaId === "string" && !b.status) {
+  // Designar guia e/ou atribuir parceiro manualmente (rede de parceiros — E8/Bloco 8c, reserva fechada
+  // por WhatsApp/balcão): não exige status junto.
+  if ((typeof b.guiaId === "string" || typeof b.parceiroId === "string") && !b.status) {
     const cfg = await lerConfig(env);
     if (!cfg.parceirosAtivo) return semFlagParceiros();
     await garantirEsquemaParceiros(env);
-    const novoGuiaId = b.guiaId || null;
-    // [P1 — bloco 8d] guiaId precisa existir (e estar ativo) — senão 422, em vez de aceitar qualquer texto.
-    if (novoGuiaId) {
-      const guia = await env.DB.prepare("SELECT 1 FROM guias WHERE id = ? AND ativo = 1").bind(novoGuiaId).first();
-      if (!guia) return erro("Guia não encontrado ou inativo.", 422);
-    }
-    const antes = await env.DB.prepare("SELECT guia_id FROM reservas WHERE id = ?").bind(id).first();
+    const antes = await env.DB.prepare("SELECT guia_id, parceiro_id FROM reservas WHERE id = ?").bind(id).first();
     if (!antes) return erro("Reserva não encontrada.", 404);
-    await env.DB.prepare("UPDATE reservas SET guia_id = ?, atualizado_em = ? WHERE id = ?")
-      .bind(novoGuiaId, new Date().toISOString(), id).run();
+
+    const sets = [], valores = [], eventos = [];
+    // [P1 — bloco 8d] guiaId precisa existir (e estar ativo) — senão 422, em vez de aceitar qualquer texto.
+    if (typeof b.guiaId === "string") {
+      const novoGuiaId = b.guiaId || null;
+      if (novoGuiaId) {
+        const guia = await env.DB.prepare("SELECT 1 FROM guias WHERE id = ? AND ativo = 1").bind(novoGuiaId).first();
+        if (!guia) return erro("Guia não encontrado ou inativo.", 422);
+      }
+      sets.push("guia_id = ?"); valores.push(novoGuiaId);
+      eventos.push({ acao: "guia_designado", antes: { guiaId: antes.guia_id }, depois: { guiaId: novoGuiaId } });
+    }
+    // [P1 — bloco 8c] mesma regra do guia: parceiroId precisa existir e estar ativo, senão 422.
+    if (typeof b.parceiroId === "string") {
+      const novoParceiroId = b.parceiroId || null;
+      if (novoParceiroId) {
+        const pr = await env.DB.prepare("SELECT 1 FROM parceiros WHERE id = ? AND ativo = 1").bind(novoParceiroId).first();
+        if (!pr) return erro("Parceiro não encontrado ou inativo.", 422);
+      }
+      const agoraParceiro = new Date().toISOString();
+      sets.push("parceiro_id = ?", "parceiro_via = ?", "parceiro_em = ?");
+      valores.push(novoParceiroId, novoParceiroId ? "manual" : null, novoParceiroId ? agoraParceiro : null);
+      eventos.push({ acao: "parceiro_atribuido_manual", antes: { parceiroId: antes.parceiro_id }, depois: { parceiroId: novoParceiroId } });
+    }
+    sets.push("atualizado_em = ?"); valores.push(new Date().toISOString());
+    valores.push(id);
+    const sqlAtualizarGuiaOuParceiro = "UPDATE reservas SET " + sets.join(", ") + " WHERE id = ?";
+    await env.DB.prepare(sqlAtualizarGuiaOuParceiro).bind(...valores).run();
     const auth = await checarAdmin(request, env);
-    await registrarAuditoria(env, {
-      email: auth.email, acao: "guia_designado", entidade: "reserva", entidadeId: id,
-      antes: { guiaId: antes.guia_id }, depois: { guiaId: novoGuiaId }
-    });
+    for (const ev of eventos) {
+      await registrarAuditoria(env, { email: auth.email, entidade: "reserva", entidadeId: id, motivo: "reserva manual (balcão/WhatsApp)", ...ev });
+    }
     return ok({ ok: true });
   }
 

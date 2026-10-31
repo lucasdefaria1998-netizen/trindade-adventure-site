@@ -93,6 +93,12 @@ let parceiroId, parceiroCodigo;
   checar("P5 GET /p/<codigo> → 302 para /reservar?parceiro=<codigo>&parceiroVia=qr", r.status === 302 && r.headers.get("location") === BASE + "/reservar?parceiro=" + parceiroCodigo + "&parceiroVia=qr", r.headers.get("location"));
   const r2 = await fetch(BASE + "/p/não-existe-123456789012345678901234567890", { redirect: "manual" });
   checar("P5 código fora do formato → não casa a rota (404 normal, não um redirect)", r2.status !== 302, r2.status);
+
+  // Bloco 8a: com a flag desligada, nem o redirect com os parâmetros acontece.
+  await admin("/config", { method: "POST", body: JSON.stringify({ parceiros_ativo: "0" }) });
+  const rOff = await fetch(BASE + "/p/" + parceiroCodigo, { redirect: "manual" });
+  checar("B8a /p/<codigo> com a rede desligada → não redireciona (404 normal)", rOff.status !== 302, rOff.status);
+  await admin("/config", { method: "POST", body: JSON.stringify({ parceiros_ativo: "1" }) });
 }
 
 // ---------- Consulta pública (F2): só o nome, nunca lista, nunca distingue inexistente de inativo ----------
@@ -100,6 +106,7 @@ let parceiroId, parceiroCodigo;
   const r = await fetch(BASE + "/api/parceiro?codigo=" + parceiroCodigo);
   const j = await jsonDe(r);
   checar("P6 consulta pública do código válido → 200 com o nome", r.status === 200 && j.nome, r.status);
+  checar("B8a …e a validade (dias) vem da config do servidor, não fixa no cliente", j.validadeDias === 7, j.validadeDias);
   const r2 = await fetch(BASE + "/api/parceiro?codigo=naoexisteisso123");
   checar("P6 código inexistente → 404 (igual ao de um parceiro inativo, não dá pra distinguir)", r2.status === 404, r2.status);
   const r3 = await fetch(BASE + "/api/parceiro?codigo=" + encodeURIComponent("' OR 1=1--"));
@@ -340,6 +347,32 @@ let guiaId;
   const lst = await jsonDe(await admin("/guias"));
   const g = lst.guias.find(x => x.id === j.id);
   checar("P11 whatsapp gravado só com dígitos", g.whatsapp === "24999991111", g.whatsapp);
+}
+
+// ---------- Bloco 8c [P1]: admin atribui parceiro numa reserva manual (balcão/WhatsApp) ----------
+{
+  const rManualInvalido = await admin("/reservas", { method: "POST", body: JSON.stringify({ plano: "essencial", data: reservaValida().data, hora: 9, pax: 2, parceiroId: "parceiro-que-nao-existe" }) });
+  checar("B8c reserva manual com parceiroId inexistente → 422", rManualInvalido.status === 422, rManualInvalido.status);
+
+  const rManual = await admin("/reservas", { method: "POST", body: JSON.stringify({ plano: "essencial", data: reservaValida().data, hora: 9, pax: 2, parceiroId }) });
+  const jManual = await jsonDe(rManual);
+  checar("B8c reserva manual com parceiroId válido → 200", rManual.status === 200 && jManual.codigo, rManual.status);
+  const linhaManual = sql("SELECT id, parceiro_id, parceiro_via FROM reservas WHERE codigo = ?", jManual.codigo)[0];
+  checar("B8c …grava parceiro_id e via = 'manual'", linhaManual.parceiro_id === parceiroId && linhaManual.parceiro_via === "manual", JSON.stringify(linhaManual));
+  const auditManual = sql("SELECT * FROM parceiros_auditoria WHERE acao = 'parceiro_atribuido_manual' AND entidade_id = ?", linhaManual.id);
+  checar("B8c …e grava auditoria", auditManual.length === 1, auditManual.length);
+
+  // Reserva manual sem parceiro continua funcionando (campo é opcional).
+  const rManualSemParceiro = await admin("/reservas", { method: "POST", body: JSON.stringify({ plano: "essencial", data: reservaValida().data, hora: 11, pax: 1 }) });
+  checar("B8c reserva manual sem parceiroId → 200 (campo é opcional)", rManualSemParceiro.status === 200, rManualSemParceiro.status);
+
+  // PATCH também atribui parceiro numa reserva já existente (ex.: identificada depois pelo balcão).
+  const rPatchInvalido = await admin("/reservas/" + reservaSemParceiroId, { method: "PATCH", body: JSON.stringify({ parceiroId: "parceiro-que-nao-existe" }) });
+  checar("B8c PATCH com parceiroId inexistente → 422", rPatchInvalido.status === 422, rPatchInvalido.status);
+  const rPatchValido = await admin("/reservas/" + reservaSemParceiroId, { method: "PATCH", body: JSON.stringify({ parceiroId }) });
+  checar("B8c PATCH com parceiroId válido → 200", rPatchValido.status === 200, rPatchValido.status);
+  const linhaPatch = sql("SELECT parceiro_id, parceiro_via FROM reservas WHERE id = ?", reservaSemParceiroId)[0];
+  checar("B8c …grava parceiro_id e via = 'manual' na reserva existente", linhaPatch.parceiro_id === parceiroId && linhaPatch.parceiro_via === "manual", JSON.stringify(linhaPatch));
 }
 
 // ---------- Bloco 4 [P1]: ledger de auditoria (DECISAO-CEO-3), pago_por, guiaId validado (8d) ----------
