@@ -1,0 +1,522 @@
+// Rede de parceiros indicadores (migracoes/0004_parceiros.sql): cadastro, QR/link, atribuição,
+// check-in e comissão. Precisa de Node 22.5+ (node:sqlite, mesma exigência de testar-api.mjs) e do
+// wrangler pages dev em http://127.0.0.1:8788 (ver LEIA-ME — "Testar antes de publicar").
+// Liga e desliga config.parceiros_ativo durante o teste; termina com a flag desligada e os dados de
+// teste apagados, para não interferir nos outros scripts.
+import {
+  checar, resumo, post, reservaValida, ipNovo, telNovo, exec, sql, BASE, contar,
+  iniciarServidorDeCertificados, criarJwtAccess, ACCESS_AUD_TESTE, PORTA_CERTS
+} from "./lib-testes.mjs";
+import { readFileSync } from "node:fs";
+
+// Funções puras do _worker.js, importadas direto do arquivo-fonte (sem servidor) — mesma técnica de
+// testes/testar-pagamento-ui.mjs — para testar regras que não dependem de HTTP/D1.
+const worker = await import("data:text/javascript;base64," + Buffer.from(readFileSync(new URL("../site/_worker.js", import.meta.url))).toString("base64"));
+
+await iniciarServidorDeCertificados();
+const jwt = criarJwtAccess();
+const admin = (caminho, opts = {}) => fetch(BASE + "/api/admin" + caminho, {
+  ...opts,
+  headers: { "content-type": "application/json", "cf-access-jwt-assertion": jwt, origin: BASE, ...(opts.headers || {}) }
+});
+const jsonDe = async r => { try { return await r.json(); } catch { return null; } };
+
+for (const t of ["reservas", "eventos", "checkins", "comissoes", "vouchers", "parceiros", "guias"]) {
+  try { exec(`DELETE FROM ${t}`); } catch { /* tabela ainda não existe (flag nunca foi ligada) */ }
+}
+exec("UPDATE config SET valor = '0' WHERE chave = 'parceiros_ativo'");
+
+console.log(`\nTestando a rede de parceiros em ${BASE}\n`);
+
+// ---------- Bloco 1 [P0] (unitário): estados de pagamento que liberam comissão (DECISAO-CEO-1) ----------
+{
+  const s = worker.PAGAMENTO_STATUS_CONFIRMA_COMISSAO;
+  checar("B1u sinal_pago/quitado/saldo_no_local liberam comissão", s.has("sinal_pago") && s.has("quitado") && s.has("saldo_no_local"));
+  checar("B1u aguardando/sinal_retido/pago_sem_vaga/devolucao_manual/falha_asaas NÃO liberam comissão",
+    !s.has("aguardando") && !s.has("sinal_retido") && !s.has("pago_sem_vaga") && !s.has("devolucao_manual") && !s.has("falha_asaas"));
+}
+
+// ---------- Bloco 14 [DECISAO-CEO-8] (unitário): papel por allowlist de e-mails do Access ----------
+{
+  const { papelDoEmail } = worker;
+  checar("B14 sem ADMIN_EMAILS nem GUIA_EMAILS: qualquer e-mail do Access é admin (back-compat)",
+    papelDoEmail("qualquer@exemplo.com", {}) === "admin");
+  checar("B14 ADMIN_EMAILS configurado: e-mail de dentro é admin",
+    papelDoEmail("Dono@Trindade.com", { ADMIN_EMAILS: "dono@trindade.com, outro@x.com" }) === "admin");
+  checar("B14 …e-mail de fora (e sem GUIA_EMAILS) não tem papel",
+    papelDoEmail("estranho@fora.com", { ADMIN_EMAILS: "dono@trindade.com" }) === null);
+  checar("B14 e-mail em GUIA_EMAILS (fora de ADMIN_EMAILS) é guia",
+    papelDoEmail("Guia1@Trindade.com", { ADMIN_EMAILS: "dono@trindade.com", GUIA_EMAILS: "guia1@trindade.com" }) === "guia");
+  checar("B14 e-mail vazio nunca tem papel", papelDoEmail("", { ADMIN_EMAILS: "" }) === null && papelDoEmail(null, {}) === null);
+}
+
+// ---------- Flag desligada: nada novo responde, nada novo roda ----------
+{
+  const r1 = await admin("/parceiros");
+  checar("P1 flag desligada: GET /api/admin/parceiros → 404", r1.status === 404, r1.status);
+  const r2 = await admin("/guias");
+  checar("P1 flag desligada: GET /api/admin/guias → 404", r2.status === 404, r2.status);
+  const r3 = await fetch(BASE + "/api/parceiro?codigo=abcdef");
+  checar("P1 flag desligada: GET /api/parceiro → 404 (rota some, não erro de validação)", r3.status === 404, r3.status);
+  // Reserva normal continua funcionando igual, mesmo mandando campos de parceiro.
+  const antes = contar();
+  const rv = await post("/api/reservas", { corpo: reservaValida({ parceiroCodigo: "qualquercoisa", parceiroCupom: "X" }) });
+  const j = await jsonDe(rv);
+  checar("P1 flag desligada: reserva com campos de parceiro é aceita normalmente", rv.status === 200 && j.ok, rv.status);
+  checar("P1 flag desligada: grava 1 linha (sem travar por causa dos campos extras)", contar() === antes + 1);
+}
+
+// ---------- Liga a flag; dali em diante os testes usam a rede ----------
+{
+  const r = await admin("/config", { method: "POST", body: JSON.stringify({ parceiros_ativo: "1" }) });
+  checar("P2 liga parceiros_ativo pelo /api/admin/config", r.status === 200 && (await jsonDe(r)).ok);
+}
+
+// ---------- Admin: sem JWT/sem Access → 403; cadastro exige nome e tipo ----------
+{
+  const r1 = await fetch(BASE + "/api/admin/parceiros");
+  checar("P3 sem Cf-Access-Jwt-Assertion → 403", r1.status === 403, r1.status);
+  const r2 = await admin("/parceiros", { method: "POST", body: JSON.stringify({ nome: "" }) });
+  checar("P3 sem nome/tipo → 422", r2.status === 422, r2.status);
+  const r3 = await admin("/parceiros", { method: "POST", headers: { origin: "https://evil.example" }, body: JSON.stringify({ nome: "X", tipo: "outro" }) });
+  checar("P3 mutação com Origin de fora → 403 (mesmo portão do resto do admin)", r3.status === 403, r3.status);
+}
+
+// ---------- DECISAO-CEO-8: papéis admin/guia por allowlist de e-mails do Access ----------
+{
+  const guia = { "cf-access-jwt-assertion": criarJwtAccess({ email: "guia-teste@example.com" }) };
+  const semPapel = { "cf-access-jwt-assertion": criarJwtAccess({ email: "ninguem@example.com" }) };
+
+  const rSemPapel = await admin("/reservas", { headers: semPapel });
+  checar("CEO8 e-mail fora das duas listas → 403", rSemPapel.status === 403, rSemPapel.status);
+
+  const rGuiaLista = await admin("/reservas", { headers: guia });
+  checar("CEO8 guia pode listar reservas (precisa saber quem checar)", rGuiaLista.status === 200, rGuiaLista.status);
+
+  const rGuiaParceiros = await admin("/parceiros", { headers: guia });
+  checar("CEO8 guia NÃO pode listar parceiros", rGuiaParceiros.status === 403, rGuiaParceiros.status);
+  const rGuiaConfig = await admin("/config", { headers: guia });
+  checar("CEO8 guia NÃO pode ler config", rGuiaConfig.status === 403, rGuiaConfig.status);
+  const rGuiaCriarParceiro = await admin("/parceiros", { method: "POST", headers: guia, body: JSON.stringify({ nome: "X", tipo: "outro" }) });
+  checar("CEO8 guia NÃO pode cadastrar parceiro", rGuiaCriarParceiro.status === 403, rGuiaCriarParceiro.status);
+
+  // admin (teste@example.com, em ADMIN_EMAILS) continua podendo tudo — nada muda para o papel de sempre.
+  const rAdminOk = await admin("/parceiros");
+  checar("CEO8 admin continua acessando o resto do painel normalmente", rAdminOk.status === 200, rAdminOk.status);
+}
+
+// ---------- Cadastro, código não adivinhável, cupom em caixa alta ----------
+let parceiroId, parceiroCodigo;
+{
+  const nome = 'Pousada "<script>alert(1)</script>" & Cia';
+  const r = await admin("/parceiros", { method: "POST", body: JSON.stringify({ nome, tipo: "pousada", cupom: "testcupom1" }) });
+  const j = await jsonDe(r);
+  checar("P4 cria parceiro → 200 com id e código", r.status === 200 && j.ok && j.id && j.codigo, r.status);
+  parceiroId = j.id; parceiroCodigo = j.codigo;
+  checar("P4 código não é o nome/slug do parceiro (S3) — só letras/números, 6+ chars", /^[a-z0-9]{6,32}$/.test(parceiroCodigo), parceiroCodigo);
+
+  const lst = await jsonDe(await admin("/parceiros"));
+  const linha = lst.parceiros.find(p => p.id === parceiroId);
+  checar("P4 nome com HTML é guardado como texto puro (sem sanitizar no servidor — o painel escapa ao desenhar)", linha.nome === nome);
+  checar("P4 cupom salvo em caixa alta", linha.cupom === "TESTCUPOM1", linha.cupom);
+
+  const dup = await admin("/parceiros", { method: "POST", body: JSON.stringify({ nome: "Outro", tipo: "outro", cupom: "testcupom1" }) });
+  checar("P4 cupom duplicado → 409", dup.status === 409, dup.status);
+
+  // Bloco 9 [P1]: cupom inválido vira 422 (antes era descartado em silêncio).
+  const antesCupom = contar("parceiros");
+  const rCupomInvalido = await admin("/parceiros", { method: "POST", body: JSON.stringify({ nome: "Pousada X", tipo: "pousada", cupom: "pous 10" }) });
+  checar("B9 cupom inválido (com espaço) → 422", rCupomInvalido.status === 422, rCupomInvalido.status);
+  checar("B9 …e não cadastra o parceiro", contar("parceiros") === antesCupom, contar("parceiros"));
+}
+
+// ---------- Link curto do QR ----------
+{
+  const r = await fetch(BASE + "/p/" + parceiroCodigo, { redirect: "manual" });
+  checar("P5 GET /p/<codigo> → 302 para /reservar?parceiro=<codigo>&parceiroVia=qr", r.status === 302 && r.headers.get("location") === BASE + "/reservar?parceiro=" + parceiroCodigo + "&parceiroVia=qr", r.headers.get("location"));
+  const r2 = await fetch(BASE + "/p/não-existe-123456789012345678901234567890", { redirect: "manual" });
+  checar("P5 código fora do formato → não casa a rota (404 normal, não um redirect)", r2.status !== 302, r2.status);
+
+  // Bloco 8a: com a flag desligada, nem o redirect com os parâmetros acontece.
+  await admin("/config", { method: "POST", body: JSON.stringify({ parceiros_ativo: "0" }) });
+  const rOff = await fetch(BASE + "/p/" + parceiroCodigo, { redirect: "manual" });
+  checar("B8a /p/<codigo> com a rede desligada → não redireciona (404 normal)", rOff.status !== 302, rOff.status);
+  await admin("/config", { method: "POST", body: JSON.stringify({ parceiros_ativo: "1" }) });
+}
+
+// ---------- Consulta pública (F2): só o nome, nunca lista, nunca distingue inexistente de inativo ----------
+{
+  const r = await fetch(BASE + "/api/parceiro?codigo=" + parceiroCodigo);
+  const j = await jsonDe(r);
+  checar("P6 consulta pública do código válido → 200 com o nome", r.status === 200 && j.nome, r.status);
+  checar("B8a …e a validade (dias) vem da config do servidor, não fixa no cliente", j.validadeDias === 7, j.validadeDias);
+  const r2 = await fetch(BASE + "/api/parceiro?codigo=naoexisteisso123");
+  checar("P6 código inexistente → 404 (igual ao de um parceiro inativo, não dá pra distinguir)", r2.status === 404, r2.status);
+  const r3 = await fetch(BASE + "/api/parceiro?codigo=" + encodeURIComponent("' OR 1=1--"));
+  checar("P6 código com SQL/símbolos → 404, nunca erro 500", r3.status === 404, r3.status);
+}
+
+// ---------- Atribuição: o servidor resolve; parceiro_id do cliente é sempre ignorado (S3) ----------
+let reservaComParceiroId, reservaComCupomId, reservaSemParceiroId;
+{
+  const antes = contar();
+  const rv1 = await post("/api/reservas", { corpo: reservaValida({ parceiroCodigo, parceiroVia: "qr", parceiro_id: "forjado-pelo-cliente" }) });
+  const j1 = await jsonDe(rv1);
+  checar("P7 reserva com código de parceiro válido → 200", rv1.status === 200 && j1.ok, rv1.status);
+  let linha = sql("SELECT id, parceiro_id, parceiro_via FROM reservas WHERE codigo = ?", j1.codigo)[0];
+  reservaComParceiroId = linha.id;
+  checar("P7 parceiro_id resolvido é o do parceiro de verdade, não o 'forjado-pelo-cliente'", linha.parceiro_id === parceiroId, linha.parceiro_id);
+  checar("P7 via = qr (como veio no pedido)", linha.parceiro_via === "qr", linha.parceiro_via);
+
+  const rv2 = await post("/api/reservas", { corpo: reservaValida({ parceiroCupom: "testcupom1" }) }); // minúsculo
+  const j2 = await jsonDe(rv2);
+  linha = sql("SELECT id, parceiro_id, parceiro_via FROM reservas WHERE codigo = ?", j2.codigo)[0];
+  reservaComCupomId = linha.id;
+  checar("P7 cupom digitado em minúsculo também resolve (comparação não é sensível a caixa)", linha.parceiro_id === parceiroId && linha.parceiro_via === "cupom", JSON.stringify(linha));
+
+  const rv3 = await post("/api/reservas", { corpo: reservaValida({ parceiroCodigo: "codigo-que-nao-existe-123456" }) });
+  const j3 = await jsonDe(rv3);
+  checar("P7 código inexistente → reserva normal (200), sem parceiro, sem erro ao turista", rv3.status === 200 && j3.ok, rv3.status);
+  linha = sql("SELECT id, parceiro_id FROM reservas WHERE codigo = ?", j3.codigo)[0];
+  reservaSemParceiroId = linha.id;
+  checar("P7 …e sem parceiro_id gravado", linha.parceiro_id === null, linha.parceiro_id);
+
+  checar("P7 gravou exatamente 3 reservas novas", contar() === antes + 3);
+}
+
+// ---------- Parceiro inativo: deixa de atribuir, sem erro ----------
+{
+  await admin("/parceiros/" + parceiroId, { method: "PATCH", body: JSON.stringify({ ativo: false }) });
+  const rv = await post("/api/reservas", { corpo: reservaValida({ parceiroCodigo }) });
+  const j = await jsonDe(rv);
+  checar("P8 parceiro desativado: reserva com o mesmo código → 200, sem parceiro", rv.status === 200 && j.ok, rv.status);
+  const linha = sql("SELECT parceiro_id FROM reservas WHERE codigo = ?", j.codigo)[0];
+  checar("P8 …parceiro_id vazio", linha.parceiro_id === null);
+  await admin("/parceiros/" + parceiroId, { method: "PATCH", body: JSON.stringify({ ativo: true }) }); // reativa para o resto do teste
+}
+
+// ---------- Bloco 1 [P0]: check-in exige reserva confirmada (DECISAO-CEO-1) ----------
+{
+  const antesCk = sql("SELECT COUNT(*) AS n FROM checkins")[0].n;
+  const antesCom = sql("SELECT COUNT(*) AS n FROM comissoes")[0].n;
+
+  // reservaSemParceiroId segue "pendente" desde P7 (nunca foi confirmada).
+  const rPendente = await admin("/reservas/" + reservaSemParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1 }) });
+  checar("B1 check-in em reserva pendente → 409", rPendente.status === 409, rPendente.status);
+
+  const rvCanc = await post("/api/reservas", { corpo: reservaValida({ parceiroCodigo }) });
+  const linhaCanc = sql("SELECT id FROM reservas WHERE codigo = ?", (await jsonDe(rvCanc)).codigo)[0];
+  await admin("/reservas/" + linhaCanc.id, { method: "PATCH", body: JSON.stringify({ status: "confirmada" }) });
+  await admin("/reservas/" + linhaCanc.id, { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) });
+  const rCancelada = await admin("/reservas/" + linhaCanc.id + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1 }) });
+  checar("B1 check-in em reserva cancelada → 409", rCancelada.status === 409, rCancelada.status);
+
+  const rvFaltou = await post("/api/reservas", { corpo: reservaValida({ parceiroCodigo }) });
+  const linhaFaltou = sql("SELECT id FROM reservas WHERE codigo = ?", (await jsonDe(rvFaltou)).codigo)[0];
+  await admin("/reservas/" + linhaFaltou.id, { method: "PATCH", body: JSON.stringify({ status: "confirmada" }) });
+  await admin("/reservas/" + linhaFaltou.id, { method: "PATCH", body: JSON.stringify({ status: "nao_compareceu" }) });
+  const rNaoCompareceu = await admin("/reservas/" + linhaFaltou.id + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1 }) });
+  checar("B1 check-in em reserva não-compareceu → 409", rNaoCompareceu.status === 409, rNaoCompareceu.status);
+
+  checar("B1 nenhum dos 409 acima gravou checkins", sql("SELECT COUNT(*) AS n FROM checkins")[0].n === antesCk, sql("SELECT COUNT(*) AS n FROM checkins")[0].n);
+  checar("B1 nenhum dos 409 acima gravou comissoes", sql("SELECT COUNT(*) AS n FROM comissoes")[0].n === antesCom, sql("SELECT COUNT(*) AS n FROM comissoes")[0].n);
+
+  // Confirma as reservas usadas pelos testes de check-in a seguir (fluxo normal: a operação confirma
+  // depois do sinal via WhatsApp/Pix — ver criarReserva).
+  await admin("/reservas/" + reservaComParceiroId, { method: "PATCH", body: JSON.stringify({ status: "confirmada" }) });
+  await admin("/reservas/" + reservaComCupomId, { method: "PATCH", body: JSON.stringify({ status: "confirmada" }) });
+  await admin("/reservas/" + reservaSemParceiroId, { method: "PATCH", body: JSON.stringify({ status: "confirmada" }) });
+}
+
+// ---------- Check-in: presentes 0..pax, comissão = presentes × comissao_por_pax_centavos ----------
+{
+  const r1 = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 99 }) });
+  checar("P9 presentes maior que pax → 422", r1.status === 422, r1.status);
+
+  const r2 = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 2 }) });
+  const j2 = await jsonDe(r2);
+  checar("P9 check-in com 2 presentes → 200, status presente", r2.status === 200 && j2.status === "presente", r2.status);
+  let com = sql("SELECT valor_centavos, status FROM comissoes WHERE reserva_id = ?", reservaComParceiroId)[0];
+  checar("P9 comissão = 2 × 1000 = 2000 centavos, pendente", com.valor_centavos === 2000 && com.status === "pendente", JSON.stringify(com));
+
+  // Refazer o check-in sem motivo → 400 (Bloco 4); recalcula sem duplicar linha quando o motivo vem.
+  const r3semMotivo = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1 }) });
+  checar("B4 refazer check-in sem motivo → 400", r3semMotivo.status === 400, r3semMotivo.status);
+  const r3 = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1, motivo: "contagem errada na hora" }) });
+  checar("P9 refazer check-in (1 presente) com motivo → 200", r3.status === 200, r3.status);
+  const linhas = sql("SELECT COUNT(*) AS n FROM checkins WHERE reserva_id = ?", reservaComParceiroId)[0];
+  checar("P9 continua 1 linha só em checkins (idempotente)", Number(linhas.n) === 1);
+  com = sql("SELECT valor_centavos FROM comissoes WHERE reserva_id = ?", reservaComParceiroId)[0];
+  checar("P9 comissão recalculada para 1 × 1000 = 1000", com.valor_centavos === 1000, com.valor_centavos);
+
+  // 0 presentes = faltou, sem comissão nova.
+  const r4 = await admin("/reservas/" + reservaComCupomId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 0 }) });
+  const j4 = await jsonDe(r4);
+  checar("P9 0 presentes → status faltou", r4.status === 200 && j4.status === "faltou", JSON.stringify(j4));
+  const comFaltou = sql("SELECT COUNT(*) AS n FROM comissoes WHERE reserva_id = ?", reservaComCupomId)[0];
+  checar("P9 faltou: nenhuma linha de comissão pendente criada", Number(comFaltou.n) === 0);
+
+  // Sem parceiro: check-in funciona, mas não cria comissão.
+  const r5 = await admin("/reservas/" + reservaSemParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 2 }) });
+  checar("P9 reserva sem parceiro: check-in → 200", r5.status === 200);
+  const semCom = sql("SELECT COUNT(*) AS n FROM comissoes WHERE reserva_id = ?", reservaSemParceiroId)[0];
+  checar("P9 …e sem comissão (não tinha parceiro)", Number(semCom.n) === 0);
+}
+
+// ---------- Cancelamento cancela comissão pendente (nunca a paga) ----------
+{
+  const idDaComissao = sql("SELECT id FROM comissoes WHERE reserva_id = ?", reservaComParceiroId)[0].id;
+  const pagar = await admin("/comissoes/" + idDaComissao + "/pagar", { method: "POST", body: JSON.stringify({ obs: "teste" }) });
+  checar("P10 marcar como pago → 200", pagar.status === 200);
+  const pagarDeNovo = await admin("/comissoes/" + idDaComissao + "/pagar", { method: "POST", body: "{}" });
+  checar("P10 marcar como pago de novo → 409 (já está paga)", pagarDeNovo.status === 409, pagarDeNovo.status);
+
+  // Cancela a reserva do cupom (que ainda tem comissão pendente de outra rodada de check-in).
+  await admin("/reservas/" + reservaComCupomId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1, motivo: "veio depois" }) });
+  const cancelar = await admin("/reservas/" + reservaComCupomId, { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) });
+  checar("P10 cancelar reserva → 200", cancelar.status === 200);
+  const comCancelada = sql("SELECT status FROM comissoes WHERE reserva_id = ?", reservaComCupomId)[0];
+  checar("P10 comissão pendente passa a cancelada", comCancelada.status === "cancelada", comCancelada.status);
+
+  const paga = sql("SELECT status FROM comissoes WHERE id = ?", idDaComissao)[0];
+  checar("P10 comissão já paga não é afetada por cancelamentos de outras reservas", paga.status === "paga");
+
+  // ---------- Bloco 2 [P0]: comissão paga é imutável (DECISAO-CEO-2) ----------
+  const antesB2 = sql("SELECT valor_centavos, status FROM comissoes WHERE id = ?", idDaComissao)[0];
+  checar("B2 pré-condição: comissão paga com 1000 centavos", antesB2.status === "paga" && antesB2.valor_centavos === 1000, JSON.stringify(antesB2));
+
+  const rDivergente = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 2, motivo: "teste B2" }) });
+  checar("B2 refazer check-in com valor diferente do pago (2×1000=2000 ≠ 1000) → 409", rDivergente.status === 409, rDivergente.status);
+  let depoisB2 = sql("SELECT valor_centavos, status FROM comissoes WHERE id = ?", idDaComissao)[0];
+  checar("B2 …comissão continua 1000/paga", depoisB2.valor_centavos === 1000 && depoisB2.status === "paga", JSON.stringify(depoisB2));
+
+  const rFaltouPosPago = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 0, motivo: "teste B2" }) });
+  checar("B2 check-in 0 (faltou) depois de paga → 409", rFaltouPosPago.status === 409, rFaltouPosPago.status);
+  depoisB2 = sql("SELECT valor_centavos, status FROM comissoes WHERE id = ?", idDaComissao)[0];
+  checar("B2 …comissão continua 1000/paga (2ª tentativa)", depoisB2.valor_centavos === 1000 && depoisB2.status === "paga", JSON.stringify(depoisB2));
+
+  const rIgual = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1, motivo: "teste B2" }) });
+  checar("B2 refazer com o mesmo valor já pago (1×1000=1000) → 200, sem divergência", rIgual.status === 200, rIgual.status);
+  depoisB2 = sql("SELECT valor_centavos, status FROM comissoes WHERE id = ?", idDaComissao)[0];
+  checar("B2 …comissão continua 1000/paga, sem mudar", depoisB2.valor_centavos === 1000 && depoisB2.status === "paga", JSON.stringify(depoisB2));
+}
+
+// ---------- Blocos 6 e 7 [P1]: voucher cancelado em faltou/cancelamento; estorno_pendente em comissão paga ----------
+{
+  // Plano "adventure" tem voucher > 0 (essencial não) — precisa de uma reserva própria para este bloco.
+  const rv = await post("/api/reservas", { corpo: reservaValida({ plano: "adventure", parceiroCodigo }) });
+  const linha = sql("SELECT id FROM reservas WHERE codigo = ?", (await jsonDe(rv)).codigo)[0];
+  const reservaVoucherId = linha.id;
+  await admin("/reservas/" + reservaVoucherId, { method: "PATCH", body: JSON.stringify({ status: "confirmada" }) });
+
+  const ckPresente = await admin("/reservas/" + reservaVoucherId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 2 }) });
+  checar("B6 check-in com presentes → 200", ckPresente.status === 200, ckPresente.status);
+  let voucher = sql("SELECT quantidade, status FROM vouchers WHERE reserva_id = ?", reservaVoucherId)[0];
+  checar("B6 voucher emitido com a quantidade de presentes", voucher.status === "emitido" && voucher.quantidade === 2, JSON.stringify(voucher));
+
+  const ckFaltou = await admin("/reservas/" + reservaVoucherId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 0, motivo: "faltou no fim" }) });
+  checar("B6 refazer check-in para faltou → 200", ckFaltou.status === 200, ckFaltou.status);
+  voucher = sql("SELECT status FROM vouchers WHERE reserva_id = ?", reservaVoucherId)[0];
+  checar("B6 check-in 0 (faltou) cancela o voucher", voucher.status === "cancelado", voucher.status);
+
+  // Segunda reserva do mesmo bloco: comissão paga, depois a reserva é cancelada → estorno_pendente (Bloco 7).
+  const rv2 = await post("/api/reservas", { corpo: reservaValida({ plano: "adventure", parceiroCodigo }) });
+  const linha2 = sql("SELECT id FROM reservas WHERE codigo = ?", (await jsonDe(rv2)).codigo)[0];
+  const reservaEstornoId = linha2.id;
+  await admin("/reservas/" + reservaEstornoId, { method: "PATCH", body: JSON.stringify({ status: "confirmada" }) });
+  await admin("/reservas/" + reservaEstornoId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1 }) });
+  const comEstorno = sql("SELECT id FROM comissoes WHERE reserva_id = ?", reservaEstornoId)[0];
+  await admin("/comissoes/" + comEstorno.id + "/pagar", { method: "POST", body: JSON.stringify({ obs: "pago antes do cancelamento" }) });
+  let estado = sql("SELECT status, valor_centavos, estorno_pendente FROM comissoes WHERE id = ?", comEstorno.id)[0];
+  checar("B7 pré-condição: comissão paga, sem estorno pendente ainda", estado.status === "paga" && estado.estorno_pendente === 0, JSON.stringify(estado));
+
+  const cancelarComPago = await admin("/reservas/" + reservaEstornoId, { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) });
+  checar("B7 cancelar reserva com comissão já paga → 200", cancelarComPago.status === 200, cancelarComPago.status);
+  estado = sql("SELECT status, valor_centavos, estorno_pendente FROM comissoes WHERE id = ?", comEstorno.id)[0];
+  checar("B7 comissão continua 'paga' com o mesmo valor (imutável — DECISAO-CEO-2)", estado.status === "paga" && estado.valor_centavos === 1000, JSON.stringify(estado));
+  checar("B7 …mas ganha estorno_pendente = 1", estado.estorno_pendente === 1, estado.estorno_pendente);
+  const auditEstorno = sql("SELECT * FROM parceiros_auditoria WHERE acao = 'comissao_estorno_pendente' AND entidade_id = ?", comEstorno.id);
+  checar("B7 evento de auditoria gravado para o estorno pendente", auditEstorno.length === 1, auditEstorno.length);
+  const voucherEstorno = sql("SELECT status FROM vouchers WHERE reserva_id = ?", reservaEstornoId)[0];
+  checar("B7 voucher também cancelado junto (Bloco 6)", voucherEstorno.status === "cancelado", voucherEstorno.status);
+
+  // Chamar de novo (ex.: no-show registrado depois) não duplica o sinalizador nem gera 2º evento de auditoria.
+  await admin("/reservas/" + reservaEstornoId, { method: "PATCH", body: JSON.stringify({ status: "nao_compareceu" }) });
+  const auditEstorno2 = sql("SELECT * FROM parceiros_auditoria WHERE acao = 'comissao_estorno_pendente' AND entidade_id = ?", comEstorno.id);
+  checar("B7 estorno_pendente já ligado: não duplica auditoria numa 2ª mudança de status", auditEstorno2.length === 1, auditEstorno2.length);
+}
+
+// ---------- Bloco 11 [P1]: comissões — filtro por período (data da reserva) e totais por status ----------
+{
+  const tudo = await jsonDe(await admin("/comissoes?parceiroId=" + parceiroId + "&status=todas"));
+  checar("B11 resposta traz totaisCentavos", tudo.totaisCentavos && typeof tudo.totaisCentavos.paga === "number", JSON.stringify(tudo.totaisCentavos));
+  checar("B11 …paga soma pelo menos as 2 comissões pagas deste parceiro (1000+1000)", tudo.totaisCentavos.paga >= 2000, tudo.totaisCentavos.paga);
+
+  // Período que não cobre nenhuma reserva de teste (todas em hoje/amanhã) → lista e totais zerados.
+  const fora = await jsonDe(await admin("/comissoes?parceiroId=" + parceiroId + "&de=2000-01-01&ate=2000-01-02"));
+  checar("B11 período sem reservas → lista vazia", Array.isArray(fora.comissoes) && fora.comissoes.length === 0, JSON.stringify(fora.comissoes));
+  checar("B11 …e totais zerados", fora.totaisCentavos.pendente === 0 && fora.totaisCentavos.paga === 0 && fora.totaisCentavos.cancelada === 0, JSON.stringify(fora.totaisCentavos));
+}
+
+// ---------- Bloco 5 [P1] (estático): confirmação explícita antes de pagar comissão, Cancelar não paga ----------
+{
+  const html = readFileSync(new URL("../site/admin.html", import.meta.url), "utf8");
+  checar("B5 pagar comissão passa por confirm() com valor e parceiro", /confirm\(\s*"Confirma o pagamento/.test(html));
+  checar("B5 não sobrou o padrão antigo 'prompt(...) || \"\"' que ignorava o Cancelar", !/prompt\([^)]*\)\s*\|\|\s*""/.test(html));
+}
+
+// ---------- Bloco 10 [P1] (estático): a11y/mobile — sem prompt() no check-in, rótulos, contraste, alvo de toque ----------
+{
+  const html = readFileSync(new URL("../site/admin.html", import.meta.url), "utf8");
+  checar("B10 check-in não usa mais prompt() (substituído por <dialog>)", !/prompt\(\s*"Quantas/.test(html));
+  checar("B10 existe o diálogo de check-in com stepper e campo de motivo", /id="dlgCheckin"/.test(html) && /id="ckMotivo"/.test(html) && /id="ckMenos"/.test(html) && /id="ckMais"/.test(html));
+  checar("B10 #cParceiro e #cStatus têm aria-label", /id="cParceiro" aria-label=/.test(html) && /id="cStatus" aria-label=/.test(html));
+  checar("B10 --muted mais escuro (contraste AA) que o original #6b7768", /--muted:#5b6558/.test(html) && !/--muted:#6b7768/.test(html));
+  checar("B10 media query de alvo de toque ≥44px no celular", /@media \(max-width:640px\)\{[\s\S]{0,200}min-height:44px/.test(html));
+}
+
+// ---------- Bloco 12 [P1] (estático): escala de guias — UI de designação + lista do dia ----------
+{
+  const html = readFileSync(new URL("../site/admin.html", import.meta.url), "utf8");
+  checar("B12 existe o card 'Escala de guias' com select por reserva", /id="cardEscala"/.test(html) && /data-guia-reserva/.test(html));
+  checar("B12 designação usa a rota PATCH existente (reaproveita o Bloco 8c)", /\/reservas\/" \+ encodeURIComponent\(sel\.dataset\.guiaReserva\)/.test(html));
+  checar("B12 sem número de capacidade por guia inventado (TODO(DECISAO-D8) documentado)", /TODO\(DECISAO-D8\)/.test(html));
+}
+
+// ---------- Bloco 3 [P0]: validar config (comissão/parceiros_ativo/validade/regra) ----------
+{
+  const antes = sql("SELECT valor FROM config WHERE chave = 'comissao_por_pax_centavos'")[0]?.valor;
+
+  const rNeg = await admin("/config", { method: "POST", body: JSON.stringify({ comissao_por_pax_centavos: "-500" }) });
+  checar("B3 comissao_por_pax_centavos negativo → 422", rNeg.status === 422, rNeg.status);
+  const rTexto = await admin("/config", { method: "POST", body: JSON.stringify({ comissao_por_pax_centavos: "abc" }) });
+  checar("B3 comissao_por_pax_centavos não numérico → 422", rTexto.status === 422, rTexto.status);
+  checar("B3 nenhum dos dois acima alterou o valor gravado", sql("SELECT valor FROM config WHERE chave = 'comissao_por_pax_centavos'")[0]?.valor === antes);
+
+  const rTalvez = await admin("/config", { method: "POST", body: JSON.stringify({ parceiros_ativo: "talvez" }) });
+  checar("B3 parceiros_ativo fora de {0,1} → 422", rTalvez.status === 422, rTalvez.status);
+
+  const rValidadeZero = await admin("/config", { method: "POST", body: JSON.stringify({ parceiro_validade_dias: "0" }) });
+  checar("B3 parceiro_validade_dias = 0 → 422 (precisa ser >= 1)", rValidadeZero.status === 422, rValidadeZero.status);
+  const rValidadeNeg = await admin("/config", { method: "POST", body: JSON.stringify({ parceiro_validade_dias: "-3" }) });
+  checar("B3 parceiro_validade_dias negativo → 422", rValidadeNeg.status === 422, rValidadeNeg.status);
+
+  const rRegraDesconhecida = await admin("/config", { method: "POST", body: JSON.stringify({ parceiro_regra: "primeiro_clique" }) });
+  checar("B3 parceiro_regra não suportada → 422", rRegraDesconhecida.status === 422, rRegraDesconhecida.status);
+
+  const rOk = await admin("/config", { method: "POST", body: JSON.stringify({ comissao_por_pax_centavos: "1500", parceiro_validade_dias: "10", parceiro_regra: "ultimo_clique" }) });
+  checar("B3 valores válidos → 200 e gravam", rOk.status === 200, rOk.status);
+  checar("B3 …comissao_por_pax_centavos gravado como 1500", sql("SELECT valor FROM config WHERE chave = 'comissao_por_pax_centavos'")[0].valor === "1500");
+  await admin("/config", { method: "POST", body: JSON.stringify({ comissao_por_pax_centavos: "1000", parceiro_validade_dias: "7" }) }); // devolve ao padrão usado pelos testes acima
+}
+
+// ---------- Guias: cadastro simples ----------
+let guiaId;
+{
+  const r = await admin("/guias", { method: "POST", body: JSON.stringify({ nome: "Guia Teste", whatsapp: "(24) 99999-1111" }) });
+  const j = await jsonDe(r);
+  checar("P11 cadastra guia → 200", r.status === 200 && j.id, r.status);
+  guiaId = j.id;
+  const lst = await jsonDe(await admin("/guias"));
+  const g = lst.guias.find(x => x.id === j.id);
+  checar("P11 whatsapp gravado só com dígitos", g.whatsapp === "24999991111", g.whatsapp);
+}
+
+// ---------- Bloco 8c [P1]: admin atribui parceiro numa reserva manual (balcão/WhatsApp) ----------
+{
+  const rManualInvalido = await admin("/reservas", { method: "POST", body: JSON.stringify({ plano: "essencial", data: reservaValida().data, hora: 9, pax: 2, parceiroId: "parceiro-que-nao-existe" }) });
+  checar("B8c reserva manual com parceiroId inexistente → 422", rManualInvalido.status === 422, rManualInvalido.status);
+
+  const rManual = await admin("/reservas", { method: "POST", body: JSON.stringify({ plano: "essencial", data: reservaValida().data, hora: 9, pax: 2, parceiroId }) });
+  const jManual = await jsonDe(rManual);
+  checar("B8c reserva manual com parceiroId válido → 200", rManual.status === 200 && jManual.codigo, rManual.status);
+  const linhaManual = sql("SELECT id, parceiro_id, parceiro_via FROM reservas WHERE codigo = ?", jManual.codigo)[0];
+  checar("B8c …grava parceiro_id e via = 'manual'", linhaManual.parceiro_id === parceiroId && linhaManual.parceiro_via === "manual", JSON.stringify(linhaManual));
+  const auditManual = sql("SELECT * FROM parceiros_auditoria WHERE acao = 'parceiro_atribuido_manual' AND entidade_id = ?", linhaManual.id);
+  checar("B8c …e grava auditoria", auditManual.length === 1, auditManual.length);
+
+  // Reserva manual sem parceiro continua funcionando (campo é opcional).
+  const rManualSemParceiro = await admin("/reservas", { method: "POST", body: JSON.stringify({ plano: "essencial", data: reservaValida().data, hora: 11, pax: 1 }) });
+  checar("B8c reserva manual sem parceiroId → 200 (campo é opcional)", rManualSemParceiro.status === 200, rManualSemParceiro.status);
+
+  // PATCH também atribui parceiro numa reserva já existente (ex.: identificada depois pelo balcão).
+  const rPatchInvalido = await admin("/reservas/" + reservaSemParceiroId, { method: "PATCH", body: JSON.stringify({ parceiroId: "parceiro-que-nao-existe" }) });
+  checar("B8c PATCH com parceiroId inexistente → 422", rPatchInvalido.status === 422, rPatchInvalido.status);
+  const rPatchValido = await admin("/reservas/" + reservaSemParceiroId, { method: "PATCH", body: JSON.stringify({ parceiroId }) });
+  checar("B8c PATCH com parceiroId válido → 200", rPatchValido.status === 200, rPatchValido.status);
+  const linhaPatch = sql("SELECT parceiro_id, parceiro_via FROM reservas WHERE id = ?", reservaSemParceiroId)[0];
+  checar("B8c …grava parceiro_id e via = 'manual' na reserva existente", linhaPatch.parceiro_id === parceiroId && linhaPatch.parceiro_via === "manual", JSON.stringify(linhaPatch));
+}
+
+// ---------- Bloco 4 [P1]: ledger de auditoria (DECISAO-CEO-3), pago_por, guiaId validado (8d) ----------
+{
+  // Check-in (criar/refazer) grava auditoria.
+  const auditCriar = sql("SELECT * FROM parceiros_auditoria WHERE entidade = 'reserva' AND entidade_id = ? AND acao = 'checkin_criar'", reservaSemParceiroId);
+  checar("B4 check-in (criar) gravou 1 evento de auditoria", auditCriar.length === 1, auditCriar.length);
+  checar("B4 …com e-mail do JWT de teste", auditCriar[0].email === "teste@example.com", auditCriar[0].email);
+  const auditRefazer = sql("SELECT * FROM parceiros_auditoria WHERE entidade = 'reserva' AND entidade_id = ? AND acao = 'checkin_refazer'", reservaComParceiroId);
+  checar("B4 refazer check-in gravou eventos com motivo", auditRefazer.length >= 1 && auditRefazer.every(a => a.motivo), JSON.stringify(auditRefazer.map(a => a.motivo)));
+  const auditRecusado = sql("SELECT * FROM parceiros_auditoria WHERE acao = 'checkin_rejeitado_comissao_paga' AND entidade_id = ?", reservaComParceiroId);
+  checar("B4 check-in recusado por comissão paga também foi auditado", auditRecusado.length >= 1, auditRecusado.length);
+
+  // Pagar comissão: pago_por gravado + auditoria.
+  const comissaoPaga = sql("SELECT id, pago_por FROM comissoes WHERE reserva_id = ?", reservaComParceiroId)[0];
+  checar("B4 comissão paga tem pago_por = e-mail do JWT", comissaoPaga.pago_por === "teste@example.com", comissaoPaga.pago_por);
+  const auditPagar = sql("SELECT * FROM parceiros_auditoria WHERE acao = 'comissao_paga' AND entidade_id = ?", comissaoPaga.id);
+  checar("B4 pagar comissão gravou auditoria", auditPagar.length === 1, auditPagar.length);
+
+  // Cancelar comissão pendente (reserva cancelada/não-compareceu) grava auditoria.
+  const auditCancelada = sql("SELECT * FROM parceiros_auditoria WHERE acao = 'comissao_cancelada'");
+  checar("B4 cancelar comissão pendente (via cancelamento de reserva) gravou auditoria", auditCancelada.length >= 1, auditCancelada.length);
+
+  // Ativar/desativar parceiro grava auditoria.
+  await admin("/parceiros/" + parceiroId, { method: "PATCH", body: JSON.stringify({ ativo: false }) });
+  await admin("/parceiros/" + parceiroId, { method: "PATCH", body: JSON.stringify({ ativo: true }) });
+  // P8 (mais acima) já desativou/reativou este parceiro antes de a auditoria existir neste teste — por
+  // isso olhamos só os 2 últimos eventos, não a lista inteira.
+  const auditParceiro = sql("SELECT acao FROM parceiros_auditoria WHERE entidade = 'parceiro' AND entidade_id = ? ORDER BY quando", parceiroId).slice(-2);
+  checar("B4 desativar/ativar parceiro gravou os dois eventos", auditParceiro.map(a => a.acao).join(",") === "parceiro_desativado,parceiro_ativado", JSON.stringify(auditParceiro));
+
+  // Designar guia: guiaId inexistente → 422; guia válido → 200 + auditoria.
+  const rGuiaInvalido = await admin("/reservas/" + reservaSemParceiroId, { method: "PATCH", body: JSON.stringify({ guiaId: "guia-que-nao-existe" }) });
+  checar("B4 (8d) designar guia inexistente → 422", rGuiaInvalido.status === 422, rGuiaInvalido.status);
+  const rGuiaValido = await admin("/reservas/" + reservaSemParceiroId, { method: "PATCH", body: JSON.stringify({ guiaId }) });
+  checar("B4 (8d) designar guia existente → 200", rGuiaValido.status === 200, rGuiaValido.status);
+  const auditGuia = sql("SELECT * FROM parceiros_auditoria WHERE acao = 'guia_designado' AND entidade_id = ?", reservaSemParceiroId);
+  checar("B4 designar guia gravou auditoria", auditGuia.length === 1 && JSON.parse(auditGuia[0].depois).guiaId === guiaId, JSON.stringify(auditGuia));
+
+  // guiaId inexistente no check-in → 422 (8d).
+  const rCheckinGuiaInvalido = await admin("/reservas/" + reservaSemParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1, guiaId: "guia-que-nao-existe", motivo: "teste" }) });
+  checar("B4 (8d) check-in com guiaId inexistente → 422", rCheckinGuiaInvalido.status === 422, rCheckinGuiaInvalido.status);
+
+  // Ledger é append-only de verdade: UPDATE/DELETE direto no D1 têm que falhar (gatilhos).
+  let updateFalhou = false, deleteFalhou = false;
+  try { exec("UPDATE parceiros_auditoria SET motivo = 'adulterado' WHERE id = (SELECT id FROM parceiros_auditoria LIMIT 1)"); } catch { updateFalhou = true; }
+  try { exec("DELETE FROM parceiros_auditoria WHERE id = (SELECT id FROM parceiros_auditoria LIMIT 1)"); } catch { deleteFalhou = true; }
+  checar("B4 UPDATE direto em parceiros_auditoria falha (gatilho append-only)", updateFalhou);
+  checar("B4 DELETE direto em parceiros_auditoria falha (gatilho append-only)", deleteFalhou);
+}
+
+// ---------- adminListarReservas: parceiro/guia/check-in/comissão aparecem; sem PII ao parceiro (isso é sobre a API do admin mesmo, atrás do Access) ----------
+{
+  const j = await jsonDe(await admin("/reservas?de=2000-01-01&ate=2999-12-31"));
+  checar("P12 resposta marca parceirosAtivo: true", j.parceirosAtivo === true);
+  const linha = j.reservas.find(r => r.id === reservaComParceiroId);
+  checar("P12 reserva trai o nome do parceiro", linha.parceiro && linha.parceiro.nome, JSON.stringify(linha.parceiro));
+  checar("P12 checkin aparece com presentes/status", linha.checkin && linha.checkin.status === "presente", JSON.stringify(linha.checkin));
+  checar("P12 comissao aparece com valor/status", linha.comissao && linha.comissao.status === "paga", JSON.stringify(linha.comissao));
+}
+
+// ---------- Desliga a flag de novo: tudo volta a 404, reserva comum continua OK ----------
+{
+  await admin("/config", { method: "POST", body: JSON.stringify({ parceiros_ativo: "0" }) });
+  const r = await admin("/parceiros");
+  checar("P13 flag desligada de novo: /api/admin/parceiros → 404", r.status === 404, r.status);
+  const rv = await post("/api/reservas", { corpo: reservaValida() });
+  checar("P13 reserva comum continua funcionando com a flag desligada", rv.status === 200 && (await jsonDe(rv)).ok, rv.status);
+}
+
+for (const t of ["reservas", "eventos", "checkins", "comissoes", "vouchers", "parceiros", "guias"]) {
+  try { exec(`DELETE FROM ${t}`); } catch { /* ignore */ }
+}
+resumo();
