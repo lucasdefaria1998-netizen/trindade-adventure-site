@@ -2088,16 +2088,41 @@ async function cancelarReserva(env, r) {
     });
   }
 
+  // Uma só chamada fica com o estorno. A outra, simultânea, vê 0 linhas e não chama o Asaas.
+  // estorno_manual já está cancelada: a trava é por cobrança, para poder tentar de novo o que falhou.
+  if (r.pagamento_status !== "estorno_manual") {
+    const trava = await env.DB.prepare(
+      "UPDATE reservas SET pagamento_status = 'estorno_em_andamento', atualizado_em = ?2 " +
+      "WHERE id = ?1 AND status != 'cancelada' AND COALESCE(pagamento_status, '') != 'estorno_em_andamento'"
+    ).bind(r.id, agoraISO).run();
+    if (!trava.meta.changes) {
+      const agoraRow = await env.DB.prepare("SELECT status, pagamento_status FROM reservas WHERE id = ?1").bind(r.id).first();
+      return ok({
+        ok: true, repetido: true, cancelada: !!(agoraRow && agoraRow.status === "cancelada"),
+        pagamentoStatus: agoraRow && agoraRow.pagamento_status, estorno: "em_andamento",
+        mensagem: "O cancelamento desta reserva já está em andamento."
+      });
+    }
+  }
+
   let falhas = 0, valor = 0;
   for (const c of onlinePagas) {
     if (c.estorno === "solicitado") { valor += Number(c.valor_centavos); continue; }
+    const claim = await env.DB.prepare(
+      "UPDATE cobrancas SET estorno = 'em_andamento' WHERE id = ?1 AND status = 'paga' AND (estorno IS NULL OR estorno = 'falhou')"
+    ).bind(c.id).run();
+    if (!claim.meta.changes) {
+      const atual = await env.DB.prepare("SELECT estorno FROM cobrancas WHERE id = ?1").bind(c.id).first();
+      if (atual && atual.estorno === "solicitado") valor += Number(c.valor_centavos);
+      continue;
+    }
     try {
       await estornarCheckout(env, c.asaas_id, "Cancelamento da reserva " + r.codigo + " até " + horas + " h antes da saída");
-      await env.DB.prepare("UPDATE cobrancas SET estorno = 'solicitado' WHERE id = ?1").bind(c.id).run();
+      await env.DB.prepare("UPDATE cobrancas SET estorno = 'solicitado' WHERE id = ?1 AND estorno = 'em_andamento'").bind(c.id).run();
       valor += Number(c.valor_centavos);
     } catch (e) {
       falhas++;
-      await env.DB.prepare("UPDATE cobrancas SET estorno = 'falhou' WHERE id = ?1").bind(c.id).run();
+      await env.DB.prepare("UPDATE cobrancas SET estorno = 'falhou' WHERE id = ?1 AND estorno = 'em_andamento'").bind(c.id).run();
       console.error("[asaas] estorno falhou", mascarar(e && e.message ? e.message : String(e)));
     }
   }
