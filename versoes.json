@@ -4,8 +4,8 @@
     "sha256": "4759b0358431d0b5902fc8de4ef12f4101a176cfe18784df1d897c47a54cc821"
   },
   "app.js": {
-    "v": "20261026-pix",
-    "sha256": "4a850a2b9ccd39cd530d419daa2f07002de1ed19785640d120425fc6e0110d8b"
+    "v": "20261026-pix-release",
+    "sha256": "7138d4c293b023c11fe3568fa14911988fbb9671c99a4750d79aca42a9b99a37"
   },
   "motion.js": {
     "v": "20261020-s15",
@@ -16,7 +16,7 @@
     "sha256": "fd0e859e0fbfd486f8840402c3eb610a3dbf71504af0469ef34c44c4cca9c183"
   },
   "estilo.css": {
-    "v": "20261024-home-nova",
-    "sha256": "6ad065213bf2e5b91e0e594047d9496a85c85310a441759457c77b2ebc413ae0"
+    "v": "20261026-pousadas",
+    "sha256": "5e58fc295d8807043c628f64f9f15380de51979431da7dbd3a305584109f99e7"
   }
 }

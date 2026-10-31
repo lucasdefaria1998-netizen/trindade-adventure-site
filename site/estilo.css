@@ -221,7 +221,7 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 .hero{position:relative;isolation:isolate;display:flex;align-items:flex-end;min-height:clamp(540px,74svh,680px);
   padding:clamp(24px,5vw,64px);border-radius:28px;overflow:hidden;background:#07332c;color:#fff}
 .hero-foto{position:absolute;inset:0;z-index:-2}
-.hero-foto img{width:100%;height:100%;object-fit:cover;object-position:center 45%}
+.hero-foto img{width:100%;height:100%;object-fit:cover;object-position:center 82%}
 .hero::after{content:"";position:absolute;inset:0;z-index:-1;
   background:linear-gradient(90deg,rgb(3 28 22 / .9) 0%,rgb(3 28 22 / .6) 42%,rgb(3 28 22 / .08) 78%),linear-gradient(0deg,rgb(3 28 22 / .55),transparent 55%)}
 .hero-texto{max-width:640px}
@@ -237,6 +237,8 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 .hero :focus-visible{outline-color:var(--lima)}
 @media(max-width:720px){
   .hero{min-height:0;padding:clamp(180px,48vw,240px) 22px 26px;border-radius:22px}
+  /* capa vertical (mirante): no celular a foto ocupa só a parte de cima, recortada no mar e na praia, e some no verde do fundo */
+  .hero-foto img{height:46%;object-position:center 88%;-webkit-mask-image:linear-gradient(#000 72%,transparent);mask-image:linear-gradient(#000 72%,transparent)}
   .hero::after{background:linear-gradient(0deg,rgb(3 28 22 / .95) 0%,rgb(3 28 22 / .82) 52%,rgb(3 28 22 / .15) 100%)}
   .hero-titulo{font-size:clamp(38px,11vw,52px)}
   .hero-lede{margin-top:14px;font-size:15.5px}
@@ -359,6 +361,8 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 .lugares-fotos img.foco-65{object-position:50% 65%}
 .lugares-fotos img.foco-70{object-position:50% 70%}
 .lugares-fotos img.foco-75{object-position:50% 75%}
+.lugares-fotos img.foco-topo{object-position:50% 0}
+.lugares-fotos img.foco-esq{object-position:0 50%}
 .lugares{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0 32px;list-style:none;padding:0}
 .lugar{padding:24px 0;border-top:1px solid var(--line);display:flex;flex-direction:column}
 .lugar-tipo{font-size:13px;font-weight:600;color:var(--accent)}
@@ -391,6 +395,8 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 .parceira-rodape span{display:block;font-size:13.5px;color:var(--muted)}
 .parceira-acoes{display:flex;gap:8px}
 @media(max-width:800px){.pousadas{grid-template-columns:minmax(0,1fr)}}
+/* 26/10/2026: com uma parceira só, o card fica centralizado no desktop (no mobile nada muda) */
+@media(min-width:801px){.pousadas:has(> .parceira:only-child){grid-template-columns:minmax(0,520px);justify-content:center}}
 
 /* mini-galeria de fotos dos parceiros */
 .media{position:relative;overflow:hidden;background:var(--surface-2)}

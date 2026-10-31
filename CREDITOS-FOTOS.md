@@ -17,5 +17,5 @@ O crédito aparece no site junto de cada foto (legenda pequena) e na página /cr
 
 Originais baixados (fora do deploy): `/workspace/mamangua/*-orig.jpg`; metadados completos em `/workspace/mamangua/meta.json`.
 
-Todas as outras fotos do site são da equipe Trindade Adventure, dos parceiros (Pousada Hymbé, Casa de
-Madeira, Restaurante Hymbé) ou da Voar Parapente (fotos do voo, crédito já na página /voo-de-parapente).
+Todas as outras fotos do site são da equipe Trindade Adventure, dos parceiros (Casa de Madeira,
+Restaurante Hymbé) ou da Voar Parapente (fotos do voo, crédito já na página /voo-de-parapente).
