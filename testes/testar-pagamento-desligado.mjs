@@ -89,11 +89,17 @@ async function chamar(w, env, caminho, { metodo = "GET", corpo, cab = {} } = {})
 }
 // Normaliza o que é sorteado (código, id) e a única diferença esperada (Essencial R$ 70 → R$ 80 na referência).
 const sortear = t => t.replace(/TA-[A-Z2-7]{4}-[A-Z2-7]{4}/g, "TA-XXXX-XXXX").replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/g, "<uuid>");
-function precoEssencial(t, pax) {
-  const troca = (txt, de, para) => [[de, para], [JSON.stringify(de).slice(1, -1), JSON.stringify(para).slice(1, -1)], [encodeURIComponent(de), encodeURIComponent(para)]]
+function trocaTexto(txt, de, para) {
+  return [[de, para], [JSON.stringify(de).slice(1, -1), JSON.stringify(para).slice(1, -1)], [encodeURIComponent(de), encodeURIComponent(para)]]
     .reduce((t2, [x, y]) => t2.split(x).join(y), txt); // texto puro, dentro de JSON e dentro do link wa.me
-  t = troca(t, "Total: R$ " + 70 * pax + "\n", "Total: R$ " + 80 * pax + "\n");
-  return troca(t, "Sinal para confirmar (30%): R$ " + Math.round(70 * pax * 0.3) + " ", "Sinal para confirmar (30%): R$ " + Math.round(80 * pax * 0.3) + " ");
+}
+function precoEssencial(t, pax) {
+  t = trocaTexto(t, "Total: R$ " + 70 * pax + "\n", "Total: R$ " + 80 * pax + "\n");
+  return trocaTexto(t, "Sinal para confirmar (30%): R$ " + Math.round(70 * pax * 0.3) + " ", "Sinal para confirmar (30%): R$ " + Math.round(80 * pax * 0.3) + " ");
+}
+// A mensagem do WhatsApp ganhou uma linha: o restante é no dia do passeio. O restante do corpo segue igual.
+function saldoNoDia(t) {
+  return trocaTexto(t, " via Pix\n\nNome:", " via Pix\nO restante (70%) é pago no dia do passeio.\n\nNome:");
 }
 
 const exemplo = {};
@@ -111,7 +117,7 @@ for (const [nomeFlag, flag] of FLAGS) {
     const rr = await chamar(ref, envRef, "/api/reservas", { metodo: "POST", corpo, cab });
     let tn = sortear(rn.texto), tr = sortear(rr.texto);
     const essencial = p.plano === "essencial";
-    const trAjustado = essencial ? precoEssencial(tr, p.pax) : tr;
+    const trAjustado = saldoNoDia(essencial ? precoEssencial(tr, p.pax) : tr);
     if (essencial && tr !== tn && trAjustado === tn) difs.push(`${nome}: só o preço do Essencial (R$ ${70 * p.pax} → R$ ${80 * p.pax})`);
     checar(`[${nomeFlag}] POST ${nome}: mesmo status (${rr.status}) e mesmo corpo do ${REF}${essencial ? " (fora o preço do Essencial)" : ""}`, rn.status === rr.status && tn === trAjustado, (() => { let i = 0; while (i < tn.length && tn[i] === trAjustado[i]) i++; return `status ${rn.status}/${rr.status}; 1ª diferença no caractere ${i}:\n   novo: …${tn.slice(Math.max(0, i - 80), i + 120)}\n   ${REF}: …${trAjustado.slice(Math.max(0, i - 80), i + 120)}`; })());
     if (nomeFlag === "ausente" && !exemplo[nome]) exemplo[nome] = { novo: rn, ref: rr };
@@ -130,7 +136,11 @@ for (const [nomeFlag, flag] of FLAGS) {
   const adm = { "X-Admin-Key": "admin-teste" };
   const ln = await chamar(novo, envNovo, "/api/admin/reservas?status=todas", { cab: adm });
   const lr = await chamar(ref, envRef, "/api/admin/reservas?status=todas", { cab: adm });
-  const semPreco = t => JSON.parse(sortear(t)).reservas.map(r => ({ ...r, criado_em: "x", total: r.plano === "essencial" ? "x" : r.total }));
+  const semPreco = t => JSON.parse(sortear(t)).reservas.map(r => {
+    const o = { ...r, criado_em: "x", total: r.plano === "essencial" ? "x" : r.total };
+    delete o.adultos; delete o.criancas; delete o.idades_criancas;
+    return o;
+  });
   checar(`[${nomeFlag}] GET /api/admin/reservas: mesmas reservas e mesmos campos do ${REF} (sem colunas de pagamento)`, ln.status === 200 && lr.status === 200 && JSON.stringify(semPreco(ln.texto)) === JSON.stringify(semPreco(lr.texto)) && !/pagamento_|pago_centavos|saldo_link/.test(ln.texto), `${ln.texto.slice(0, 300)}`);
   const id = A.db.prepare("SELECT id FROM reservas LIMIT 1").get().id;
   for (const acao of ["saldo", "reagendar", "devolver"]) {

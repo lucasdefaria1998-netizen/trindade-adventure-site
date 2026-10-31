@@ -312,9 +312,13 @@ async function carregarReservas() {
       const ig = r.instagram_cliente ? '<br><span style="color:var(--gold)">@' + esc(r.instagram_cliente) + (r.seguiu_instagram ? " ✓" : "") + "</span>" : "";
       return "<tr><td>" + dataBR(r.data) + "</td><td>" + hLabel(r.hora) + "</td><td>" + r.codigo +
         "</td><td>" + esc(r.nome) + ig + "</td><td>" + esc(r.telefone || "—") +
-        (r.email ? "<br>" + esc(r.email) : "") + "</td><td>" + esc(nomePlano(r.plano)) +
-        "</td><td>" + r.pax + "</td><td>" + money(r.total) + "</td><td>" + esc(orig) +
-        '</td><td><span class="pill ' + r.status + '">' + rotStatus(r.status) + "</span></td><td>" +
+        (r.email ? "<br>" + esc(r.email) : "") +         "</td><td>" + esc(nomePlano(r.plano)) +
+        "</td><td>" + textoPax(r) + "</td><td>" + money(r.total) + "</td><td>" + esc(orig) +
+        '</td><td><span class="pill ' + r.status + '">' + rotStatus(r.status) + "</span>" +
+        (r.pagamento_status ? '<br><span style="color:var(--muted)">' + esc(rotPagamento(r.pagamento_status)) + "</span>" : "") +
+        (r.saldo_forma === "presencial" && r.saldo_centavos > 0 ? '<br><span style="color:var(--muted)">saldo ' + money(r.saldo_centavos / 100) + " no dia</span>" : "") +
+        (r.saldo_link ? '<br><a href="' + esc(r.saldo_link) + '">link do saldo</a>' : "") +
+        "</td><td>" +
         acoesReserva(r) + "</td></tr>" +
         (r.obs ? '<tr><td colspan="11" style="color:var(--muted);font-size:11px;padding-top:0">obs: ' + esc(r.obs) + "</td></tr>" : "");
     }).join("") + "</tbody>";
@@ -326,13 +330,43 @@ async function carregarReservas() {
       carregarReservas();
     } catch (e) { aviso("Falhou: " + e.message, true); }
   }));
+  $$("#tabelaReservas [data-pag]").forEach(btn => btn.addEventListener("click", async () => {
+    const id = btn.dataset.id;
+    try {
+      if (btn.dataset.pag === "presencial") {
+        const d = await api("/reservas/" + id + "/saldo-presencial", { method: "POST", body: "{}" });
+        aviso(d.repetido ? "O saldo já estava quitado." : "Saldo de " + money(d.valor) + " marcado como pago no dia.");
+      } else if (btn.dataset.pag === "saldo") {
+        const d = await api("/reservas/" + id + "/saldo", { method: "POST", body: "{}" });
+        aviso("Link opcional do saldo: " + esc(d.link));
+      } else if (btn.dataset.pag === "cancelar") {
+        const d = await api("/reservas/" + id + "/cancelar", { method: "POST", body: "{}" });
+        aviso(d.mensagem || "Reserva cancelada.");
+      } else if (btn.dataset.pag === "devolver") {
+        const d = await api("/reservas/" + id + "/devolver", { method: "POST", body: "{}" });
+        aviso(d.ok === false ? (d.erro || "O Asaas não estornou.") : "Devolução pedida ao Asaas.");
+      }
+      carregarReservas();
+    } catch (e) { aviso("Falhou: " + e.message, true); carregarReservas(); }
+  }));
 }
 
 function acoesReserva(r) {
   const b = [];
+  if (r.pagamento_status === "sinal_pago" && r.status === "confirmada") {
+    b.push('<button class="btn sm primary" data-pag="presencial" data-id="' + r.id + '">saldo pago no dia</button>');
+    b.push('<button class="btn sm" data-pag="saldo" data-id="' + r.id + '">link do saldo (opcional)</button>');
+  }
+  if (r.pagamento_status === "pago_sem_vaga") {
+    b.push('<button class="btn sm" data-pag="devolver" data-id="' + r.id + '">devolver</button>');
+  }
   if (r.status !== "confirmada") b.push('<button class="btn sm" data-acao="confirmada" data-id="' + r.id + '">confirmar</button>');
   if (r.status !== "nao_compareceu" && r.status !== "cancelada") b.push('<button class="btn sm" data-acao="nao_compareceu" data-id="' + r.id + '">faltou</button>');
-  if (r.status !== "cancelada") b.push('<button class="btn sm danger" data-acao="cancelada" data-id="' + r.id + '">cancelar</button>');
+  if (r.status !== "cancelada" && r.status !== "expirada") {
+    if (r.pagamento_modalidade)
+      b.push('<button class="btn sm danger" data-pag="cancelar" data-id="' + r.id + '">cancelar (regra das 12 h)</button>');
+    else b.push('<button class="btn sm danger" data-acao="cancelada" data-id="' + r.id + '">cancelar</button>');
+  }
   return '<div class="acoes">' + b.join("") + "</div>";
 }
 
@@ -427,6 +461,18 @@ $("#salvarConfig").addEventListener("click", async () => {
 /* ------- utilidades ------- */
 function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function rotStatus(s) { return { pendente: "pendente", confirmada: "confirmada", cancelada: "cancelada", nao_compareceu: "faltou", expirada: "expirada" }[s] || s; }
+function rotPagamento(s) {
+  return {
+    aguardando: "aguardando Pix", sinal_pago: "sinal pago · saldo no dia", quitado: "quitado",
+    sem_devolucao: "cancelada sem devolução", estorno_solicitado: "estorno pedido", estorno_manual: "estorno manual",
+    sinal_retido: "sinal retido", pago_sem_vaga: "pago sem vaga", devolucao_solicitada: "devolução pedida",
+    devolucao_manual: "devolução manual", falha_asaas: "falha no pagamento"
+  }[s] || s;
+}
+function textoPax(r) {
+  if (Number(r.criancas) > 0) return r.pax + " (" + r.adultos + " pagam + " + r.criancas + " crianças)";
+  return String(r.pax);
+}
 function nomePlano(id) { return { essencial: "Trindade Essencial", adventure: "Trindade Adventure", boat: "Trindade Boat" }[id] || id; }
 
 /* quem está logado (Cloudflare Access injeta no header; o Worker não devolve,
