@@ -630,7 +630,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("E21 Termos §2 e §3 com o sinal de 30% e até 15 pessoas", termos.includes("A vaga só fica garantida depois do pagamento do sinal de 30% via Pix e da confirmação da equipe pelo WhatsApp. Cada reserva tem até 15 pessoas.") &&
     termos.includes("Para confirmar a reserva, é pago um sinal de 30% do valor via Pix, combinado pelo WhatsApp. Não há pagamento pelo site."));
   checar("E21 nenhum texto antigo de pagamento no local/Pix combinado", !/no local, em dinheiro ou cartão, ou por pix|pagamento no local ou por pix/i.test(fonteTexto));
-  checar("E21 nada sobre o restante (70%) nem devolução do sinal (sem decisão)", !/70%|restante do valor|os outros 70/i.test(termos + reservar) && !/(sinal)[^.]{0,60}(devol|crédito)/i.test(termos + reservar));
+  checar("E21 regras fechadas: 70% no dia do passeio e sinal devolvido até 12 h", /70%/.test(termos) && /pagos no dia do passeio/.test(termos) && /até 12 anos não pagam/.test(termos + reservar) && /o sinal é devolvido/i.test(termos) && /o sinal não é devolvido/i.test(termos));
   checar("E21 Boat: ninguém voltou a dizer 'saída única às 8h30'", !/saída única às 0?8[h:]30/i.test(fonteTexto));
   checar("E21 rodapé: 'Passeios sob consulta' aponta para /passeios#sob-consulta", home.includes('<a href="/passeios#sob-consulta">Passeios sob consulta</a>') && !home.includes('<a href="/mamangua"') );
   const pass = await (await pegar("/passeios")).text();

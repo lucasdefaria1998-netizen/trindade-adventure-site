@@ -681,6 +681,16 @@ const CODIGO_PEDIDO = /^TA-[A-Z0-9-]{4,32}$/;
 
 /* Só o link do WhatsApp da operação é aceito vindo do servidor (https://wa.me/<número fixo>);
    qualquer outra coisa — javascript:, outro host, outro número — vira o link montado aqui. */
+function linkAsaasSeguro(href) {
+  try {
+    const u = new URL(href);
+    const host = u.hostname;
+    if (u.protocol === "https:" && (host === "sandbox.asaas.com" || host === "www.asaas.com" || host === "asaas.com") && !u.username && !u.password)
+      return u.href;
+  } catch (e) { /* URL inválida */ }
+  return null;
+}
+
 function waHrefSeguro(href, alternativa) {
   try {
     const u = new URL(href);
@@ -848,12 +858,25 @@ const reserva = {
   plano: "adventure",
   data: hojeISO(),
   hora: null,
-  pax: 2,
+  pax: 2,          // total de pessoas (pagantes + crianças); no parapente, número de voos
+  adultos: 2,      // pagantes, 13 anos ou mais
+  criancas: 0,     // até 12 anos, não pagam
+  idades: [],
   comoConheceu: "",
   instagramCliente: "",
   seguiuInstagram: false,
   enviada: false
 };
+
+function grupoDaReserva() {
+  const p = planoPor(reserva.plano);
+  if (p.horarioCombinado) return { pagantes: reserva.pax, criancas: 0, idades: [], pessoas: reserva.pax, voos: true };
+  const max = Math.min(CFG.limitePaxPedido, CFG.capacidade);
+  const pagantes = Math.min(max, Math.max(1, reserva.adultos || 1));
+  const criancas = Math.min(Math.max(0, max - pagantes), Math.max(0, reserva.criancas || 0));
+  const idades = (reserva.idades || []).slice(0, criancas);
+  return { pagantes, criancas, idades, pessoas: pagantes + criancas, voos: false };
+}
 
 // Última leitura real de vagas vinda do backend, para a data em foco. Fica
 // null sempre que a API não respondeu — nesse caso a grade de horários volta
@@ -1021,23 +1044,61 @@ async function atualizarDisponibilidade() {
 
 function desenharPax() {
   const sel = $("#fPax");
-  if (!sel || sel.options.length) return;
-  sel.innerHTML = Array.from({ length: Math.min(CFG.limitePaxPedido, CFG.capacidade) }, (_, i) => i + 1)
-    .map(n => `<option value="${n}">${n} ${n === 1 ? "pessoa" : "pessoas"}</option>`).join("");
-  sel.value = String(reserva.pax);
+  const cri = $("#fCriancas");
+  const max = Math.min(CFG.limitePaxPedido, CFG.capacidade);
+  const g = grupoDaReserva();
+  reserva.adultos = g.pagantes;
+  reserva.criancas = g.criancas;
+  reserva.pax = g.pessoas;
+  if (sel) {
+    const unidade = g.voos ? (n => n === 1 ? "voo" : "voos") : (n => n === 1 ? "pagante" : "pagantes");
+    sel.innerHTML = Array.from({ length: max }, (_, i) => i + 1)
+      .map(n => `<option value="${n}">${n} ${unidade(n)}</option>`).join("");
+    sel.value = String(g.voos ? reserva.pax : g.pagantes);
+  }
+  const campoCriancas = $("#campoCriancas");
+  if (campoCriancas) campoCriancas.hidden = g.voos;
+  if (cri) {
+    cri.hidden = g.voos;
+    const resto = Math.max(0, max - g.pagantes);
+    cri.innerHTML = Array.from({ length: resto + 1 }, (_, i) => i)
+      .map(n => `<option value="${n}">${n} ${n === 1 ? "criança" : "crianças"}</option>`).join("");
+    cri.value = String(g.criancas);
+  }
+  desenharIdades();
+}
+
+function desenharIdades() {
+  const box = $("#idadesCriancas");
+  if (!box) return;
+  const g = grupoDaReserva();
+  const mostrar = !g.voos && g.criancas > 0;
+  box.hidden = !mostrar;
+  if (!mostrar) { box.innerHTML = ""; box.dataset.n = "0"; return; }
+  if (box.dataset.n === String(g.criancas) && box.querySelector("input")) return;
+  while (reserva.idades.length < g.criancas) reserva.idades.push("");
+  reserva.idades.length = g.criancas;
+  box.dataset.n = String(g.criancas);
+  box.innerHTML = `<p class="passo-dica">Idade de cada criança (até 12 anos, não pagam)</p>` +
+    reserva.idades.map((idade, i) =>
+      `<label class="field">Criança ${i + 1}<input data-idade="${i}" type="number" min="0" max="12" inputmode="numeric" value="${idade === "" || idade == null ? "" : String(idade)}"></label>`
+    ).join("");
 }
 
 function desenharResumo() {
   const p = planoPor(reserva.plano);
-  const total = p.preco * reserva.pax;
-  const voucher = p.voucher * reserva.pax;
+  const g = grupoDaReserva();
+  const total = p.preco * g.pagantes;
+  const voucher = p.voucher * g.pagantes;
 
   $("#rsPasseio").textContent = p.nome;
   $("#rsData").textContent = `${dataBR(reserva.data)} (${diaSemana(reserva.data)})`;
   $("#rsHora").textContent = p.horarioCombinado ? "combinado pelo WhatsApp"
     : reserva.hora === null ? "—" : `${horaLabel(reserva.hora)} · sai ${saidaLabel(reserva.hora)}`;
-  $("#rsPax").textContent = String(reserva.pax);
-  $("#rsCalculo").textContent = `${BRL(p.preco)} × ${reserva.pax}`;
+  $("#rsPax").textContent = g.criancas
+    ? `${g.pagantes} pagam + ${g.criancas} ${g.criancas === 1 ? "criança" : "crianças"}`
+    : String(g.pessoas);
+  $("#rsCalculo").textContent = `${BRL(p.preco)} × ${g.pagantes}`;
   $("#rsSubtotal").textContent = BRL(total);
   $("#rsTotal").textContent = BRL(total);
   // O voucher já está dentro do valor do passeio: aparece como "incluso", nunca como um valor a somar.
@@ -1053,8 +1114,8 @@ function desenharResumo() {
   } else {
     const sinal = Math.round(total * 0.3);
     if (rsSinal) rsSinal.textContent = BRL(sinal) + " (30%)";
-    if (rsGarantia) rsGarantia.textContent = `Cancelamento gratuito até 12 h antes da saída · sinal de 30% via Pix: ${BRL(sinal)}.`;
-    if (resumoNota) resumoNota.textContent = "Até 15 pessoas por reserva. A reserva é confirmada pela equipe no WhatsApp.";
+    if (rsGarantia) rsGarantia.textContent = `Cancelamento gratuito até 12 h antes da saída · sinal de 30% via Pix: ${BRL(sinal)}. O sinal é devolvido nesse prazo; depois, não. O restante é pago no dia do passeio.`;
+    if (resumoNota) resumoNota.textContent = "Até 15 pessoas por reserva. Crianças até 12 anos não pagam. A reserva é confirmada pela equipe no WhatsApp.";
   }
   // Barra fixa do celular (ver #barraFixaReserva no HTML): mesmo total do resumo.
   if (bfTotal) bfTotal.textContent = BRL(total);
@@ -1160,6 +1221,15 @@ function validar() {
     if (horaPassou || horaInvalida) { reserva.hora = null; pintarHorarios(); desenharResumo(); }
   }
 
+  if (!p.horarioCombinado) {
+    const g = grupoDaReserva();
+    const idadesOk = g.criancas === 0 || (reserva.idades.length === g.criancas && reserva.idades.every(n => Number.isInteger(n) && n >= 0 && n <= 12));
+    const msgCrianca = g.pessoas > Math.min(CFG.limitePaxPedido, CFG.capacidade)
+      ? "No máximo 15 pessoas por reserva, crianças incluídas."
+      : !idadesOk ? "Informe a idade de cada criança (até 12 anos). Quem tem 13 ou mais conta como pagante." : "";
+    falha("#fCriancas", "#fCriancas", "#errCriancas", msgCrianca);
+  }
+
   const semAceite = !$("#fAceite").checked;
   const erroAceite = $("#errAceite");
   erroAceite.textContent = semAceite ? "Para enviar, é preciso concordar com os Termos do Passeio e a Política de Privacidade." : "";
@@ -1186,8 +1256,9 @@ function codigoReserva() {
 
 function mensagemWhatsApp(dados) {
   const p = planoPor(reserva.plano);
-  const total = p.preco * reserva.pax;
-  const voucher = p.voucher * reserva.pax;
+  const g = grupoDaReserva();
+  const total = p.preco * g.pagantes;
+  const voucher = p.voucher * g.pagantes;
   const linhas = [
     "*Pedido de reserva — Trindade Adventure*",
     "",
@@ -1204,13 +1275,16 @@ function mensagemWhatsApp(dados) {
   } else {
     linhas.push(
       `Horário: ${horaLabel(reserva.hora)} — saída ${saidaLabel(reserva.hora)}`,
-      `Pessoas: ${reserva.pax}`
+      g.criancas
+        ? `Pessoas: ${g.pessoas} (${g.pagantes} pagam, ${g.criancas} ${g.criancas === 1 ? "criança" : "crianças"} até 12 anos não pagam: ${g.idades.join(", ")} anos)`
+        : `Pessoas: ${g.pessoas}`
     );
   }
   linhas.push(`Total: ${BRL(total)}` + (voucher ? ` (inclui ${BRL(voucher)} de voucher no almoço)` : ""));
   linhas.push(p.horarioCombinado
     ? `Sinal para agendar: ${BRL(p.sinalFixo)} por voo`
     : `Sinal para confirmar (30%): ${BRL(Math.round(total * 0.3))} via Pix`);
+  if (!p.horarioCombinado) linhas.push("O restante (70%) é pago no dia do passeio.");
   linhas.push(
     "",
     `Nome: ${dados.nome}`,
@@ -1317,10 +1391,45 @@ function chaveDoEnvio(assinatura) {
   return chaveEnvio.chave;
 }
 
+function mostrarPagamento(pg) {
+  const p = planoPor(reserva.plano);
+  const g = grupoDaReserva();
+  const alvo = $("#reservaFeita");
+  const link = linkAsaasSeguro(pg.link) || "#";
+  alvo.innerHTML = `
+    <div class="caixa confirma">
+      <div>
+        <h2>Pague o sinal para garantir a vaga</h2>
+        <p>Abrimos o Pix do Asaas. A reserva só fica confirmada depois que o pagamento entra. O restante é pago no dia do passeio. Até 12 h antes da saída, o sinal é devolvido.</p>
+      </div>
+      <div class="linhas">
+        <div class="linha"><span>Passeio</span><b>${esc(p.nome)}</b></div>
+        <div class="linha"><span>Agora (${esc(String(pg.modalidade === "integral" ? "100%" : "sinal 30%"))})</span><b class="num">${esc(BRL(pg.valor))}</b></div>
+        <div class="linha"><span>Total de quem paga</span><b class="num">${esc(BRL(pg.total))}</b></div>
+        ${Number(pg.saldo) > 0 ? `<div class="linha"><span>No dia do passeio</span><b class="num">${esc(BRL(pg.saldo))}</b></div>` : ""}
+        ${g.criancas ? `<div class="linha"><span>Crianças até 12 anos</span><b class="num">${inteiroSeguro(g.criancas)} não pagam</b></div>` : ""}
+      </div>
+      <a class="btn btn-primario btn-largo" href="${esc(link)}">Abrir o pagamento</a>
+      <button class="btn btn-secundario btn-largo" type="button" id="btnNova">Fazer outro pedido</button>
+    </div>`;
+  alvo.hidden = false;
+  $("#formReserva").hidden = true;
+  rolarAte(alvo);
+  $("#btnNova").onclick = () => {
+    alvo.hidden = true;
+    $("#formReserva").hidden = false;
+    reserva.hora = null;
+    $("#fAceite").checked = false;
+    desenharReserva();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+}
+
 function mostrarConfirmacao(dados) {
   const p = planoPor(reserva.plano);
-  const total = p.preco * reserva.pax;
-  const voucher = p.voucher * reserva.pax;
+  const g = grupoDaReserva();
+  const total = p.preco * g.pagantes;
+  const voucher = p.voucher * g.pagantes;
   const alvo = $("#reservaFeita");
 
   // Código e link vêm do servidor: o código só vale no formato do pedido e o link só se for o wa.me da operação.
@@ -1351,7 +1460,7 @@ function mostrarConfirmacao(dados) {
         ` : `
         <div class="linha"><span>Data e horário</span><b class="num">${esc(dataBR(reserva.data))} · ${esc(horaLabel(reserva.hora))}</b></div>
         <div class="linha"><span>Saída efetiva</span><b class="num">${esc(saidaLabel(reserva.hora))}</b></div>
-        <div class="linha"><span>Pessoas</span><b class="num">${inteiroSeguro(reserva.pax)}</b></div>
+        <div class="linha"><span>Pessoas</span><b class="num">${g.criancas ? esc(g.pagantes + " pagam + " + g.criancas + (g.criancas === 1 ? " criança" : " crianças")) : inteiroSeguro(g.pessoas)}</b></div>
         `}
         <div class="linha"><span>Total</span><b class="num">${esc(BRL(total))}</b></div>
         ${voucher ? `<div class="linha linha-ouro"><span>Voucher almoço</span><b class="num">incluso · ${esc(BRL(voucher))}</b></div>` : ""}
@@ -1426,7 +1535,32 @@ function ligarReserva() {
   });
 
   $("#fPax").addEventListener("change", ev => {
-    reserva.pax = Number(ev.target.value) || 1;
+    const n = Number(ev.target.value) || 1;
+    if (planoPor(reserva.plano).horarioCombinado) reserva.pax = n;
+    else reserva.adultos = n;
+    const g = grupoDaReserva();
+    reserva.pax = g.pessoas;
+    const box = $("#idadesCriancas");
+    if (box) box.dataset.n = "";
+    desenharPax();
+    desenharResumo();
+  });
+  const selCriancas = $("#fCriancas");
+  if (selCriancas) selCriancas.addEventListener("change", ev => {
+    reserva.criancas = Number(ev.target.value) || 0;
+    const g = grupoDaReserva();
+    reserva.pax = g.pessoas;
+    const box = $("#idadesCriancas");
+    if (box) box.dataset.n = "";
+    desenharPax();
+    desenharResumo();
+  });
+  const boxIdades = $("#idadesCriancas");
+  if (boxIdades) boxIdades.addEventListener("input", ev => {
+    const i = Number(ev.target.dataset.idade);
+    if (!Number.isInteger(i)) return;
+    const bruto = ev.target.value.trim();
+    reserva.idades[i] = bruto === "" ? "" : Number(bruto);
     desenharResumo();
   });
 
@@ -1484,7 +1618,8 @@ function ligarReserva() {
     if (botao) { botao.disabled = true; botao.textContent = "Enviando…"; }
 
     const o = Origem.detectar();
-    const chave = chaveDoEnvio([reserva.plano, reserva.data, reserva.hora, reserva.pax, dadosForm.tel, dadosForm.nome].join("|"));
+    const gEnvio = grupoDaReserva();
+    const chave = chaveDoEnvio([reserva.plano, reserva.data, reserva.hora, gEnvio.pagantes, gEnvio.criancas, gEnvio.idades.join("."), dadosForm.tel, dadosForm.nome].join("|"));
     // Token novo do desafio anti-robô a cada envio. Sem ele (script bloqueado, rede ruim) não
     // adianta chamar o servidor: vai direto para o WhatsApp, abaixo, com a mesma aba já aberta.
     const tokenAnti = await Turnstile.token();
@@ -1496,7 +1631,9 @@ function ligarReserva() {
       method: "POST",
       headers: { "content-type": "application/json", "Idempotency-Key": chave },
       body: JSON.stringify({
-        plano: reserva.plano, data: reserva.data, hora: reserva.hora, pax: reserva.pax,
+        plano: reserva.plano, data: reserva.data, hora: reserva.hora,
+        pax: gEnvio.pessoas, adultos: gEnvio.pagantes, criancas: gEnvio.criancas,
+        idadesCriancas: gEnvio.idades.map(n => Number(n)),
         nome: dadosForm.nome, telefone: dadosForm.tel, email: dadosForm.email, obs: dadosForm.obs,
         origem: origemEfetiva(o, reserva.comoConheceu), origemDetalhe: o.detalhe,
         comoConheceu: rotuloComoConheceu(reserva.comoConheceu),
@@ -1516,8 +1653,21 @@ function ligarReserva() {
         return;
       }
       if (motivo === "chave_em_uso") { chaveEnvio = null; torrada("Não foi possível enviar agora. Tente de novo."); return; }
+      if (motivo === "sem_tempo_pagamento" || motivo === "mesmo_dia_integral" || motivo === "pagamento_indisponivel") {
+        torrada((resultado.corpo && resultado.corpo.erro) || "Não deu para pagar online agora. Fale com a gente pelo WhatsApp.");
+        return;
+      }
       torrada("Esse horário acabou de lotar. Escolha outro, por favor.");
       atualizarDisponibilidade();
+      return;
+    }
+    const linkPix = resultado.status === 200 && resultado.corpo && resultado.corpo.pagamento
+      ? linkAsaasSeguro(resultado.corpo.pagamento.link) : null;
+    if (linkPix) {
+      if (abaWA) abaWA.location = linkPix;
+      else window.open(linkPix, "_blank", "noopener");
+      chaveEnvio = null;
+      mostrarPagamento(resultado.corpo.pagamento);
       return;
     }
     if (resultado.status === 422) {
@@ -1555,6 +1705,44 @@ function ligarReserva() {
     ultimoEnvio = dados;
     evento("envio_whatsapp", { reservaCodigo: dados.codigo });
     mostrarConfirmacao(dados);
+  });
+
+  const btnCancelar = $("#btnCancelarReserva");
+  if (btnCancelar) btnCancelar.addEventListener("click", async () => {
+    const codigo = ($("#cCodigo").value || "").trim();
+    const tel = ($("#cTel").value || "").trim();
+    const erro = $("#errCancelar");
+    const okMsg = $("#okCancelar");
+    if (erro) { erro.hidden = true; erro.textContent = ""; }
+    if (okMsg) { okMsg.hidden = true; okMsg.textContent = ""; }
+    if (!/^TA-[A-Za-z0-9-]{4,32}$/.test(codigo)) {
+      if (erro) { erro.hidden = false; erro.textContent = "Informe o código da reserva (TA-…)."; }
+      return;
+    }
+    if (tel.replace(/\D/g, "").length < 10) {
+      if (erro) { erro.hidden = false; erro.textContent = "Informe o WhatsApp com DDD."; }
+      return;
+    }
+    btnCancelar.disabled = true;
+    const tokenAnti = await Turnstile.token();
+    if (!tokenAnti) {
+      btnCancelar.disabled = false;
+      if (erro) { erro.hidden = false; erro.textContent = "Não deu para confirmar que você não é um robô. Tente de novo."; }
+      return;
+    }
+    const r = await chamarAPI("/api/reservas/cancelar", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ codigo, telefone: tel, "cf-turnstile-response": tokenAnti })
+    });
+    btnCancelar.disabled = false;
+    const corpo = r.corpo || {};
+    if (r.status === 200 && corpo.ok) {
+      if (okMsg) { okMsg.hidden = false; okMsg.textContent = corpo.mensagem || "Reserva cancelada."; }
+      return;
+    }
+    const msg = (corpo.erros && (corpo.erros.codigo || corpo.erros.telefone)) || corpo.erro || "Não foi possível cancelar agora.";
+    if (erro) { erro.hidden = false; erro.textContent = msg; }
   });
 
   desenharReserva();

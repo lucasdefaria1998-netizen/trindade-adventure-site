@@ -496,7 +496,7 @@
     </header>
     <ol class="rota" data-revelar>
       <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-relogio"/></svg></span><div><h3>1. Escolha</h3><p>Escolha o passeio e o horário no site.</p></div></li>
-      <li data-pagamento="whatsapp"><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-wa"/></svg></span><div><h3>2. Envie o pedido</h3><p>O pedido vai direto para o WhatsApp da equipe.</p></div></li><template data-pagamento="online"><li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-wa"/></svg></span><div><h3>2. Pague por Pix</h3><p>Sinal de 30% ou o valor total, pelo site. Para o mesmo dia, só o valor total.</p></div></li></template>
+      <li data-pagamento="whatsapp"><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-wa"/></svg></span><div><h3>2. Envie o pedido</h3><p>O pedido vai direto para o WhatsApp da equipe.</p></div></li><template data-pagamento="online"><li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-wa"/></svg></span><div><h3>2. Pague por Pix</h3><p>Sinal de 30% (crianças até 12 anos não pagam) ou o valor total, pelo site. O restante é no dia do passeio. Para o mesmo dia, só o valor total.</p></div></li></template>
       <li data-pagamento="whatsapp"><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-check"/></svg></span><div><h3>3. Confirmação</h3><p>A equipe confirma a vaga e pede o sinal de 30% via Pix.</p></div></li><template data-pagamento="online"><li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-check"/></svg></span><div><h3>3. Confirmação</h3><p>O código da reserva sai logo depois do pagamento.</p></div></li></template>
       <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-pin"/></svg></span><div><h3>4. Encontro</h3><p>Praia do Meio — placa das trilhas. Concentração no horário cheio, saída 20 minutos depois.</p></div></li>
     </ol>
@@ -505,8 +505,8 @@
   <section class="bloco faq" aria-labelledby="titulo-faq-home">
     <h2 id="titulo-faq-home">Perguntas frequentes</h2>
     <details><summary>E se chover?</summary><p>Chuva fraca não cancela. Em chuva forte, mar grosso ou risco na trilha, a operação remarca sem custo.</p></details>
-    <details><summary>Crianças podem ir?</summary><p>Sim, a partir de 6 anos na trilha, sempre acompanhadas de um responsável. Avise a idade nas observações da reserva.</p></details>
-    <details><summary>Posso cancelar?</summary><p>O cancelamento é gratuito até 12 horas antes da saída. As condições específicas de cancelamento e reagendamento fora desse prazo serão informadas no momento da confirmação.</p></details>
+    <details><summary>Crianças podem ir?</summary><p>Sim, a partir de 6 anos na trilha, sempre acompanhadas de um responsável. Crianças até 12 anos não pagam; a partir de 13 anos pagam o valor cheio.</p></details>
+    <details><summary>Posso cancelar?</summary><p>O cancelamento é gratuito até 12 horas antes da saída. O sinal é devolvido nesse prazo. Depois disso, a reserva pode ser cancelada, mas o sinal não é devolvido.</p></details>
     <details><summary>O que levar?</summary><p>Calçado fechado com solado de borracha e protetor solar, que são obrigatórios. A água mineral do passeio é por nossa conta. Recomendado: repelente, boné, roupa de banho por baixo, toalha leve e dinheiro para o quiosque da praia.</p></details>
   </section>
 
@@ -856,9 +856,14 @@
             <input id="fEmail" name="email" type="email" placeholder="voce@email.com" inputmode="email" autocomplete="email" maxlength="254">
             <span class="err" id="errEmail" hidden></span>
           </label>
-          <label class="field"><span id="rotuloPax">Pessoas</span>
+          <label class="field"><span id="rotuloPax">Pagantes (13 anos ou mais)</span>
             <select id="fPax" name="pax"></select>
           </label>
+          <label class="field" id="campoCriancas">Crianças até 12 anos <span class="hint">não pagam</span>
+            <select id="fCriancas" name="criancas"></select>
+            <span class="err" id="errCriancas" hidden></span>
+          </label>
+          <div class="field" id="idadesCriancas" hidden></div>
           <label class="field campo-peso" id="campoPeso" hidden>Peso de cada passageiro (kg) <span class="hint">entre 50 e 120 kg por pessoa</span>
             <input id="fPeso" name="peso" placeholder="Ex.: 70, 82" maxlength="60">
             <span class="err" id="errPeso" hidden></span>
@@ -873,7 +878,7 @@
           <input type="checkbox" id="fAceite" aria-describedby="notaAceite errAceite">
           <span>Li e concordo com os <a class="link-texto" href="/termos-do-passeio">Termos do Passeio</a> e com a <a class="link-texto" href="/politica-de-privacidade">Política de Privacidade</a>. Autorizo o contato por WhatsApp sobre esta reserva.</span>
         </label>
-        <p class="passo-dica nota-aceite" id="notaAceite">Cancelamento gratuito até 12 h antes da saída, como explicado nos Termos do Passeio.</p>
+        <p class="passo-dica nota-aceite" id="notaAceite">Cancelamento gratuito até 12 h antes da saída: o sinal é devolvido. Depois desse prazo, o sinal não é devolvido. O restante (70%) é pago no dia do passeio.</p>
         <p class="err" id="errAceite" hidden></p>
       </fieldset>
 
@@ -917,11 +922,29 @@
       <div id="turnstileBox" class="turnstile-box"></div>
       <button class="btn btn-primario btn-largo" type="submit"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Enviar reserva no WhatsApp</button>
       <p class="passo-dica resumo-garantia" id="rsGarantia"></p>
-      <p class="resumo-nota" id="resumoNota">Até 15 pessoas por reserva. A reserva é confirmada pela equipe no WhatsApp.</p>
+      <p class="resumo-nota" id="resumoNota">Até 15 pessoas por reserva. Crianças até 12 anos não pagam. A reserva é confirmada pela equipe no WhatsApp.</p>
     </aside>
   </form>
 
   <div id="reservaFeita" hidden></div>
+
+  <details class="passo passo-opcional" id="cancelarReservaBox">
+    <summary>Cancelar uma reserva</summary>
+    <p>Informe o código (TA-…) e o mesmo WhatsApp do pedido. Até 12 h antes da saída, o sinal pago pelo site é devolvido. Depois disso, a reserva é cancelada e o sinal não é devolvido.</p>
+    <div class="campos">
+      <label class="field">Código da reserva
+        <input id="cCodigo" placeholder="TA-XXXX-XXXX" maxlength="32" autocomplete="off">
+        <span class="err" id="errCCodigo" hidden></span>
+      </label>
+      <label class="field">WhatsApp do pedido
+        <input id="cTel" placeholder="(24) 99999-0000" inputmode="tel" autocomplete="tel">
+        <span class="err" id="errCTel" hidden></span>
+      </label>
+    </div>
+    <button class="btn btn-secundario" type="button" id="btnCancelarReserva">Cancelar reserva</button>
+    <p class="err" id="errCancelar" hidden></p>
+    <p class="passo-dica" id="okCancelar" hidden></p>
+  </details>
 
   <div class="barra-fixa-reserva" id="barraFixaReserva">
     <span>Total <b class="num" id="bfTotal">—</b></span>
@@ -1089,9 +1112,9 @@
     <div class="faq">
       <h2>Perguntas frequentes</h2>
       <details><summary>Precisa de preparo físico?</summary><p>A trilha do Cachadaço tem 1,5 km com trechos íngremes, escadas e corrimãos. Quem caminha normalmente no dia a dia faz sem dificuldade, no próprio ritmo.</p></details>
-      <details><summary>Crianças podem ir?</summary><p>Sim, a partir de 6 anos na trilha, sempre acompanhadas de um responsável. Avise a idade nas observações da reserva.</p></details>
+      <details><summary>Crianças podem ir?</summary><p>Sim, a partir de 6 anos na trilha, sempre acompanhadas de um responsável. Crianças até 12 anos não pagam; a partir de 13 anos pagam o valor cheio.</p></details>
       <details><summary>E se chover?</summary><p>Chuva fraca não cancela. Em chuva forte, mar grosso ou risco na trilha, a operação remarca sem custo.</p></details>
-      <details data-pagamento="whatsapp"><summary>Como pago?</summary><p>Para confirmar a reserva, a equipe pede pelo WhatsApp um sinal de 30% do valor via Pix. Não há pagamento pelo site.</p></details><template data-pagamento="online"><details><summary>Como pago?</summary><p>Pelo site, só por Pix: sinal de 30% ou o valor total; para o mesmo dia, só o valor total. Cartão, só na maquininha, no local. O código da reserva sai logo depois do pagamento. Quem paga o sinal recebe o link do saldo cerca de 12 horas antes da saída, ou logo após o sinal se a reserva for feita mais perto do horário.</p></details></template>
+      <details data-pagamento="whatsapp"><summary>Como pago?</summary><p>Para confirmar a reserva, a equipe pede pelo WhatsApp um sinal de 30% do valor via Pix. Não há pagamento pelo site. Crianças até 12 anos não pagam; a partir de 13 anos o valor é integral. O sinal é só sobre quem paga. Os outros 70% são pagos no dia do passeio. Até 12 horas antes da saída, o sinal é devolvido; depois disso, não.</p></details><template data-pagamento="online"><details><summary>Como pago?</summary><p>Pelo site, só por Pix: sinal de 30% (só sobre quem paga) ou o valor total; para o mesmo dia, só o valor total. Crianças até 12 anos não pagam. Cartão, só na maquininha, no local. O código da reserva sai logo depois do pagamento. Os outros 70% são pagos no dia do passeio. Até 12 horas antes da saída, o sinal é devolvido; depois disso, não.</p></details></template>
       <details><summary>Dá para estacionar?</summary><p>Sim. Há estacionamentos pagos na entrada da vila. Nos feriados, chegue cedo — a vila fecha para carros quando lota.</p></details>
     </div>
   </div>
@@ -1220,7 +1243,7 @@
 <section class="secao" id="privacidade" data-secao="privacidade" aria-labelledby="titulo-privacidade">
   <header class="pagina-cabeca">
     <h1 data-titulo id="titulo-privacidade">Política de Privacidade</h1>
-    <p>Quais informações a Trindade Adventure recebe pelo site, para que usa e como você pode pedir correção ou exclusão. Atualizada em 5 de outubro de 2026.</p>
+    <p>Quais informações a Trindade Adventure recebe pelo site, para que usa e como você pode pedir correção ou exclusão. Atualizada em 31 de outubro de 2026.</p>
   </header>
   <article class="texto-legal">
     <h2>Quem cuida dos seus dados</h2>
@@ -1228,7 +1251,7 @@
 
     <h2>Quais informações podemos receber</h2>
     <ul>
-      <li><b>No pedido de reserva:</b> nome, número de WhatsApp, e-mail (opcional), observações (opcional — por exemplo restrição alimentar, idade de crianças ou mobilidade, se você quiser informar), passeio, data, horário e número de pessoas.</li>
+      <li><b>No pedido de reserva:</b> nome, número de WhatsApp, e-mail (opcional), observações (opcional — por exemplo restrição alimentar ou mobilidade), passeio, data, horário, quantos pagantes (13 anos ou mais), quantas crianças até 12 anos e a idade de cada criança.</li>
       <li><b>Perguntas opcionais:</b> como você conheceu a Trindade Adventure, seu @ no Instagram e se você segue o nosso perfil.</li>
       <li><b>Origem da visita:</b> de onde você chegou ao site — por exemplo, um link do Instagram ou uma busca no Google —, conforme o endereço de origem informado pelo navegador ou um marcador no próprio link.</li>
       <li><b>Estatísticas próprias:</b> o site registra três acontecimentos simples — visita, abertura da página de reserva e envio do pedido —, junto com a origem da visita e um código aleatório gerado no seu navegador. Esse código não contém seu nome nem seu telefone.</li>
@@ -1279,7 +1302,7 @@
 <section class="secao" id="termos" data-secao="termos" aria-labelledby="titulo-termos">
   <header class="pagina-cabeca">
     <h1 data-titulo id="titulo-termos">Termos do Passeio</h1>
-    <p>Como funcionam o pedido de reserva, a confirmação e o dia do passeio com a Trindade Adventure. Atualizados em 5 de outubro de 2026.</p>
+    <p>Como funcionam o pedido de reserva, a confirmação e o dia do passeio com a Trindade Adventure. Atualizados em 31 de outubro de 2026.</p>
   </header>
   <article class="texto-legal">
     <h2>1. O pedido de reserva</h2>
@@ -1289,7 +1312,7 @@
     <p data-pagamento="whatsapp">A vaga só fica garantida depois do pagamento do sinal de 30% via Pix e da confirmação da equipe pelo WhatsApp. Cada reserva tem até 15 pessoas. Se o horário escolhido lotar, a equipe avisa e sugere outra opção.</p><template data-pagamento="online"><p>A vaga fica garantida com o pagamento pelo site, por Pix: sinal de 30% ou o valor total; para o mesmo dia, só o valor total. O código da reserva sai logo depois do pagamento. Cada reserva tem até 15 pessoas. Se o pagamento for confirmado quando o horário já tiver lotado, a equipe entra em contato para você escolher entre reagendar ou receber o valor de volta.</p></template>
 
     <h2>3. Valores e pagamento</h2>
-    <p data-pagamento="whatsapp">Os valores por pessoa são os informados na página de cada passeio. No Trindade Adventure e no Trindade Boat, o valor já inclui um voucher de R$ 60 por pessoa para o almoço no Restaurante Hymbé. Para confirmar a reserva, é pago um sinal de 30% do valor via Pix, combinado pelo WhatsApp. Não há pagamento pelo site.</p><template data-pagamento="online"><p>Os valores por pessoa são os informados na página de cada passeio. No Trindade Adventure e no Trindade Boat, o valor já inclui um voucher de R$ 60 por pessoa para o almoço no Restaurante Hymbé. O pagamento pelo site é só por Pix: sinal de 30% do valor total (voucher incluído) ou 100%; para o mesmo dia, só 100%. Cartão, só na maquininha, no local. Quem paga o sinal recebe o link do saldo cerca de 12 horas antes da saída, ou logo após o sinal se a reserva for feita mais perto do horário. Se o saldo não for pago até 15 minutos antes da saída, a reserva é cancelada e o sinal fica com a empresa.</p></template>
+    <p data-pagamento="whatsapp">Os valores por pessoa são os informados na página de cada passeio. Crianças até 12 anos não pagam; a partir de 13 anos pagam o valor cheio. No Trindade Adventure e no Trindade Boat, o valor já inclui um voucher de R$ 60 por pagante para o almoço no Restaurante Hymbé. Para confirmar a reserva, é pago um sinal de 30% do valor via Pix, combinado pelo WhatsApp. Não há pagamento pelo site. Os outros 70% são pagos no dia do passeio.</p><template data-pagamento="online"><p>Os valores por pessoa são os informados na página de cada passeio. Crianças até 12 anos não pagam; a partir de 13 anos pagam o valor cheio. No Trindade Adventure e no Trindade Boat, o valor já inclui um voucher de R$ 60 por pagante para o almoço no Restaurante Hymbé. O pagamento pelo site é só por Pix: sinal de 30% do total de quem paga (voucher incluído) ou 100%; para o mesmo dia, só 100%. Cartão, só na maquininha, no local. Os outros 70% são pagos no dia do passeio. A reserva não é cancelada se o saldo não for pago online.</p></template>
 
     <h2>4. Horário e ponto de encontro</h2>
     <p>A concentração é no horário reservado, na Praia do Meio, junto à placa das trilhas. A saída acontece 20 minutos depois — a reserva das 08:00 sai às 08:20. O Trindade Boat tem encontro às 8h30 ou às 11h (saída 20 min depois). Chegue 15 minutos antes.</p>
@@ -1304,7 +1327,7 @@
     <p>Chuva fraca não cancela o passeio. Em caso de chuva forte, mar grosso ou risco na trilha, a operação remarca sem custo.</p>
 
     <h2>8. Cancelamento e alterações</h2>
-    <p>O cancelamento é gratuito até 12 horas antes da saída. As condições específicas de cancelamento e reagendamento fora desse prazo serão informadas no momento da confirmação.</p>
+    <p>O cancelamento é gratuito até 12 horas antes da saída. O sinal é devolvido nesse prazo. Depois disso, a reserva pode ser cancelada, mas o sinal não é devolvido.</p>
 
     <h2>9. Responsabilidades do participante</h2>
     <ul>
@@ -1430,7 +1453,7 @@
 
 <!-- Leaflet é servido pelo próprio site e só carrega quando o mapa se aproxima
      da tela. Se ainda assim faltar, o app.js mostra a lista de pontos. -->
-<script src="/app.js?v=20261026-release" defer></script>
+<script src="/app.js?v=20261031-regras-pagamento" defer></script>
 <script src="/vendor/lenis-1.3.11.min.js" defer></script>
 <script src="/motion.js?v=20261020-s15" defer></script>
 <script src="/pescaria-galeria.js?v=20261005-rotas" defer></script>

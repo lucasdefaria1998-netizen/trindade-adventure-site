@@ -200,6 +200,7 @@ const ORIGENS_PADRAO = ["https://trindadeadventury.com.br", "https://trindade-ad
 
 const ROTAS_PUBLICAS = {
   "/api/reservas": { tipos: ["application/json"], maxBytes: 8 * 1024, limite: { max: 5, janelaS: 600 }, turnstile: true },
+  "/api/reservas/cancelar": { tipos: ["application/json"], maxBytes: 4 * 1024, limite: { max: 5, janelaS: 600 }, turnstile: true },
   "/api/eventos": { tipos: ["application/json"], maxBytes: 2 * 1024, limite: { max: 60, janelaS: 60 } },
   // Relatórios de violação da CSP. O navegador manda sem cookie e, conforme a versão, sem Origin; o corpo do
   // formato "reports+json" é uma lista. Por isso aceitaLista/origemOpcional — o resto do portão vale igual.
@@ -422,6 +423,9 @@ const VERSAO_VALIDA = /^[A-Za-z0-9._-]{1,40}$/;
 const CACHE_VERSIONADO = "public, max-age=31536000, immutable";
 
 async function servirArquivo(request, env, p, url) {
+  // O código do worker não é um arquivo público. No wrangler local, pedir /_worker.js ainda
+  // tenta servir o asset e estoura (não é diretório). 404, sem cache.
+  if (p === "/_worker.js") return new Response("404", { status: 404, headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
   const r = await env.ASSETS.fetch(request);
   const tipo = r.headers.get("content-type") || "";
   const pediuHTML = /\.html?$/i.test(p);
@@ -672,7 +676,9 @@ async function rotearAPI(request, env, url) {
     const entrada = await receberPostPublico(request, env, p);
     if (entrada.resposta) return entrada.resposta;
     if (p === "/api/csp-report") return registrarRelatorioCsp(entrada.corpo);
-    return p === "/api/reservas" ? criarReserva(entrada.corpo, env, request) : registrarEvento(entrada.corpo, env);
+    if (p === "/api/reservas") return criarReserva(entrada.corpo, env, request);
+    if (p === "/api/reservas/cancelar") return cancelarReservaCliente(entrada.corpo, env);
+    return registrarEvento(entrada.corpo, env);
   }
 
   if (p.startsWith("/api/admin/")) {
@@ -686,6 +692,10 @@ async function rotearAPI(request, env, url) {
     if (p === "/api/admin/reservas" && metodo === "POST") return adminCriarReserva(request, env);
     if (p.match(/^\/api\/admin\/reservas\/[\w-]+\/saldo$/) && metodo === "POST")
       return adminLinkSaldo(request, env, p.split("/")[4]);
+    if (p.match(/^\/api\/admin\/reservas\/[\w-]+\/saldo-presencial$/) && metodo === "POST")
+      return adminQuitarPresencial(env, p.split("/")[4]);
+    if (p.match(/^\/api\/admin\/reservas\/[\w-]+\/cancelar$/) && metodo === "POST")
+      return adminCancelarReserva(env, p.split("/")[4]);
     if (p.match(/^\/api\/admin\/reservas\/[\w-]+\/reagendar$/) && metodo === "POST")
       return adminReagendar(request, env, p.split("/")[4]);
     if (p.match(/^\/api\/admin\/reservas\/[\w-]+\/devolver$/) && metodo === "POST")
@@ -927,7 +937,8 @@ function saidaLabel(h, cfg) {
    reserva: um valor fora da lista vira "outro"/vazio, porque perder uma reserva
    por causa de um parâmetro de campanha estranho custaria mais que o rastreio. */
 
-const LIMITE_PAX_PEDIDO = 15;     // pessoas por reserva (decisão do Lucas, 19/10/2026)
+const LIMITE_PAX_PEDIDO = 15;     // pessoas por reserva, pagantes e crianças juntos (decisão do Lucas, 19/10/2026)
+const IDADE_GRATIS_ATE = 12;      // idade <= 12 não paga; a partir de 13 paga o valor cheio (decisão do Lucas, 31/10/2026)
 const JANELA_RESERVA_DIAS = 90;   // de hoje até hoje+90 dias, no fuso de Trindade
 const WHATSAPP_PADRAO = "5524992073621";
 
@@ -977,6 +988,46 @@ function normalizarDetalhe(v) {
   return typeof v === "string" ? limparLinha(v).slice(0, 100) || null : null;
 }
 
+/* Grupo da reserva. Sem adultos/crianças no pedido, pax continua "todo mundo paga" (pedidos antigos
+   e o fluxo de antes). Com o detalhe: crianças de 0 a 12 anos não pagam, 13+ é pagante, e a soma
+   (pagantes + crianças) é o pax que ocupa vaga — no máximo LIMITE_PAX_PEDIDO, junto com a capacidade. */
+function comporGrupo(b, limite) {
+  const e = {};
+  const inteiro = (v, min, max) => typeof v === "number" && Number.isInteger(v) && v >= min && v <= max;
+  const temSplit = b.adultos != null || b.criancas != null || (b.idadesCriancas != null && b.idadesCriancas !== "");
+  if (!temSplit) {
+    if (inteiro(b.pax, 1, limite)) return { erros: e, pax: b.pax, adultos: b.pax, criancas: 0, idades: [] };
+    e.pax = "Número de pessoas inválido.";
+    return { erros: e };
+  }
+  if (!inteiro(b.adultos, 0, limite)) e.adultos = "Número de pagantes inválido.";
+  if (!inteiro(b.criancas, 0, limite)) e.criancas = "Número de crianças inválido.";
+  if (e.adultos || e.criancas) return { erros: e };
+  const adultos = b.adultos, criancas = b.criancas, pax = adultos + criancas;
+  if (adultos < 1) e.adultos = "Inclua pelo menos um pagante (13 anos ou mais).";
+  if (pax < 1 || pax > limite) e.pax = "Número de pessoas inválido.";
+  if (b.pax != null && b.pax !== pax) e.pax = "O total de pessoas não confere com pagantes e crianças.";
+  let idades = [];
+  if (criancas === 0) {
+    if (b.idadesCriancas != null && !(Array.isArray(b.idadesCriancas) && b.idadesCriancas.length === 0))
+      e.idadesCriancas = "Não informe idades se não há crianças.";
+  } else if (!Array.isArray(b.idadesCriancas) || b.idadesCriancas.length !== criancas) {
+    e.idadesCriancas = "Informe a idade de cada criança.";
+  } else if (b.idadesCriancas.some(i => !inteiro(i, 0, IDADE_GRATIS_ATE))) {
+    e.idadesCriancas = "Criança grátis tem até 12 anos. Quem tem 13 ou mais paga o valor cheio.";
+  } else idades = b.idadesCriancas.slice();
+  if (Object.keys(e).length) return { erros: e };
+  return { erros: e, pax, adultos, criancas, idades };
+}
+
+function idadesGravadas(r) {
+  if (!r || r.idades_criancas == null || r.idades_criancas === "") return [];
+  try {
+    const j = JSON.parse(r.idades_criancas);
+    return Array.isArray(j) ? j.filter(n => typeof n === "number") : [];
+  } catch { return []; }
+}
+
 function validarReserva(b, cfg, agora) {
   const e = {};
   const d = {};
@@ -992,8 +1043,17 @@ function validarReserva(b, cfg, agora) {
   else if (d.data === agora.data && Math.round(b.hora * 60) <= agora.minuto) e.hora = "Esse horário já passou.";
   else d.hora = b.hora;
 
-  if (typeof b.pax === "number" && Number.isInteger(b.pax) && b.pax >= 1 && b.pax <= Math.min(cfg.capacidade, LIMITE_PAX_PEDIDO)) d.pax = b.pax;
-  else e.pax = "Número de pessoas inválido.";
+  const grupo = comporGrupo(b, Math.min(cfg.capacidade, LIMITE_PAX_PEDIDO));
+  if (grupo.erros.pax) e.pax = grupo.erros.pax;
+  if (grupo.erros.adultos) e.adultos = grupo.erros.adultos;
+  if (grupo.erros.criancas) e.criancas = grupo.erros.criancas;
+  if (grupo.erros.idadesCriancas) e.idadesCriancas = grupo.erros.idadesCriancas;
+  if (!e.pax && !e.adultos && !e.criancas && !e.idadesCriancas) {
+    d.pax = grupo.pax;
+    d.adultos = grupo.adultos;
+    d.criancas = grupo.criancas;
+    d.idades = grupo.idades;
+  }
 
   const nome = typeof b.nome === "string" ? b.nome.trim() : "";
   if (nome.length >= 3 && nome.length <= 80 && !CARACTERE_DE_CONTROLE.test(nome)) d.nome = nome;
@@ -1053,8 +1113,6 @@ async function disponibilidade(env, url) {
 
   await garantirEsquemaReservas(env);
   const cfg = await lerConfig(env);
-  // Pagamento online: quem não pagou o saldo até 15 min antes da saída libera a vaga agora.
-  await cancelarSaldosVencidos(env, cfg);
 
   const usados = await env.DB
     .prepare(
@@ -1157,7 +1215,10 @@ async function garantirEsquemaReservas(env) {
   const tem = new Set(results.map(c => c.name));
   const novas = [
     ["expira_em", "ALTER TABLE reservas ADD COLUMN expira_em TEXT"],
-    ["chave_idempotencia", "ALTER TABLE reservas ADD COLUMN chave_idempotencia TEXT"]
+    ["chave_idempotencia", "ALTER TABLE reservas ADD COLUMN chave_idempotencia TEXT"],
+    ["adultos", "ALTER TABLE reservas ADD COLUMN adultos INTEGER"],
+    ["criancas", "ALTER TABLE reservas ADD COLUMN criancas INTEGER"],
+    ["idades_criancas", "ALTER TABLE reservas ADD COLUMN idades_criancas TEXT"]
   ];
   for (const [nome, ddl] of novas) {
     if (tem.has(nome)) continue;
@@ -1180,8 +1241,9 @@ const SQL_INSERIR_RESERVA =
   "INSERT INTO reservas " +
   "(id, codigo, criado_em, plano, data, hora, pax, nome, telefone, email, obs, " +
   "total, voucher, origem, origem_detalhe, como_conheceu, instagram_cliente, " +
-  "seguiu_instagram, status, canal, atualizado_em, expira_em, chave_idempotencia) " +
-  "SELECT ?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,'pendente','site',?3,?20,?21 " +
+  "seguiu_instagram, status, canal, atualizado_em, expira_em, chave_idempotencia, " +
+  "adultos, criancas, idades_criancas) " +
+  "SELECT ?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,'pendente','site',?3,?20,?21,?23,?24,?25 " +
   "WHERE NOT EXISTS (SELECT 1 FROM bloqueios WHERE data = ?5 AND (hora = ?6 OR hora IS NULL)) " +
   "AND (SELECT COALESCE(SUM(pax),0) FROM reservas WHERE data = ?5 AND hora = ?6 AND " + contaNaVaga(3) + ") + ?7 <= ?19 " +
   "AND NOT EXISTS (SELECT 1 FROM reservas WHERE telefone = ?9 AND data = ?5 AND hora = ?6 AND plano = ?4 " +
@@ -1205,24 +1267,17 @@ async function criarReserva(b, env, request) {
   // Passeio de PLANOS com pagamento online ligado: decide 30%/100% (mesmo dia = 100%) antes de gravar.
   let pg = null;
   if (pagamentoOnlineAtivo(env) && planoPagaOnline(d.plano)) {
-    pg = calcularCobranca({ totalReais: PLANOS[d.plano].preco * d.pax, data: d.data, hoje: agora.data, escolha: b.pagamento });
+    // Total só de quem paga (crianças até 12 anos ficam de fora). O saldo desse total é no dia do passeio.
+    pg = calcularCobranca({ totalReais: PLANOS[d.plano].preco * d.adultos, data: d.data, hoje: agora.data, escolha: b.pagamento });
     if (pg.erro) {
       if (pg.motivo) return ok({ ok: false, motivo: pg.motivo, erro: pg.erro }, 409);
       return ok({ ok: false, erros: { pagamento: pg.erro } }, 422);
     }
-    const limite = limiteQuitacaoMs(d.data, d.hora, cfg);
-    pg.minutos = minutosDoLink(Date.now(), limite, PAGAMENTO.prazoPagarMin);
+    // O link do Pix precisa caber antes da saída. Não há mais prazo online para o saldo.
+    pg.minutos = minutosDoLink(Date.now(), saidaMs(d.data, d.hora, cfg), PAGAMENTO.prazoPagarMin);
     if (pg.minutos === null)
       return ok({ ok: false, motivo: "sem_tempo_pagamento", erro: "Não dá mais tempo de pagar online para este horário. Fale com a equipe pelo WhatsApp." }, 409);
-    // Sinal: o link do sinal vence a tempo de ainda caber o link do saldo (mínimo do Asaas) antes do
-    // limite — senão o cliente pagaria o sinal sem chance de pagar o saldo e perderia o sinal.
-    if (pg.modalidade === "sinal") {
-      pg.minutos = minutosDoLink(Date.now(), limite - PAGAMENTO.minimoAsaasMin * 60000, PAGAMENTO.prazoPagarMin);
-      if (pg.minutos === null)
-        return ok({ ok: false, motivo: "sem_tempo_sinal", erro: "Não dá mais tempo de pagar sinal e saldo antes da saída. Escolha pagar 100% agora." }, 409);
-    }
     await garantirEsquemaPagamento(env);
-    await cancelarSaldosVencidos(env, cfg);
   }
 
   const plano = PLANOS[d.plano];
@@ -1244,8 +1299,8 @@ async function criarReserva(b, env, request) {
     return erro("Muitos pedidos deste telefone hoje. Fale com a operação pelo WhatsApp.", 429);
 
   const id = crypto.randomUUID();
-  const total = plano.preco * d.pax;
-  const voucher = plano.voucher * d.pax;
+  const total = plano.preco * d.adultos;
+  const voucher = plano.voucher * d.adultos;
   const limiteDuplicata = new Date(criadoMs - DUPLICADA_JANELA_MIN * 60000).toISOString();
   // Com pagamento online, a vaga fica segura só enquanto o link do Asaas vale (+ folga), não as 6 h do pedido.
   const prazo = pg
@@ -1261,7 +1316,7 @@ async function criarReserva(b, env, request) {
         .bind(
           id, candidato, criadoEm, d.plano, d.data, d.hora, d.pax, d.nome, d.telefone, d.email, d.obs,
           total, voucher, d.origem, d.origemDetalhe, d.comoConheceu, d.igCliente, d.seguiu, cfg.capacidade,
-          prazo, chave, limiteDuplicata
+          prazo, chave, limiteDuplicata, d.adultos, d.criancas, d.idades.length ? JSON.stringify(d.idades) : null
         )
         .run();
       if (r.meta.changes !== 1) {
@@ -1292,12 +1347,14 @@ async function criarReserva(b, env, request) {
 
   // Pagamento online: a resposta traz o link do Asaas, e NÃO o código (ele só sai depois de pago).
   if (pg) {
-    return iniciarPagamento(env, request, { id, plano: d.plano, data: d.data, hora: d.hora, pax: d.pax }, pg,
-      Math.max(0, cfg.capacidade - Number(uso.usado || 0)));
+    return iniciarPagamento(env, request, {
+      id, plano: d.plano, data: d.data, hora: d.hora, pax: d.pax, adultos: d.adultos, criancas: d.criancas
+    }, pg, Math.max(0, cfg.capacidade - Number(uso.usado || 0)));
   }
 
   return respostaDaReserva({
-    codigo, plano, data: d.data, hora: d.hora, pax: d.pax, nome: d.nome, telefone: d.telefone, email: d.email, obs: d.obs,
+    codigo, plano, data: d.data, hora: d.hora, pax: d.pax, adultos: d.adultos, criancas: d.criancas, idades: d.idades,
+    nome: d.nome, telefone: d.telefone, email: d.email, obs: d.obs,
     total, voucher, origem: d.origem, origemDetalhe: d.origemDetalhe, comoConheceu: d.comoConheceu,
     igCliente: d.igCliente, seguiu: d.seguiu
   }, cfg, Math.max(0, cfg.capacidade - Number(uso.usado || 0)));
@@ -1319,12 +1376,17 @@ function respostaDaReserva(m, cfg, restam, extra) {
 
 // A mesma chave com outro pedido não é um reenvio: é conflito (409). Com o mesmo pedido, devolve a mesma resposta.
 async function repetirReserva(env, r, d, cfg, agoraISO) {
-  const igual = r.plano === d.plano && r.data === d.data && Number(r.hora) === d.hora && Number(r.pax) === d.pax && r.telefone === d.telefone;
+  const adultosGravados = r.adultos == null ? Number(r.pax) : Number(r.adultos);
+  const criancasGravadas = r.criancas == null ? 0 : Number(r.criancas);
+  const igual = r.plano === d.plano && r.data === d.data && Number(r.hora) === d.hora && Number(r.pax) === d.pax
+    && adultosGravados === d.adultos && criancasGravadas === d.criancas && r.telefone === d.telefone;
   if (!igual) return ok({ ok: false, motivo: "chave_em_uso", erro: "Esta chave já foi usada em outro pedido." }, 409);
   const uso = await env.DB.prepare(SQL_USADO_NO_HORARIO).bind(r.data, Number(r.hora), agoraISO).first();
   if (r.pagamento_modalidade) return repetirPagamento(env, r, Math.max(0, cfg.capacidade - Number(uso.usado || 0)));
   return respostaDaReserva({
-    codigo: r.codigo, plano: PLANOS[r.plano], data: r.data, hora: Number(r.hora), pax: Number(r.pax), nome: r.nome, telefone: r.telefone,
+    codigo: r.codigo, plano: PLANOS[r.plano], data: r.data, hora: Number(r.hora), pax: Number(r.pax),
+    adultos: adultosGravados, criancas: criancasGravadas, idades: idadesGravadas(r),
+    nome: r.nome, telefone: r.telefone,
     email: r.email, obs: r.obs, total: Number(r.total), voucher: Number(r.voucher), origem: r.origem, origemDetalhe: r.origem_detalhe,
     comoConheceu: r.como_conheceu, igCliente: r.instagram_cliente, seguiu: Number(r.seguiu_instagram)
   }, cfg, Math.max(0, cfg.capacidade - Number(uso.usado || 0)), { repetido: true });
@@ -1356,45 +1418,50 @@ async function explicarRecusa(env, d, cfg, agoraISO, limiteDuplicata) {
 
 /* ------------------------------ pagamento online (Asaas) ------------------------------
 
-   Regra (decisões do Lucas, out/2026), para TODOS os passeios com preço e horário fixos (os de PLANOS:
-   Essencial, Adventure e Boat). O voo de parapente não está aqui: não tem horário fixo nem vaga, então
-   não há como calcular "mesmo dia"/"15 min antes da saída" — segue só pelo WhatsApp (ver LEIA-ME).
+   Regra (decisões do Lucas, out/2026, ajustada em 31/10/2026), para TODOS os passeios com preço e
+   horário fixos (os de PLANOS: Essencial, Adventure e Boat). O voo de parapente não está aqui: não tem
+   horário fixo nem vaga — segue só pelo WhatsApp (ver LEIA-ME).
+     - crianças com até 12 anos não pagam; a partir de 13 anos pagam o valor cheio. O total é
+       preço × pagantes (no Adventure e no Boat o preço já inclui o voucher de almoço). Pagantes e
+       crianças ocupam vaga. O sinal de 30% incide só sobre esse total;
      - passeio em OUTRO dia: o cliente escolhe pagar 30% agora (sinal) ou 100% agora;
      - passeio no MESMO dia (data do passeio = hoje no fuso de Paraty/Trindade, America/Sao_Paulo):
        100% obrigatório;
-     - o sinal é 30% do valor TOTAL (preço × pessoas; no Adventure e no Boat o total já inclui o
-       voucher de almoço de R$ 60);
      - a reserva vira "confirmada" — e o código aparece para o cliente — logo que o Asaas avisa pelo
-       webhook que o sinal (ou o integral) entrou. Comportamento fixo, sem opção;
-     - o saldo (o que falta do total) é cobrado num segundo link, que vale no máximo até 15 min antes
-       da saída. O link é gerado pelo botão do painel ou sozinho, SALDO_ANTECEDENCIA_H horas antes da
-       saída (tarefa de pagamento, ver executarTarefasPagamento);
-     - saldo não pago até 15 min antes da saída: a reserva é cancelada sozinha, a vaga é liberada e a
-       empresa fica com o sinal (pagamento_status "sinal_retido", sem devolução);
+       webhook que o sinal (ou o integral) entrou;
+     - o saldo (70%, o que falta do total) é pago NO DIA DO PASSEIO, presencial. Não há cobrança
+       automática nem cancelamento se o saldo online não entrar. O botão do painel ainda pode gerar
+       um link do saldo, como opção, sem prazo de 15 min e sem cancelar a reserva. Outro botão marca
+       o saldo como recebido no dia (sem chamar o Asaas);
+     - cancelamento até 12 h antes da SAÍDA (config cancelamento_h): o que foi pago no site é estornado
+       (POST /v3/payments/{id}/refund). Depois disso, a reserva pode ser cancelada e o valor fica com
+       a empresa. Idempotente. Vale para o cliente (código + WhatsApp) e para o painel;
      - pagou e ficou sem vaga ("pago_sem_vaga"): o cliente escolhe entre reagendar e devolução; o
-       painel tem as duas ações (adminReagendar / adminDevolver).
-   Exemplo (R$ 80): outro dia, 30% → R$ 24 agora + R$ 56 no link do saldo; 100% → R$ 80 agora.
-   Mesmo dia → R$ 80 agora, sem escolha. Só Pix online; cartão só na maquininha, no local.
+       painel tem as duas ações (adminReagendar / adminDevolver). Essa devolução não depende das 12 h.
+   Exemplo (Essencial R$ 80, 2 pagantes e 1 criança): total R$ 160, sinal R$ 48, saldo R$ 112 no dia.
+   Mesmo dia → 100% agora, sem escolha. Só Pix online; cartão só na maquininha, no local.
 
-   Liga só com PAGAMENTO_ONLINE="1" + ASAAS_API_KEY + ASAAS_WEBHOOK_TOKEN. Desligado, tudo segue
-   exatamente como antes (pedido + WhatsApp). ASAAS_API_URL tem o SANDBOX como padrão: em produção
-   é preciso configurar https://api.asaas.com de propósito.
+   Liga só com PAGAMENTO_ONLINE="1" + ASAAS_API_KEY + ASAAS_WEBHOOK_TOKEN. Desligado, o pedido segue
+   pelo WhatsApp (com a mesma conta de crianças e a mesma frase do saldo no dia). ASAAS_API_URL tem o
+   SANDBOX como padrão: em produção é preciso configurar https://api.asaas.com de propósito.
 
    Usa o Checkout do Asaas (POST /v3/checkouts): nome e CPF o cliente informa na própria página do
-   Asaas, então o formulário do site continua sem pedir CPF. O que confirma é o evento CHECKOUT_PAID
-   no webhook /api/asaas/webhook (header asaas-access-token = ASAAS_WEBHOOK_TOKEN); o redirecionamento
-   de volta para o site (callback) não confirma nada.
+   Asaas, então o formulário do site continua sem pedir CPF. Quem confirma o pagamento, na API de
+   Checkout, é o evento CHECKOUT_PAID (docs: Events for Checkout). O webhook também aceita
+   PAYMENT_RECEIVED e PAYMENT_CONFIRMED quando o painel do Asaas está inscrito nos eventos de cobrança:
+   o Pix do checkout gera uma cobrança, e esses eventos chegam junto. Eles localizam a mesma linha por
+   payment.checkoutSession (id do checkout) ou, na falta dele, por externalReference + valor.
+   Header asaas-access-token = ASAAS_WEBHOOK_TOKEN. O redirect de volta (callback) não confirma nada.
 
-   Estorno: só quando a equipe clica "Devolver" num pago_sem_vaga (POST /v3/payments/{id}/refund). Nada
-   é devolvido sozinho. */
+   Estorno do pago_sem_vaga: a equipe clica "Devolver". Estorno do cancelamento dentro das 12 h: a rota
+   de cancelamento. Os dois usam POST /v3/payments/{id}/refund. Nada é estornado sozinho. */
 const PAGAMENTO = {
-  percentualSinal: 30,        // sinal no "outro dia", sobre o valor total
+  percentualSinal: 30,        // sinal no "outro dia", sobre o total de quem paga
   formas: ["PIX"],            // billingTypes do checkout: SÓ Pix (decisão do Lucas: cartão só na maquininha, no local)
   prazoPagarMin: 30,          // validade do link do 1º pagamento (a vaga fica segura enquanto isso)
   folgaVagaMin: 5,            // a vaga fica segura mais estes minutos além do link (webhook atrasado)
   minimoAsaasMin: 10,         // menor minutesToExpire que o Asaas aceita
-  maximoAsaasMin: 1440,       // maior minutesToExpire que o Asaas aceita (24 h)
-  quitarAntesDaSaidaMin: 15   // tudo pago até 15 min antes da SAÍDA (concentração + saida_apos)
+  maximoAsaasMin: 1440        // maior minutesToExpire que o Asaas aceita (24 h); o link opcional do saldo usa este teto
 };
 const ASAAS_API_PADRAO = "https://api-sandbox.asaas.com";
 const REF_PAGAMENTO = /^[a-f0-9]{32}$/;
@@ -1409,14 +1476,8 @@ function planoPagaOnline(planoId) {
   return !!p && Number(p.preco) > 0;
 }
 
-/* Link do saldo automático (decisão do Lucas): o servidor gera sozinho o link do saldo de quem pagou
-   só o sinal, SALDO_ANTECEDENCIA_H horas antes da SAÍDA (padrão 12). Se o sinal for confirmado quando
-   já falta menos que isso, o link sai na hora, no processamento do webhook do sinal. Idempotente: se já
-   existe link do saldo valendo, nada novo é criado. A variável SALDO_ANTECEDENCIA_H muda o número de
-   horas; "0" desliga o automático (fica só o botão do painel); vazia ou inválida = 12.
-   O link vale até 15 min antes da saída, no máximo 24 h (limite do Asaas: se vencer antes, a próxima
-   rodada da tarefa gera outro). Não há canal automático de envio ao cliente no código (o site só monta
-   links wa.me que o próprio cliente abre): o link fica no painel para a equipe copiar e mandar. */
+/* SALDO_ANTECEDENCIA_H não gera mais link nem cancela reserva (decisão de 31/10/2026: o saldo é no dia
+   do passeio). A função continua só para não quebrar quem ainda tem a variável configurada. */
 const SALDO_ANTECEDENCIA_H_PADRAO = 12;
 function saldoAntecedenciaH(env) {
   const bruto = env && env.SALDO_ANTECEDENCIA_H;
@@ -1427,10 +1488,11 @@ function saldoAntecedenciaH(env) {
 }
 
 /* Quanto cobrar agora. Valores em centavos: o sinal é arredondado para o centavo mais próximo e o
-   saldo é sempre o que falta, então sinal + saldo fecham exatamente no total.
+   saldo é sempre o que falta, então sinal + saldo fecham exatamente no total. totalReais já é só
+   de quem paga (crianças até 12 anos ficam de fora).
    escolha: "sinal" (30%) ou "integral" (100%). No mesmo dia só vale "integral"; quem manda "sinal"
    para hoje (ex.: a página ficou aberta e virou o dia) recebe recusa, para não ser cobrado de um
-   valor diferente do que viu. */
+   valor diferente do que viu. O saldo não é cobrado sozinho antes da saída. */
 function calcularCobranca({ totalReais, data, hoje, escolha }) {
   const totalCentavos = Math.round(Number(totalReais) * 100);
   const mesmoDia = data === hoje;
@@ -1450,10 +1512,12 @@ function calcularCobranca({ totalReais, data, hoje, escolha }) {
 function saidaMs(data, hora, cfg) {
   return Date.parse(data + "T00:00:00Z") + (Math.round(hora * 60) + cfg.saidaApos + 180) * 60000;
 }
-function limiteQuitacaoMs(data, hora, cfg) {
-  return saidaMs(data, hora, cfg) - PAGAMENTO.quitarAntesDaSaidaMin * 60000;
+// true quando ainda falta pelo menos cancelamento_h (padrão 12) até a SAÍDA: o estorno do sinal cabe.
+function dentroDoPrazoDeEstorno(data, hora, cfg, agoraMs) {
+  const horas = Number(cfg && cfg.cancelamentoH) > 0 ? Number(cfg.cancelamentoH) : 12;
+  return agoraMs <= saidaMs(data, hora, cfg) - horas * 3600e3;
 }
-// Validade de um link: até `teto` minutos, sem passar do limite de quitação. null = não dá mais tempo.
+// Validade de um link: até `teto` minutos, sem passar de limiteMs. null = não dá mais tempo.
 function minutosDoLink(agoraMs, limiteMs, teto) {
   const m = Math.min(teto, PAGAMENTO.maximoAsaasMin, Math.floor((limiteMs - agoraMs) / 60000));
   return m >= PAGAMENTO.minimoAsaasMin ? m : null;
@@ -1595,7 +1659,8 @@ async function novaCobranca(env, request, r, tipo, valorCentavos, minutos) {
     origemSite: request ? new URL(request.url).origin : DOMINIO_OFICIAL, ref, reservaId: r.id, minutos, valorCentavos,
     nome: plano.nome + " — " + TIPO_COBRANCA[tipo],
     descricao: r.data.split("-").reverse().join("/") + " · concentração " + horaLabel(Number(r.hora)) +
-      " · " + r.pax + (Number(r.pax) === 1 ? " pessoa" : " pessoas")
+      " · " + r.pax + (Number(r.pax) === 1 ? " pessoa" : " pessoas") +
+      (Number(r.criancas) > 0 ? " (" + r.adultos + " pagantes; crianças até 12 anos não pagam)" : "")
   });
   const cob = {
     id: crypto.randomUUID(), tipo, valorCentavos, asaasId: ck.id, ref, link: ck.link,
@@ -1684,11 +1749,46 @@ async function statusDoPagamento(request, env, url) {
     if (resp.confirmada) resp.codigo = c.codigo;
     // Situação da reserva depois do pagamento (sem prazo nem dado interno): o site mostra a mensagem certa.
     resp.situacao = resp.confirmada ? "confirmada"
+      : c.pagamento_status === "sem_devolucao" ? "cancelada_sem_estorno"
+      : c.pagamento_status === "estorno_solicitado" ? "estorno_solicitado"
+      : c.pagamento_status === "estorno_manual" ? "estorno_manual"
       : SITUACAO_SEM_VAGA.includes(c.pagamento_status) ? "sem_vaga"
       : c.pagamento_status === "sinal_retido" ? "cancelada_sem_saldo"
       : "processando";
+    if (c.pagamento_status === "sinal_pago") resp.saldoNoDia = true;
   }
   return ok(resp);
+}
+
+/* Acha a cobrança local de um evento do Asaas. Checkout: pelo id da sessão. Cobrança (PAYMENT_*):
+   primeiro payment.checkoutSession (é o id que gravamos em cobrancas.asaas_id); se não vier,
+   externalReference (id da reserva) junto com o valor em centavos. Valor diferente não confirma. */
+async function cobrancaDoEventoAsaas(env, ev) {
+  const checkoutId = ev.checkout && typeof ev.checkout.id === "string" ? ev.checkout.id : "";
+  if (checkoutId) {
+    const cob = await env.DB.prepare("SELECT * FROM cobrancas WHERE asaas_id = ?1").bind(checkoutId).first();
+    return { cob };
+  }
+  if (ev.event !== "PAYMENT_RECEIVED" && ev.event !== "PAYMENT_CONFIRMED") return { cob: null };
+  const pay = ev.payment;
+  if (!pay || typeof pay !== "object") return { cob: null };
+  if (!["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH"].includes(String(pay.status || ""))) return { cob: null };
+  const cent = Math.round(Number(pay.value) * 100);
+  if (!Number.isInteger(cent) || cent <= 0) return { cob: null };
+  const sessao = typeof pay.checkoutSession === "string" ? pay.checkoutSession : "";
+  if (sessao) {
+    const cob = await env.DB.prepare("SELECT * FROM cobrancas WHERE asaas_id = ?1").bind(sessao).first();
+    if (!cob) return { cob: null };
+    if (Number(cob.valor_centavos) !== cent) return { cob: null, valorDiverge: true };
+    return { cob };
+  }
+  const refExt = typeof pay.externalReference === "string" ? pay.externalReference : "";
+  if (!refExt) return { cob: null };
+  const cob = await env.DB.prepare(
+    "SELECT * FROM cobrancas WHERE reserva_id = ?1 AND valor_centavos = ?2 AND status IN ('aguardando', 'paga') " +
+    "ORDER BY CASE status WHEN 'aguardando' THEN 0 ELSE 1 END, criado_em DESC LIMIT 1"
+  ).bind(refExt, cent).first();
+  return { cob };
 }
 
 /* POST /api/asaas/webhook — fora do portão de Origin (quem chama é o Asaas), autenticado pelo token
@@ -1710,15 +1810,18 @@ async function webhookAsaas(request, env) {
   const ja = await env.DB.prepare("SELECT 1 AS x FROM asaas_eventos WHERE id = ?1").bind(ev.id).first();
   if (ja) return ok({ ok: true, repetido: true });
 
-  const checkoutId = ev.checkout && typeof ev.checkout.id === "string" ? ev.checkout.id : null;
-  if (checkoutId) {
-    const cob = await env.DB.prepare("SELECT * FROM cobrancas WHERE asaas_id = ?1").bind(checkoutId).first();
-    if (!cob) console.warn("[asaas] evento de checkout desconhecido", ev.event);
-    else if (ev.event === "CHECKOUT_PAID") await registrarPagamento(env, cob);
-    else if (ev.event === "CHECKOUT_EXPIRED" || ev.event === "CHECKOUT_CANCELED")
-      await env.DB.prepare("UPDATE cobrancas SET status = ?1 WHERE id = ?2 AND status = 'aguardando'")
-        .bind(ev.event === "CHECKOUT_EXPIRED" ? "expirada" : "cancelada", cob.id).run();
-  }
+  // CHECKOUT_PAID é o evento da API de Checkout. PAYMENT_RECEIVED (Pix) e PAYMENT_CONFIRMED
+  // (cartão, ou redundância) chegam se o webhook do painel também escuta cobranças: a mesma
+  // sessão de checkout vira uma cobrança com checkoutSession e externalReference.
+  const achado = await cobrancaDoEventoAsaas(env, ev);
+  if (achado.valorDiverge) console.warn("[asaas] valor do pagamento não confere com a cobrança", ev.event);
+  else if (!achado.cob && (ev.checkout || ev.event === "PAYMENT_RECEIVED" || ev.event === "PAYMENT_CONFIRMED"))
+    console.warn("[asaas] evento sem cobrança conhecida", ev.event);
+  else if (achado.cob && (ev.event === "CHECKOUT_EXPIRED" || ev.event === "CHECKOUT_CANCELED"))
+    await env.DB.prepare("UPDATE cobrancas SET status = ?1 WHERE id = ?2 AND status = 'aguardando'")
+      .bind(ev.event === "CHECKOUT_EXPIRED" ? "expirada" : "cancelada", achado.cob.id).run();
+  else if (achado.cob && (ev.event === "CHECKOUT_PAID" || ev.event === "PAYMENT_RECEIVED" || ev.event === "PAYMENT_CONFIRMED"))
+    await registrarPagamento(env, achado.cob);
   // Grava o evento só depois de processar: se algo falhar no meio, o Asaas reenvia e o processamento roda de novo.
   await env.DB.prepare("INSERT OR IGNORE INTO asaas_eventos (id, evento, recebido_em) VALUES (?1, ?2, ?3)")
     .bind(ev.id, ev.event.slice(0, 60), new Date().toISOString()).run();
@@ -1735,8 +1838,8 @@ async function registrarPagamento(env, cob) {
   const r = await env.DB.prepare("SELECT id, status, pagamento_status FROM reservas WHERE id = ?1").bind(cob.reserva_id).first();
   if (!r) return;
   if (cob.tipo === "saldo") {
-    // Saldo pago no prazo, mas o aviso do Asaas chegou depois do cancelamento automático: devolve a
-    // reserva se o horário ainda comportar; senão vira pago_sem_vaga (reagendar ou devolver).
+    // Saldo de um link opcional. Reserva já cancelada não volta a "quitado" sozinha, salvo o caso
+    // antigo de sinal_retido (cancelamento que este código não faz mais) com vaga ainda livre.
     if (r.status === "cancelada" && r.pagamento_status === "sinal_retido") {
       const cfg = await lerConfig(env);
       const volta = await env.DB.prepare(SQL_REATIVAR_QUITADA).bind(r.id, agoraISO, cfg.capacidade).run();
@@ -1746,35 +1849,27 @@ async function registrarPagamento(env, cob) {
       }
       return;
     }
+    if (r.status === "cancelada") {
+      if (!["pago_sem_vaga", "devolucao_solicitada", "devolucao_manual", "estorno_solicitado", "estorno_manual"].includes(r.pagamento_status))
+        await env.DB.prepare("UPDATE reservas SET pagamento_status = 'pago_sem_vaga', atualizado_em = ?1 WHERE id = ?2").bind(agoraISO, r.id).run();
+      return;
+    }
     if (r.pagamento_status !== "quitado")
       await env.DB.prepare("UPDATE reservas SET pagamento_status = 'quitado', atualizado_em = ?1 WHERE id = ?2").bind(agoraISO, r.id).run();
     return;
   }
-  if (["sinal_pago", "quitado", "sinal_retido", ...SITUACAO_SEM_VAGA].includes(r.pagamento_status)) return; // já processado
+  if (["sinal_pago", "quitado", "sinal_retido", "sem_devolucao", "estorno_solicitado", "estorno_manual", ...SITUACAO_SEM_VAGA].includes(r.pagamento_status)) return;
   const novo = cob.tipo === "integral" ? "quitado" : "sinal_pago";
   const cfg = await lerConfig(env);
   const conf = await env.DB.prepare(SQL_CONFIRMAR_PAGA).bind(r.id, novo, agoraISO, cfg.capacidade).run();
   if (!conf.meta.changes) {
     await env.DB.prepare("UPDATE reservas SET pagamento_status = 'pago_sem_vaga', atualizado_em = ?1 WHERE id = ?2").bind(agoraISO, r.id).run();
     console.error("[asaas] pagamento recebido sem vaga — a equipe precisa resolver", r.id);
-    return;
-  }
-  // Sinal confirmado já dentro da antecedência do saldo (ex.: reserva feita perto do horário): o link do
-  // saldo sai agora mesmo. Falhou (Asaas fora)? A próxima rodada da tarefa tenta de novo.
-  if (novo === "sinal_pago") {
-    const h = saldoAntecedenciaH(env);
-    const res = await env.DB.prepare("SELECT * FROM reservas WHERE id = ?1").bind(r.id).first();
-    if (h !== null && res && Date.now() >= saidaMs(res.data, Number(res.hora), cfg) - h * 3600e3) {
-      try { await linkDoSaldo(env, null, res, cfg); }
-      catch (e) { console.error("[asaas] link do saldo automático falhou", mascarar(e && e.message ? e.message : String(e))); }
-    }
   }
 }
 
-/* POST /api/admin/reservas/:id/saldo — gera (ou devolve, se ainda valer) o link do saldo de uma
-   reserva confirmada com sinal pago. O link vale até 15 min antes da saída, no máximo 24 h (limite
-   do Asaas): para passeio daqui a vários dias, gere de novo mais perto. Quem envia o link para o
-   cliente (e quando) é decisão da operação — o painel só mostra o link para copiar. */
+/* POST /api/admin/reservas/:id/saldo — link OPCIONAL do saldo, para quem quiser pagar o resto online.
+   Não cancela a reserva se ninguém pagar. Vale 24 h (teto do Asaas); o padrão é receber no dia do passeio. */
 async function adminLinkSaldo(request, env, id) {
   if (!pagamentoOnlineAtivo(env)) return erro("Pagamento online desligado.", 409);
   await garantirEsquemaPagamento(env);
@@ -1783,7 +1878,7 @@ async function adminLinkSaldo(request, env, id) {
   if (r.status !== "confirmada" || r.pagamento_status !== "sinal_pago")
     return erro("Só reserva confirmada com sinal pago tem saldo a cobrar.", 409);
   let res;
-  try { res = await linkDoSaldo(env, request, r, await lerConfig(env)); }
+  try { res = await linkDoSaldo(env, request, r); }
   catch (e) {
     console.error("[asaas]", mascarar(e && e.message ? e.message : String(e)));
     return erro("O Asaas não respondeu. Tente de novo em instantes.", 502);
@@ -1792,10 +1887,8 @@ async function adminLinkSaldo(request, env, id) {
   return ok({ ok: true, ...(res.repetido ? { repetido: true } : {}), link: res.link, valor: res.valor, expiraEm: res.expiraEm });
 }
 
-/* Link do saldo de uma reserva confirmada com sinal pago — usado pelo botão do painel, pela tarefa
-   automática e pelo webhook do sinal. Idempotente: link do saldo ainda valendo é devolvido, não
-   recriado. Erro do Asaas sobe (quem chama decide). */
-async function linkDoSaldo(env, request, r, cfg) {
+/* Link opcional do saldo. Idempotente enquanto o link vigente não vence. Não depende da hora da saída. */
+async function linkDoSaldo(env, request, r) {
   const pago = await env.DB.prepare(SQL_PAGO_CENTAVOS).bind(r.id).first();
   const saldo = Math.round(Number(r.total) * 100) - Number(pago.pago);
   if (saldo <= 0) return { erro: "Não há saldo a cobrar." };
@@ -1807,85 +1900,46 @@ async function linkDoSaldo(env, request, r, cfg) {
     )
     .bind(r.id, agoraISO).first();
   if (vigente) return { repetido: true, link: vigente.link, valor: Number(vigente.valor_centavos) / 100, expiraEm: vigente.expira_em };
-  const minutos = minutosDoLink(Date.now(), limiteQuitacaoMs(r.data, Number(r.hora), cfg), PAGAMENTO.maximoAsaasMin);
-  if (minutos === null) return { erro: "Passou do prazo para pagar o saldo online (15 min antes da saída). Resolva direto com o cliente." };
-  const cob = await novaCobranca(env, request, r, "saldo", saldo, minutos);
+  const cob = await novaCobranca(env, request, r, "saldo", saldo, PAGAMENTO.maximoAsaasMin);
   return { link: cob.link, valor: saldo / 100, expiraEm: cob.expiraEm };
 }
 
-/* ------------------------------ tarefas de pagamento (saldo e cancelamento) ------------------------------
-
-   1) Cancelamento automático (decisão do Lucas): reserva confirmada só com o sinal pago cujo saldo não
-      foi pago até 15 min antes da saída vira "cancelada", com pagamento_status "sinal_retido" — a
-      empresa fica com o sinal (sem devolução) e a vaga é liberada. Exceção: sinal que só foi confirmado
-      (webhook) quando já não cabia mais um link do saldo — aí não há como o cliente ter pago o saldo
-      online; a reserva NÃO é cancelada sozinha e o painel avisa para a equipe resolver.
-      Roda em toda consulta de disponibilidade, criação de reserva e lista do painel (só UPDATE local,
-      sem chamar o Asaas), então a vaga volta para o site mesmo sem agendador.
-   2) Link do saldo automático SALDO_ANTECEDENCIA_H antes da saída (chama o Asaas): roda só na tarefa —
-      POST /api/tarefas/pagamento (header x-tarefas-token = TAREFAS_TOKEN) ou no handler scheduled.
-      Cloudflare Pages NÃO tem Cron Trigger: quem chama a rota de tempos em tempos precisa ser
-      configurado fora deste projeto (ver LEIA-ME). */
-const SQL_SINAIS_PARA_CONFERIR =
-  "SELECT r.id, r.data, r.hora, (SELECT MIN(c.pago_em) FROM cobrancas c WHERE c.reserva_id = r.id AND c.tipo = 'sinal' AND c.status = 'paga') AS sinal_pago_em " +
-  "FROM reservas r WHERE r.status = 'confirmada' AND r.pagamento_status = 'sinal_pago' AND r.data <= ?1";
-const SQL_CANCELAR_SEM_SALDO =
-  "UPDATE reservas SET status = 'cancelada', pagamento_status = 'sinal_retido', atualizado_em = ?2 " +
-  "WHERE id = ?1 AND status = 'confirmada' AND pagamento_status = 'sinal_pago'";
-
-function sinalSemTempoDeSaldo(r, cfg) {
-  return !!r.sinal_pago_em &&
-    Date.parse(r.sinal_pago_em) > limiteQuitacaoMs(r.data, Number(r.hora), cfg) - PAGAMENTO.minimoAsaasMin * 60000;
-}
-
-async function cancelarSaldosVencidos(env, cfg) {
-  if (!pagamentoOnlineAtivo(env)) return 0;
+/* POST /api/admin/reservas/:id/saldo-presencial — a equipe marca o saldo recebido no dia do passeio.
+   Não chama o Asaas. Idempotente: se já está quitado, devolve repetido e não grava outra linha. */
+async function adminQuitarPresencial(env, id) {
+  if (!pagamentoOnlineAtivo(env)) return erro("Pagamento online desligado.", 409);
   await garantirEsquemaPagamento(env);
-  const agoraMs = Date.now(), agoraISO = new Date(agoraMs).toISOString();
-  const { results } = await env.DB.prepare(SQL_SINAIS_PARA_CONFERIR).bind(somaDiasISO(agoraEmTrindade().data, 1)).all();
-  let n = 0;
-  for (const r of results) {
-    if (agoraMs < limiteQuitacaoMs(r.data, Number(r.hora), cfg) || sinalSemTempoDeSaldo(r, cfg)) continue;
-    const feito = await env.DB.prepare(SQL_CANCELAR_SEM_SALDO).bind(r.id, agoraISO).run();
-    if (feito.meta.changes) {
-      n++;
-      await env.DB.prepare("UPDATE cobrancas SET status = 'expirada' WHERE reserva_id = ?1 AND tipo = 'saldo' AND status = 'aguardando'").bind(r.id).run();
-    }
+  const r = await env.DB.prepare("SELECT * FROM reservas WHERE id = ?1").bind(id).first();
+  if (!r) return erro("Reserva não encontrada.", 404);
+  if (r.pagamento_status === "quitado") return ok({ ok: true, repetido: true, pagamentoStatus: "quitado", forma: "presencial" });
+  if (r.status !== "confirmada" || r.pagamento_status !== "sinal_pago")
+    return erro("Só reserva confirmada com sinal pago tem saldo a receber no dia.", 409);
+  const pago = await env.DB.prepare(SQL_PAGO_CENTAVOS).bind(r.id).first();
+  const saldo = Math.round(Number(r.total) * 100) - Number(pago.pago);
+  const agoraISO = new Date().toISOString();
+  const feito = await env.DB.prepare(
+    "UPDATE reservas SET pagamento_status = 'quitado', atualizado_em = ?2 WHERE id = ?1 AND status = 'confirmada' AND pagamento_status = 'sinal_pago'"
+  ).bind(r.id, agoraISO).run();
+  if (!feito.meta.changes) {
+    const deNovo = await env.DB.prepare("SELECT pagamento_status FROM reservas WHERE id = ?1").bind(r.id).first();
+    if (deNovo && deNovo.pagamento_status === "quitado") return ok({ ok: true, repetido: true, pagamentoStatus: "quitado", forma: "presencial" });
+    return erro("Não foi possível marcar o saldo.", 409);
   }
-  return n;
+  if (saldo > 0) {
+    await env.DB.prepare(
+      "INSERT INTO cobrancas (id, reserva_id, tipo, valor_centavos, asaas_id, ref_publica, link, status, criado_em, pago_em) " +
+      "VALUES (?1, ?2, 'saldo_presencial', ?3, NULL, ?4, NULL, 'paga', ?5, ?5)"
+    ).bind(crypto.randomUUID(), r.id, saldo, tokenAleatorio(), agoraISO).run();
+  }
+  return ok({ ok: true, pagamentoStatus: "quitado", valor: Math.max(0, saldo) / 100, forma: "presencial" });
 }
 
-async function gerarSaldosAutomaticos(env, cfg) {
-  const h = saldoAntecedenciaH(env);
-  if (!pagamentoOnlineAtivo(env) || h === null) return { gerados: 0, falhas: 0 };
-  await garantirEsquemaPagamento(env);
-  const agoraMs = Date.now();
-  const hoje = agoraEmTrindade().data;
-  const { results } = await env.DB
-    .prepare("SELECT * FROM reservas WHERE status = 'confirmada' AND pagamento_status = 'sinal_pago' AND data >= ?1 AND data <= ?2")
-    .bind(hoje, somaDiasISO(hoje, Math.ceil(h / 24) + 1)).all();
-  let gerados = 0, falhas = 0;
-  for (const r of results) {
-    const saida = saidaMs(r.data, Number(r.hora), cfg);
-    if (agoraMs < saida - h * 3600e3 || agoraMs >= limiteQuitacaoMs(r.data, Number(r.hora), cfg)) continue;
-    try {
-      const res = await linkDoSaldo(env, null, r, cfg);
-      if (res.link && !res.repetido) gerados++;
-    } catch (e) {
-      falhas++;
-      console.error("[asaas] link do saldo automático falhou", mascarar(e && e.message ? e.message : String(e)));
-    }
-  }
-  return { gerados, falhas };
-}
-
+/* A tarefa POST /api/tarefas/pagamento (e o scheduled, se um dia existir) não cobra saldo nem cancela
+   reserva. O saldo é no dia do passeio. A rota continua de pé para um agendador antigo não receber 404
+   e não dispara chamada ao Asaas. */
 async function executarTarefasPagamento(env) {
   if (!env || !env.DB || !pagamentoOnlineAtivo(env)) return { ok: true, ligado: false };
-  await garantirEsquemaPagamento(env);
-  const cfg = await lerConfig(env);
-  const cancelados = await cancelarSaldosVencidos(env, cfg);
-  const saldos = await gerarSaldosAutomaticos(env, cfg);
-  return { ok: true, ligado: true, cancelados, saldosGerados: saldos.gerados, saldosComFalha: saldos.falhas };
+  return { ok: true, ligado: true, cancelados: 0, saldosGerados: 0, saldosComFalha: 0 };
 }
 
 // POST /api/tarefas/pagamento — para um agendador externo. Sem TAREFAS_TOKEN configurado, a rota não existe.
@@ -1915,8 +1969,8 @@ async function adminReagendar(request, env, id) {
   if (erroData) return ok({ ok: false, erros: { data: erroData } }, 422);
   if (typeof b.hora !== "number" || !horariosDoPlano(r.plano, cfg).includes(b.hora))
     return ok({ ok: false, erros: { hora: "Horário indisponível para este passeio." } }, 422);
-  if (Date.now() >= limiteQuitacaoMs(b.data, b.hora, cfg))
-    return ok({ ok: false, erros: { hora: "Esse horário já está a menos de 15 min da saída." } }, 422);
+  if (Date.now() >= saidaMs(b.data, b.hora, cfg))
+    return ok({ ok: false, erros: { hora: "Esse horário já passou." } }, 422);
   const pago = await env.DB.prepare(SQL_PAGO_CENTAVOS).bind(r.id).first();
   const novo = Number(pago.pago) >= Math.round(Number(r.total) * 100) ? "quitado" : "sinal_pago";
   const agoraISO = new Date().toISOString();
@@ -1946,6 +2000,7 @@ async function adminDevolver(request, env, id) {
     .bind(r.id).all();
   let falhas = 0, valor = 0;
   for (const c of pagas) {
+    if (!c.asaas_id) continue;
     try {
       await estornarCheckout(env, c.asaas_id, "Reserva " + r.codigo + " sem vaga: devolução");
       await env.DB.prepare("UPDATE cobrancas SET estorno = 'solicitado' WHERE id = ?1").bind(c.id).run();
@@ -1983,6 +2038,124 @@ async function estornarCheckout(env, checkoutId, descricao) {
   await chamarAsaas(env, "POST", "/v3/payments/" + encodeURIComponent(pag.id) + "/refund", { description: descricao.slice(0, 200) });
 }
 
+function telefonesIguais(a, b) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const nacional = n => (n.length === 12 || n.length === 13) && n.startsWith("55") ? n.slice(2) : n;
+  return nacional(a) === nacional(b);
+}
+
+/* Cancela a reserva. Com pagamento online já recebido e pelo menos cancelamento_h até a saída,
+   estorna no Asaas o que foi pago no site. Depois desse prazo, cancela e não devolve. Sem pagamento
+   online, só libera a vaga. A segunda chamada não pede outro estorno (cobrança já 'solicitado',
+   ou reserva já cancelada com estorno concluído). Se o estorno falhou, uma nova chamada tenta de novo. */
+async function cancelarReserva(env, r) {
+  const cfg = await lerConfig(env);
+  const agoraMs = Date.now();
+  const agoraISO = new Date(agoraMs).toISOString();
+  const horas = Number(cfg.cancelamentoH) > 0 ? Number(cfg.cancelamentoH) : 12;
+
+  if (r.status === "cancelada" && r.pagamento_status !== "estorno_manual") {
+    return ok({
+      ok: true, repetido: true, cancelada: true, pagamentoStatus: r.pagamento_status,
+      estorno: r.pagamento_status === "estorno_solicitado" || r.pagamento_status === "devolucao_solicitada" ? "solicitado"
+        : r.pagamento_status === "sem_devolucao" || r.pagamento_status === "sinal_retido" ? "nao_coube" : "nada_pago",
+      mensagem: "Esta reserva já estava cancelada."
+    });
+  }
+
+  let pagas = [];
+  if (pagamentoOnlineAtivo(env)) {
+    await garantirEsquemaPagamento(env);
+    const q = await env.DB.prepare("SELECT * FROM cobrancas WHERE reserva_id = ?1 AND status = 'paga'").bind(r.id).all();
+    pagas = q.results || [];
+  }
+  const onlinePagas = pagas.filter(c => c.asaas_id);
+  const noPrazo = dentroDoPrazoDeEstorno(r.data, Number(r.hora), cfg, agoraMs);
+  const deveEstornar = onlinePagas.length > 0 && (noPrazo || r.pagamento_status === "estorno_manual");
+
+  if (!deveEstornar) {
+    const novo = onlinePagas.length ? "sem_devolucao" : r.pagamento_status;
+    await env.DB.prepare(
+      "UPDATE reservas SET status = 'cancelada', pagamento_status = COALESCE(?2, pagamento_status), atualizado_em = ?3 WHERE id = ?1 AND status != 'cancelada'"
+    ).bind(r.id, onlinePagas.length ? "sem_devolucao" : r.pagamento_status, agoraISO).run();
+    return ok({
+      ok: true, cancelada: true, pagamentoStatus: novo || r.pagamento_status,
+      estorno: onlinePagas.length ? "nao_coube" : "nada_pago",
+      mensagem: onlinePagas.length
+        ? "Reserva cancelada. Faltam menos de " + horas + " h para a saída: o valor já pago não é devolvido."
+        : "Reserva cancelada."
+    });
+  }
+
+  // Uma só chamada fica com o estorno. A outra, simultânea, vê 0 linhas e não chama o Asaas.
+  // estorno_manual já está cancelada: a trava é por cobrança, para poder tentar de novo o que falhou.
+  if (r.pagamento_status !== "estorno_manual") {
+    const trava = await env.DB.prepare(
+      "UPDATE reservas SET pagamento_status = 'estorno_em_andamento', atualizado_em = ?2 " +
+      "WHERE id = ?1 AND status != 'cancelada' AND COALESCE(pagamento_status, '') != 'estorno_em_andamento'"
+    ).bind(r.id, agoraISO).run();
+    if (!trava.meta.changes) {
+      const agoraRow = await env.DB.prepare("SELECT status, pagamento_status FROM reservas WHERE id = ?1").bind(r.id).first();
+      return ok({
+        ok: true, repetido: true, cancelada: !!(agoraRow && agoraRow.status === "cancelada"),
+        pagamentoStatus: agoraRow && agoraRow.pagamento_status, estorno: "em_andamento",
+        mensagem: "O cancelamento desta reserva já está em andamento."
+      });
+    }
+  }
+
+  let falhas = 0, valor = 0;
+  for (const c of onlinePagas) {
+    if (c.estorno === "solicitado") { valor += Number(c.valor_centavos); continue; }
+    const claim = await env.DB.prepare(
+      "UPDATE cobrancas SET estorno = 'em_andamento' WHERE id = ?1 AND status = 'paga' AND (estorno IS NULL OR estorno = 'falhou')"
+    ).bind(c.id).run();
+    if (!claim.meta.changes) {
+      const atual = await env.DB.prepare("SELECT estorno FROM cobrancas WHERE id = ?1").bind(c.id).first();
+      if (atual && atual.estorno === "solicitado") valor += Number(c.valor_centavos);
+      continue;
+    }
+    try {
+      await estornarCheckout(env, c.asaas_id, "Cancelamento da reserva " + r.codigo + " até " + horas + " h antes da saída");
+      await env.DB.prepare("UPDATE cobrancas SET estorno = 'solicitado' WHERE id = ?1 AND estorno = 'em_andamento'").bind(c.id).run();
+      valor += Number(c.valor_centavos);
+    } catch (e) {
+      falhas++;
+      await env.DB.prepare("UPDATE cobrancas SET estorno = 'falhou' WHERE id = ?1 AND estorno = 'em_andamento'").bind(c.id).run();
+      console.error("[asaas] estorno falhou", mascarar(e && e.message ? e.message : String(e)));
+    }
+  }
+  const status = falhas ? "estorno_manual" : "estorno_solicitado";
+  await env.DB.prepare("UPDATE reservas SET status = 'cancelada', pagamento_status = ?2, atualizado_em = ?3 WHERE id = ?1")
+    .bind(r.id, status, agoraISO).run();
+  return ok({
+    ok: true, cancelada: true, estorno: falhas ? "manual" : "solicitado", pagamentoStatus: status,
+    valorSolicitado: valor / 100,
+    mensagem: falhas
+      ? "Reserva cancelada, mas o Asaas não fez o estorno. Devolva por fora (Pix manual) ou tente de novo."
+      : "Reserva cancelada. O estorno do valor pago no site foi pedido ao Asaas."
+  });
+}
+
+async function cancelarReservaCliente(b, env) {
+  const codigo = typeof b.codigo === "string" ? b.codigo.trim().toUpperCase() : "";
+  if (!/^TA-[A-Z0-9-]{4,32}$/.test(codigo)) return ok({ ok: false, erros: { codigo: "Informe o código da reserva." } }, 422);
+  const telefone = normalizarTelefone(typeof b.telefone === "string" ? b.telefone : "");
+  if (!telefone) return ok({ ok: false, erros: { telefone: "Telefone com DDD inválido." } }, 422);
+  await garantirEsquemaReservas(env);
+  const r = await env.DB.prepare("SELECT * FROM reservas WHERE codigo = ?1").bind(codigo).first();
+  if (!r || !telefonesIguais(r.telefone, telefone)) return erro("Não encontramos essa reserva com esse WhatsApp.", 404);
+  return cancelarReserva(env, r);
+}
+
+async function adminCancelarReserva(env, id) {
+  await garantirEsquemaReservas(env);
+  const r = await env.DB.prepare("SELECT * FROM reservas WHERE id = ?1").bind(id).first();
+  if (!r) return erro("Reserva não encontrada.", 404);
+  return cancelarReserva(env, r);
+}
+
 // Origem de rastreio: lista fixa; "link:<fonte>" só com letras, números, ponto, hífen e sublinhado.
 function normalizarOrigem(raw) {
   const s = String(raw || "").toLowerCase();
@@ -2006,9 +2179,15 @@ function montarMensagem(d) {
     "Passeio: " + d.plano.nome,
     "Data: " + d.data.split("-").reverse().join("/"),
     "Horário: " + horaLabel(d.hora) + " — saída " + saidaLabel(d.hora, cfg),
-    "Pessoas: " + d.pax,
+    "Pessoas: " + d.pax + (Number(d.criancas) > 0
+      ? " (" + d.adultos + (Number(d.adultos) === 1 ? " pagante" : " pagantes") + ", " +
+        d.criancas + (Number(d.criancas) === 1 ? " criança" : " crianças") + " até 12 anos não paga" +
+        (Number(d.criancas) === 1 ? "" : "m") +
+        (Array.isArray(d.idades) && d.idades.length ? ": " + d.idades.join(", ") + " anos" : "") + ")"
+      : ""),
     "Total: R$ " + d.total + (d.voucher ? " (inclui R$ " + d.voucher + " de voucher no almoço)" : ""),
     "Sinal para confirmar (30%): R$ " + Math.round(d.total * 0.3) + " via Pix",
+    "O restante (70%) é pago no dia do passeio.",
     "",
     "Nome: " + d.nome,
     "WhatsApp: " + d.telefone
@@ -2104,7 +2283,7 @@ async function adminResumo(env) {
   // a agenda de vagas conta só quem segura vaga (pendente vencida não conta).
   const doDia = await env.DB
     .prepare(
-      "SELECT hora, plano, pax, status, codigo, nome, telefone FROM reservas " +
+      "SELECT hora, plano, pax, status, codigo, nome, telefone, total FROM reservas " +
       "WHERE data = ? AND status != 'cancelada' ORDER BY hora"
     )
     .bind(hoje)
@@ -2129,10 +2308,7 @@ async function adminResumo(env) {
     .all();
 
   const paxHoje = doDia.results.reduce((s, r) => s + Number(r.pax), 0);
-  const receitaHoje = doDia.results.reduce((s, r) => {
-    const pl = PLANOS[r.plano];
-    return s + (pl ? pl.preco * Number(r.pax) : 0);
-  }, 0);
+  const receitaHoje = doDia.results.reduce((s, r) => s + Number(r.total || 0), 0);
 
   const agenda = {};
   for (let i = 0; i < 8; i++) {
@@ -2171,16 +2347,15 @@ async function adminResumo(env) {
 const SQL_LISTAR_RESERVAS =
   "SELECT id, codigo, criado_em, plano, data, hora, pax, nome, telefone, email, obs, " +
   "total, voucher, origem, origem_detalhe, como_conheceu, instagram_cliente, " +
-  "seguiu_instagram, status, canal, expira_em FROM reservas WHERE data >= ? AND data <= ?";
+  "seguiu_instagram, status, canal, expira_em, adultos, criancas, idades_criancas FROM reservas WHERE data >= ? AND data <= ?";
 // Com o pagamento online ligado: + modalidade, situação do pagamento e quanto já entrou (centavos).
 const SQL_LISTAR_RESERVAS_COM_PAGAMENTO =
   "SELECT id, codigo, criado_em, plano, data, hora, pax, nome, telefone, email, obs, " +
   "total, voucher, origem, origem_detalhe, como_conheceu, instagram_cliente, " +
-  "seguiu_instagram, status, canal, expira_em, pagamento_modalidade, pagamento_status, " +
+  "seguiu_instagram, status, canal, expira_em, adultos, criancas, idades_criancas, pagamento_modalidade, pagamento_status, " +
   "(SELECT COALESCE(SUM(c.valor_centavos),0) FROM cobrancas c WHERE c.reserva_id = reservas.id AND c.status = 'paga') AS pago_centavos, " +
   "(SELECT c.link FROM cobrancas c WHERE c.reserva_id = reservas.id AND c.tipo = 'saldo' AND c.status = 'aguardando' AND c.expira_em > ?3 ORDER BY c.criado_em DESC LIMIT 1) AS saldo_link, " +
-  "(SELECT c.expira_em FROM cobrancas c WHERE c.reserva_id = reservas.id AND c.tipo = 'saldo' AND c.status = 'aguardando' AND c.expira_em > ?3 ORDER BY c.criado_em DESC LIMIT 1) AS saldo_link_expira_em, " +
-  "(SELECT MIN(c.pago_em) FROM cobrancas c WHERE c.reserva_id = reservas.id AND c.tipo = 'sinal' AND c.status = 'paga') AS sinal_pago_em " +
+  "(SELECT c.expira_em FROM cobrancas c WHERE c.reserva_id = reservas.id AND c.tipo = 'saldo' AND c.status = 'aguardando' AND c.expira_em > ?3 ORDER BY c.criado_em DESC LIMIT 1) AS saldo_link_expira_em " +
   "FROM reservas WHERE data >= ?1 AND data <= ?2";
 
 async function adminListarReservas(env, url) {
@@ -2192,8 +2367,7 @@ async function adminListarReservas(env, url) {
 
   const online = pagamentoOnlineAtivo(env);
   const agoraISO = new Date().toISOString();
-  let cfg = null;
-  if (online) { await garantirEsquemaPagamento(env); cfg = await lerConfig(env); await cancelarSaldosVencidos(env, cfg); }
+  if (online) await garantirEsquemaPagamento(env);
   let sql = online ? SQL_LISTAR_RESERVAS_COM_PAGAMENTO : SQL_LISTAR_RESERVAS;
   // Com pagamento, os parâmetros são numerados (?1 de, ?2 até, ?3 agora); sem, posicionais como sempre.
   const bind = online ? [de, ate, agoraISO] : [de, ate];
@@ -2203,11 +2377,12 @@ async function adminListarReservas(env, url) {
 
   const { results } = await env.DB.prepare(sql).bind(...bind).all();
   // Pendente que passou do prazo aparece como "expirada" (só na exibição: o banco continua "pendente").
-  for (const r of results) if (r.status === "pendente" && r.expira_em && r.expira_em <= agoraISO) r.status = "expirada";
-  // Sinal confirmado tarde demais para caber o link do saldo: não cancela sozinha, o painel avisa.
-  if (online) for (const r of results) {
-    r.saldo_sem_tempo = r.status === "confirmada" && r.pagamento_status === "sinal_pago" && sinalSemTempoDeSaldo(r, cfg);
-    delete r.sinal_pago_em;
+  for (const r of results) {
+    if (r.status === "pendente" && r.expira_em && r.expira_em <= agoraISO) r.status = "expirada";
+    if (r.pagamento_status === "sinal_pago") {
+      r.saldo_centavos = Math.max(0, Math.round(Number(r.total) * 100) - Number(r.pago_centavos || 0));
+      r.saldo_forma = "presencial";
+    }
   }
   return ok({ ok: true, reservas: results });
 }
@@ -2390,6 +2565,6 @@ async function adminGravarConfig(request, env) {
 // Exportadas só para os testes de testes/ (o Pages usa apenas o export default).
 export {
   expiraEm, normalizarTelefone, conferirData, validarReserva, verificarTurnstile, resumirRelatorioCsp, destinoRedirect,
-  calcularCobranca, limiteQuitacaoMs, minutosDoLink, planoPagaOnline, pagamentoOnlineAtivo, PAGAMENTO,
-  saldoAntecedenciaH, executarTarefasPagamento
+  calcularCobranca, dentroDoPrazoDeEstorno, minutosDoLink, planoPagaOnline, pagamentoOnlineAtivo, PAGAMENTO,
+  saldoAntecedenciaH, executarTarefasPagamento, comporGrupo
 };

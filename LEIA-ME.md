@@ -232,7 +232,7 @@ localhost — grava no D1 local e confere a contagem de linhas:
 
 Pagamento online (Asaas, só Pix) — sem wrangler e sem rede, com Node 22.5+ (usa `node:sqlite`):
 
-    node testes/testar-pagamento.mjs            # regra 30/100, webhook, saldo 12 h, cancelamento aos 15 min, reagendar/devolver (Asaas simulado)
+    node testes/testar-pagamento.mjs            # regra 30/100, crianças até 12 anos, webhook CHECKOUT e PAYMENT_*, saldo no dia, estorno até 12 h (Asaas simulado)
     node testes/testar-pagamento-desligado.mjs  # desligado = mesmas respostas do d1ad1fc e nenhuma SQL da migração 0003
 
 Para publicar e para ligar o pagamento: variáveis, migração 0003, webhook e agendador estão nos comentários do
@@ -455,6 +455,5 @@ citarem o mesmo pedido no WhatsApp.
    "valendo" (Etapa 25 do plano — ainda não feita).
 8. **Decisões de texto ainda abertas** (nada foi escrito sobre elas): unidade do preço, duração, capacidade e
    incluso da pescaria; número de paradas do Adventure; água inclusa x levar; desconto das pousadas na home;
-   "Hymbé Vila" x "Hymbé, na praia"; destino da página `/cameras`; dados dos passeios sob consulta; como se paga o
-   restante (70%) e o que acontece com o sinal no cancelamento; CEP para o JSON-LD; fotos em paisagem
+   "Hymbé Vila" x "Hymbé, na praia"; destino da página `/cameras`; dados dos passeios sob consulta; CEP para o JSON-LD; fotos em paisagem
    (1200×630) para a pré-visualização de `/passeios/boat` e `/pousadas`.

@@ -139,8 +139,11 @@ const pagar = (ckId, evento = "CHECKOUT_PAID", id = "evt_" + (++seqEv)) => webho
   checar("P1  SALDO_ANTECEDENCIA_H: padrão 12; '6' → 6; '0' desliga; inválido → 12", w.saldoAntecedenciaH({}) === 12 && w.saldoAntecedenciaH({ SALDO_ANTECEDENCIA_H: "6" }) === 6 && w.saldoAntecedenciaH({ SALDO_ANTECEDENCIA_H: "0" }) === null && w.saldoAntecedenciaH({ SALDO_ANTECEDENCIA_H: "abc" }) === 12);
   checar("P1  nenhum PENDENTE-LUCAS sobrou no worker", !/PENDENTE-LUCAS/.test(src));
   checar("P1  sinal configurável numa constante (30)", w.PAGAMENTO.percentualSinal === 30);
-  const cfg = { saidaApos: 20 };
-  checar("P1  limite para quitar = 15 min antes da saída (concentração 9h → saída 9h20 → 9h05)", new DataReal(w.limiteQuitacaoMs(AMANHA, 9, cfg)).toISOString() === "2026-10-27T12:05:00.000Z");
+  const cfg = { saidaApos: 20, cancelamentoH: 12 };
+  // Saída 9h20 de 27/10 em Trindade = 12:20 UTC. 12 h antes = 00:20 UTC.
+  checar("P1  estorno do sinal cabe até 12 h antes da saída (no instante exato, ainda cabe)", w.dentroDoPrazoDeEstorno(AMANHA, 9, cfg, DataReal.parse("2026-10-27T00:20:00.000Z")) === true);
+  checar("P1  um minuto depois das 12 h, o sinal não é devolvido", w.dentroDoPrazoDeEstorno(AMANHA, 9, cfg, DataReal.parse("2026-10-27T00:21:00.000Z")) === false);
+  checar("P1  criança até 12 anos não paga; 13 paga; pax legado continua todo mundo pagante", w.comporGrupo({ adultos: 2, criancas: 1, idadesCriancas: [12], pax: 3 }, 15).pax === 3 && !w.comporGrupo({ adultos: 2, criancas: 1, idadesCriancas: [12], pax: 3 }, 15).erros.idadesCriancas && !!w.comporGrupo({ adultos: 1, criancas: 1, idadesCriancas: [13], pax: 2 }, 15).erros.idadesCriancas && w.comporGrupo({ pax: 4 }, 15).adultos === 4 && !!w.comporGrupo({ adultos: 10, criancas: 6, idadesCriancas: [1, 2, 3, 4, 5, 6], pax: 16 }, 15).erros.pax);
   checar("P1  link curto demais (< 10 min, mínimo do Asaas) → null", w.minutosDoLink(0, 9 * 60000, 30) === null && w.minutosDoLink(0, 10 * 60000, 30) === 10 && w.minutosDoLink(0, 999 * 60000, 30) === 30);
   checar("P1  ligado só com PAGAMENTO_ONLINE=1 + chave + token", w.pagamentoOnlineAtivo(ENV_ON) && !w.pagamentoOnlineAtivo(ENV_OFF) && !w.pagamentoOnlineAtivo({ ...ENV_ON, ASAAS_WEBHOOK_TOKEN: "" }) && !w.pagamentoOnlineAtivo({ ...ENV_ON, PAGAMENTO_ONLINE: "true" }));
 }
@@ -210,7 +213,7 @@ let refSinal, idSinal;
   asaasPedidos = [];
   const s = await admin(`/api/admin/reservas/${idSinal}/saldo`, "POST", {});
   checar("A1  painel gera o link do saldo: R$ 112", s.status === 200 && s.corpo.valor === 112 && /^https:\/\//.test(s.corpo.link), JSON.stringify(s));
-  checar("A1  link do saldo no Asaas vale até 15 min antes da saída (agora 10h → amanhã 9h05 = 1385 min; teto 24 h)", asaasPedidos[0].corpo.minutesToExpire === 1385 && asaasPedidos[0].corpo.items[0].value === 112, asaasPedidos[0] && asaasPedidos[0].corpo.minutesToExpire);
+  checar("A1  link opcional do saldo vale 24 h (teto do Asaas), sem corte 15 min antes da saída", asaasPedidos[0].corpo.minutesToExpire === 1440 && asaasPedidos[0].corpo.items[0].value === 112, asaasPedidos[0] && asaasPedidos[0].corpo.minutesToExpire);
   const s2 = await admin(`/api/admin/reservas/${idSinal}/saldo`, "POST", {});
   checar("A1  pedir de novo devolve o mesmo link enquanto vale (sem criar outro)", s2.status === 200 && s2.corpo.repetido === true && s2.corpo.link === s.corpo.link && asaasPedidos.length === 1);
   const lista = await admin(`/api/admin/reservas?de=${AMANHA}&ate=${AMANHA}`);
@@ -227,14 +230,14 @@ let refSinal, idSinal;
   const r = await reservar({ pagamento: "sinal" });
   await pagar(checkoutPorRef(r.corpo.pagamento.ref));
   const id = reservaPorRef(r.corpo.pagamento.ref).id;
-  relogio("2026-10-27T12:00:00Z"); // amanhã 9h00 — limite era 9h05: só 5 min, menos que o mínimo do Asaas
-  const tarde = await admin(`/api/admin/reservas/${id}/saldo`, "POST", {});
-  checar("A2  depois do limite (15 min antes da saída) o painel não gera link do saldo (409)", tarde.status === 409, JSON.stringify(tarde));
-  relogio("2026-10-27T11:30:00Z"); // 8h30 → 35 min até 9h05
+  relogio("2026-10-27T12:00:00Z"); // amanhã 9h00 em Trindade — a saída é 9h20; o saldo online não tem mais prazo
   asaasPedidos = [];
-  const cedo = await admin(`/api/admin/reservas/${id}/saldo`, "POST", {});
-  checar("A2  perto do passeio, o link do saldo vence exatamente no limite (35 min)", cedo.status === 200 && asaasPedidos[0].corpo.minutesToExpire === 35, asaasPedidos[0] && asaasPedidos[0].corpo.minutesToExpire);
-  checar("A2  antes do limite (15 min antes da saída) nada é cancelado (reserva segue confirmada)", linha("SELECT status FROM reservas WHERE id = ?", id).status === "confirmada");
+  const tarde = await admin(`/api/admin/reservas/${id}/saldo`, "POST", {});
+  checar("A2  no dia do passeio o painel ainda gera o link opcional (24 h) e não cancela", tarde.status === 200 && asaasPedidos[0].corpo.minutesToExpire === 1440 && linha("SELECT status, pagamento_status FROM reservas WHERE id = ?", id).status === "confirmada", JSON.stringify(tarde));
+  const pres = await admin(`/api/admin/reservas/${id}/saldo-presencial`, "POST", {});
+  checar("A2  marcar saldo pago no dia não chama o Asaas e quita", pres.status === 200 && pres.corpo.forma === "presencial" && pres.corpo.pagamentoStatus === "quitado" && linha("SELECT pagamento_status FROM reservas WHERE id = ?", id).pagamento_status === "quitado" && linha("SELECT tipo, status FROM cobrancas WHERE reserva_id = ? AND tipo = 'saldo_presencial'", id).status === "paga", JSON.stringify(pres));
+  const pres2 = await admin(`/api/admin/reservas/${id}/saldo-presencial`, "POST", {});
+  checar("A2  marcar de novo é idempotente", pres2.status === 200 && pres2.corpo.repetido === true && linha("SELECT COUNT(*) AS n FROM cobrancas WHERE reserva_id = ? AND tipo = 'saldo_presencial'", id).n === 1);
   relogio("2026-10-26T13:00:00Z");
   checar("A2  reserva pendente (sem sinal) não tem saldo a cobrar (409)", (await admin(`/api/admin/reservas/${reservaPorRef((await reservar({ pagamento: "sinal" })).corpo.pagamento.ref).id}/saldo`, "POST", {})).status === 409);
 }
@@ -263,7 +266,7 @@ let refSinal, idSinal;
   checar("M1  hoje sem mandar escolha: também 100% (não precisa escolher)", r2.status === 200 && r2.corpo.pagamento.modalidade === "integral");
   const r3 = await reservar({ data: HOJE, hora: 13, pagamento: "sinal" });
   checar("M1  hoje pedindo 30% → 409 mesmo_dia_integral (não cobra valor diferente do que a pessoa viu)", r3.status === 409 && r3.corpo.motivo === "mesmo_dia_integral", JSON.stringify(r3));
-  checar("M1  o checkout vale 30 min (há tempo até 15 min antes da saída)", asaasPedidos[0].corpo.minutesToExpire === 30);
+  checar("M1  o checkout vale 30 min (há tempo até a saída)", asaasPedidos[0].corpo.minutesToExpire === 30);
   const st = await getJSON("/api/pagamento?ref=" + pg.ref);
   checar("M1  antes do pagamento: sem código", st.corpo.status === "aguardando" && !st.corpo.codigo);
   await pagar(checkoutPorRef(pg.ref));
@@ -272,13 +275,13 @@ let refSinal, idSinal;
 
   const passou = await reservar({ data: HOJE, hora: 10, pagamento: "integral" });
   checar("M2  horário que já passou (10h, agora 10h) → 422 e nenhum checkout", passou.status === 422 && passou.corpo.erros.hora, JSON.stringify(passou));
-  relogio("2026-10-26T13:56:00Z"); // 10h56: concentração 11h, saída 11h20, limite 11h05 → 9 min
+  relogio("2026-10-26T13:56:00Z"); // 10h56: concentração 11h ainda vale; saída 11h20 → 24 min
   asaasPedidos = [];
-  const apertado = await reservar({ data: HOJE, hora: 11, pagamento: "integral" });
-  checar("M2  sem tempo para pagar até 15 min antes da saída → 409 sem_tempo_pagamento, nada no Asaas", apertado.status === 409 && apertado.corpo.motivo === "sem_tempo_pagamento" && asaasPedidos.length === 0, JSON.stringify(apertado));
-  relogio("2026-10-26T13:45:00Z"); // 10h45 → 20 min até 11h05
   const curto = await reservar({ data: HOJE, hora: 11, pagamento: "integral", pax: 1 });
-  checar("M2  com pouco tempo, o link vence no limite (20 min)", curto.status === 200 && asaasPedidos.at(-1).corpo.minutesToExpire === 20, JSON.stringify(curto.corpo));
+  checar("M2  perto da concentração, o link do Pix vence na saída (24 min)", curto.status === 200 && asaasPedidos.at(-1).corpo.minutesToExpire === 24, JSON.stringify(curto.corpo));
+  relogio("2026-10-26T14:00:00Z"); // 11h00: a concentração das 11h já passou (a saída seria 11h20)
+  const fechou = await reservar({ data: HOJE, hora: 11, pagamento: "integral" });
+  checar("M2  concentração vencida → 422, sem checkout (o mínimo de 10 min do Asaas fica depois desse portão)", fechou.status === 422 && fechou.corpo.erros.hora && asaasPedidos.length === 1, JSON.stringify(fechou.corpo));
   relogio("2026-10-26T13:00:00Z");
 }
 
@@ -334,7 +337,7 @@ let refSinal, idSinal;
   checar("F3  preços dos planos (80/150/400)", precos === "80/150/400", precos);
 }
 
-// ======================= link do saldo automático (12 h antes) e cancelamento aos 15 min =======================
+// ======================= saldo no dia: sem cobrança automática e sem cancelar =======================
 const D3 = "2026-10-28", D4 = "2026-10-29";
 const ENV_TAREFA = { ...ENV_ON, TAREFAS_TOKEN: "token-tarefas-de-teste-0123456789" };
 async function tarefa(token = ENV_TAREFA.TAREFAS_TOKEN, env = ENV_TAREFA) {
@@ -349,58 +352,68 @@ let refT1, idT1, refT2, idT2;
   asaasPedidos = [];
   await pagar(checkoutPorRef(refT1));
   idT1 = reservaPorRef(refT1).id;
-  checar("T1  sinal pago com mais de 12 h até a saída: o link do saldo NÃO sai na hora", asaasPedidos.length === 0 && reservaPorRef(refT1).pagamento_status === "sinal_pago");
+  checar("T1  sinal pago: não gera link de saldo e a reserva fica sinal_pago", asaasPedidos.length === 0 && reservaPorRef(refT1).pagamento_status === "sinal_pago" && linha("SELECT COUNT(*) AS n FROM cobrancas WHERE reserva_id = ? AND tipo = 'saldo'", idT1).n === 0);
   checar("T1  rota de tarefas: sem TAREFAS_TOKEN configurado → 404; token errado → 401", (await tarefa("x", ENV_ON)).status === 404 && (await tarefa("errado")).status === 401 && (await tarefa(null)).status === 401);
-  relogio("2026-10-28T00:00:00Z"); // 27/10 21h00 em Trindade; saída 28/10 9h20 → faltam 12h20
-  const t0 = await tarefa();
-  checar("T1  tarefa a 12h20 da saída: ainda não gera", t0.status === 200 && t0.corpo.saldosGerados === 0 && asaasPedidos.length === 0, JSON.stringify(t0.corpo));
-  relogio("2026-10-28T00:30:00Z"); // faltam 11h50
+  relogio("2026-10-28T00:30:00Z"); // faltam menos de 12 h para a saída das 9h20
   const t1 = await tarefa();
-  checar("T1  tarefa a menos de 12 h: gera o link do saldo (R$ 56), valendo até 15 min antes da saída (695 min)", t1.corpo.saldosGerados === 1 && asaasPedidos.length === 1 && asaasPedidos[0].corpo.items[0].value === 56 && asaasPedidos[0].corpo.minutesToExpire === 695 && asaasPedidos[0].corpo.billingTypes.join() === "PIX", JSON.stringify(asaasPedidos[0] && asaasPedidos[0].corpo.minutesToExpire));
-  checar("T1  link do saldo gerado sem request volta para o domínio oficial", asaasPedidos[0].corpo.callback.successUrl.startsWith("https://trindadeadventury.com.br/reservar?pagamento="));
-  const t2 = await tarefa();
-  const t3 = await w.executarTarefasPagamento(ENV_ON);
-  checar("T1  rodar de novo (rota ou direto) não duplica o link", t2.corpo.saldosGerados === 0 && t3.saldosGerados === 0 && asaasPedidos.length === 1 && linha("SELECT COUNT(*) AS n FROM cobrancas WHERE reserva_id = ? AND tipo = 'saldo'", idT1).n === 1);
+  checar("T1  tarefa perto da saída não cobra saldo nem cancela", t1.status === 200 && t1.corpo.saldosGerados === 0 && t1.corpo.cancelados === 0 && asaasPedidos.length === 0, JSON.stringify(t1.corpo));
+  relogio("2026-10-28T13:30:00Z"); // 10h30, depois da saída das 9h20 e do antigo corte de 15 min
+  const gDepois = await getJSON("/api/disponibilidade?data=" + D3);
+  const ainda = reservaPorRef(refT1);
+  checar("T1  saldo não pago no dia: a reserva continua confirmada, com saldo presencial", ainda.status === "confirmada" && ainda.pagamento_status === "sinal_pago" && gDepois.corpo.grade["9"].restam < 20, `${ainda.status}/${ainda.pagamento_status}`);
   const lista = await admin(`/api/admin/reservas?de=${D3}&ate=${D3}`);
   const it = lista.corpo.reservas.find(x => x.id === idT1);
-  checar("T1  painel lista o link do saldo que vale", it && /^https:\/\//.test(it.saldo_link) && it.saldo_link_expira_em === "2026-10-28T12:05:00.000Z" && it.saldo_sem_tempo === false, JSON.stringify(it));
-  const off = await w.executarTarefasPagamento({ ...ENV_ON, SALDO_ANTECEDENCIA_H: "0" });
-  checar("T1  SALDO_ANTECEDENCIA_H=0 desliga o automático", off.saldosGerados === 0);
+  checar("T1  painel marca o saldo como presencial no dia", it && it.saldo_forma === "presencial" && it.saldo_centavos === 5600 && !it.saldo_link, JSON.stringify(it));
+  asaasPedidos = [];
+  const pres = await admin(`/api/admin/reservas/${idT1}/saldo-presencial`, "POST", {});
+  checar("T1  equipe marca o saldo pago no dia, sem Asaas", pres.status === 200 && pres.corpo.valor === 56 && asaasPedidos.length === 0 && linha("SELECT pagamento_status FROM reservas WHERE id = ?", idT1).pagamento_status === "quitado", JSON.stringify(pres));
 
-  // sinal confirmado já a menos de 12 h: link do saldo na hora, sem duplicar depois
-  relogio("2026-10-28T02:00:00Z"); // 27/10 23h00 em Trindade
+  relogio("2026-10-28T02:00:00Z");
   const r2 = await reservar({ data: D3, hora: 10, pagamento: "sinal" });
   refT2 = r2.corpo.pagamento.ref;
-  checar("T2  reserva feita perto do horário com 30%: link do sinal de 30 min", r2.status === 200 && r2.corpo.pagamento.modalidade === "sinal", JSON.stringify(r2.corpo));
   asaasPedidos = [];
   await pagar(checkoutPorRef(refT2));
   idT2 = reservaPorRef(refT2).id;
-  checar("T2  sinal confirmado a menos de 12 h: o webhook já gera o link do saldo (até 15 min antes da saída: 665 min)", asaasPedidos.length === 1 && asaasPedidos[0].corpo.items[0].value === 56 && asaasPedidos[0].corpo.minutesToExpire === 665, JSON.stringify(asaasPedidos.map(x => x.corpo && x.corpo.minutesToExpire)));
+  checar("T2  sinal confirmado perto do horário não dispara link de saldo", asaasPedidos.length === 0 && reservaPorRef(refT2).pagamento_status === "sinal_pago");
   const st = await getJSON("/api/pagamento?ref=" + refT2);
-  checar("T2  código sai logo após o sinal", st.corpo.status === "pago" && st.corpo.confirmada === true && /^TA-/.test(st.corpo.codigo || "") && st.corpo.situacao === "confirmada", JSON.stringify(st.corpo));
-  const t4 = await tarefa();
-  checar("T2  a tarefa depois não duplica o link", t4.corpo.saldosGerados === 0 && asaasPedidos.length === 1);
-
-  // cancelamento aos 15 min
-  relogio("2026-10-28T13:04:00Z"); // 10h04: limite do horário das 10h (saída 10h20) é 10h05
-  const g1 = await getJSON("/api/disponibilidade?data=" + D3);
-  const antes = g1.corpo.grade["10"].restam;
-  checar("T3  1 min antes do limite: reserva continua confirmada", reservaPorRef(refT2).status === "confirmada");
-  checar("T3  a reserva das 9h (limite 9h05, saldo não pago) já foi cancelada, sinal retido", (x => x.status === "cancelada" && x.pagamento_status === "sinal_retido")(reservaPorRef(refT1)));
-  relogio("2026-10-28T13:05:00Z");
-  const g2 = await getJSON("/api/disponibilidade?data=" + D3);
-  const c = reservaPorRef(refT2);
-  checar("T3  saldo não pago até 15 min antes da saída: cancelada, 'sinal_retido', vaga liberada", c.status === "cancelada" && c.pagamento_status === "sinal_retido" && g2.corpo.grade["10"].restam === antes + 1, `${c.status}/${c.pagamento_status} ${antes}→${g2.corpo.grade["10"].restam}`);
-  checar("T3  o sinal não é devolvido (nenhum estorno pedido ao Asaas)", !asaasPedidos.some(x => /refund/.test(x.url)) && linha("SELECT COUNT(*) AS n FROM cobrancas WHERE reserva_id = ? AND tipo = 'sinal' AND status = 'paga' AND estorno IS NULL", idT2).n === 1);
-  const st3 = await getJSON("/api/pagamento?ref=" + refT2);
-  checar("T3  página de volta: cancelada sem saldo, sem código", st3.corpo.situacao === "cancelada_sem_saldo" && !st3.corpo.codigo, JSON.stringify(st3.corpo));
-  const lista2 = await admin(`/api/admin/reservas?de=${D3}&ate=${D3}`);
-  checar("T3  painel mostra a cancelada com sinal retido", lista2.corpo.reservas.some(x => x.id === idT2 && x.status === "cancelada" && x.pagamento_status === "sinal_retido"));
-  const ckSaldo = linha("SELECT asaas_id FROM cobrancas WHERE reserva_id = ? AND tipo = 'saldo'", idT2).asaas_id;
-  await pagar(ckSaldo);
-  const vol = reservaPorRef(refT2);
-  checar("T3  aviso do saldo atrasado (pago no prazo) depois do cancelamento: volta a confirmada e quitado, se ainda há vaga", vol.status === "confirmada" && vol.pagamento_status === "quitado", JSON.stringify(vol));
+  checar("T2  código sai logo após o sinal e o saldo fica para o dia", st.corpo.status === "pago" && st.corpo.confirmada === true && st.corpo.saldoNoDia === true && /^TA-/.test(st.corpo.codigo || "") && st.corpo.situacao === "confirmada", JSON.stringify(st.corpo));
   relogio("2026-10-26T13:00:00Z");
+}
+
+// ======================= crianças grátis e webhook PAYMENT_* =======================
+{
+  relogio("2026-10-26T13:00:00Z");
+  asaasPedidos = [];
+  const r = await reservar({ data: D3, hora: 11, pax: 3, adultos: 2, criancas: 1, idadesCriancas: [12], pagamento: "sinal" });
+  const pg = r.corpo.pagamento;
+  checar("C1  2 pagantes + criança de 12: total R$ 160, sinal R$ 48, saldo R$ 112, vaga de 3", r.status === 200 && pg.valor === 48 && pg.total === 160 && pg.saldo === 112, JSON.stringify(r.corpo));
+  const res = reservaPorRef(pg.ref);
+  checar("C1  banco: pax 3, adultos 2, criança 1, total 160", Number(res.pax) === 3 && Number(res.adultos) === 2 && Number(res.criancas) === 1 && Number(res.total) === 160 && res.idades_criancas === "[12]", JSON.stringify(res));
+  const idade = await reservar({ data: D3, hora: 12, adultos: 1, criancas: 1, idadesCriancas: [13], pax: 2, pagamento: "sinal" });
+  checar("C1  idade 13 como criança → 422", idade.status === 422 && idade.corpo.erros && idade.corpo.erros.idadesCriancas, JSON.stringify(idade.corpo));
+  const semAdulto = await reservar({ data: D3, hora: 13, adultos: 0, criancas: 2, idadesCriancas: [5, 8], pax: 2, pagamento: "sinal" });
+  checar("C1  só crianças, sem pagante → 422", semAdulto.status === 422 && semAdulto.corpo.erros.adultos, JSON.stringify(semAdulto.corpo));
+  const lotado = await reservar({ data: D3, hora: 14, adultos: 8, criancas: 8, idadesCriancas: [1, 2, 3, 4, 5, 6, 7, 8], pax: 16, pagamento: "sinal" });
+  checar("C1  16 pessoas no total → 422 (o limite de 15 vale para todo mundo)", lotado.status === 422, JSON.stringify(lotado.corpo));
+
+  const ck = checkoutPorRef(pg.ref);
+  const tokenErrado = await webhook({ id: "evt_pay_token", event: "PAYMENT_RECEIVED", payment: { id: "pay_x", checkoutSession: ck, status: "RECEIVED", value: 48, externalReference: res.id } }, TOKEN + "x");
+  checar("W1  PAYMENT_RECEIVED com token inválido → 401", tokenErrado.status === 401 && reservaPorRef(pg.ref).status === "pendente");
+  const recebido = await webhook({ id: "evt_pay_1", event: "PAYMENT_RECEIVED", payment: { id: "pay_da_crianca", checkoutSession: ck, status: "RECEIVED", value: 48, externalReference: res.id, billingType: "PIX" } });
+  const depois = reservaPorRef(pg.ref);
+  checar("W1  PAYMENT_RECEIVED confirma a reserva (sinal_pago)", recebido.status === 200 && depois.status === "confirmada" && depois.pagamento_status === "sinal_pago", JSON.stringify(depois));
+  const repetido = await webhook({ id: "evt_pay_1", event: "PAYMENT_RECEIVED", payment: { id: "pay_da_crianca", checkoutSession: ck, status: "RECEIVED", value: 48 } });
+  checar("W1  mesmo PAYMENT_RECEIVED de novo → repetido:true", repetido.status === 200 && repetido.corpo.repetido === true);
+  const confirmado = await webhook({ id: "evt_pay_2", event: "PAYMENT_CONFIRMED", payment: { id: "pay_da_crianca", checkoutSession: ck, status: "CONFIRMED", value: 48, externalReference: res.id } });
+  checar("W1  PAYMENT_CONFIRMED da mesma cobrança não duplica", confirmado.status === 200 && linha("SELECT COUNT(*) AS n FROM cobrancas WHERE reserva_id = ? AND status = 'paga'", res.id).n === 1);
+  const valorErrado = await webhook({ id: "evt_pay_3", event: "PAYMENT_RECEIVED", payment: { checkoutSession: ck, status: "RECEIVED", value: 1, externalReference: res.id } });
+  checar("W1  valor diferente não mexe na reserva já confirmada", valorErrado.status === 200 && reservaPorRef(pg.ref).pagamento_status === "sinal_pago");
+
+  // externalReference quando o evento não traz checkoutSession
+  const rRef = await reservar({ data: D3, hora: 15, adultos: 1, criancas: 0, idadesCriancas: [], pax: 1, pagamento: "sinal" });
+  const idRef = reservaPorRef(rRef.corpo.pagamento.ref).id;
+  const porRef = await webhook({ id: "evt_pay_ref", event: "PAYMENT_RECEIVED", payment: { id: "pay_sem_sessao", status: "RECEIVED", value: 24, externalReference: idRef, billingType: "PIX" } });
+  checar("W2  PAYMENT_RECEIVED só com externalReference + valor confirma", porRef.status === 200 && reservaPorRef(rRef.corpo.pagamento.ref).pagamento_status === "sinal_pago", JSON.stringify(reservaPorRef(rRef.corpo.pagamento.ref)));
 }
 
 // ======================= pago sem vaga: reagendar ou devolver =======================
@@ -453,6 +466,55 @@ async function pagoSemVaga(hora) {
   const dr = await admin(`/api/admin/reservas/${rf.id}/devolver`, "POST", {});
   checar("D2  tentar de novo depois da falha funciona", dr.corpo.ok === true && reservaPorRef(refF).pagamento_status === "devolucao_solicitada", JSON.stringify(dr.corpo));
   db.prepare("UPDATE config SET valor = '20' WHERE chave = 'capacidade'").run();
+  relogio("2026-10-26T13:00:00Z");
+}
+
+// ======================= cancelamento: estorno até 12 h, sem estorno depois =======================
+async function cancelarCliente(codigo, telefone) {
+  const r = await w.default.fetch(new Request(ORIGEM + "/api/reservas/cancelar", {
+    method: "POST",
+    headers: { origin: ORIGEM, "content-type": "application/json", "cf-connecting-ip": ip() },
+    body: JSON.stringify({ codigo, telefone, "cf-turnstile-response": "XXXX.DUMMY.TOKEN.XXXX" })
+  }), ENV_ON);
+  return { status: r.status, corpo: await r.json().catch(() => null) };
+}
+{
+  relogio("2026-10-26T13:00:00Z");
+  const telC = tel();
+  const r = await reservar({ data: D4, hora: 13, pagamento: "sinal", telefone: telC });
+  await pagar(checkoutPorRef(r.corpo.pagamento.ref));
+  const res = reservaPorRef(r.corpo.pagamento.ref);
+  const ck = checkoutPorRef(r.corpo.pagamento.ref);
+  asaasPedidos = [];
+  const c1 = await cancelarCliente(res.codigo, telC);
+  checar("K1  cliente cancela com mais de 12 h: estorno do sinal no Asaas", c1.status === 200 && c1.corpo.estorno === "solicitado" && c1.corpo.cancelada === true && asaasPedidos.length === 2 && asaasPedidos[1].url === "http://asaas.teste/v3/payments/pay_" + ck + "/refund", JSON.stringify(c1.corpo));
+  checar("K1  reserva cancelada e estorno pedido", reservaPorRef(r.corpo.pagamento.ref).status === "cancelada" && reservaPorRef(r.corpo.pagamento.ref).pagamento_status === "estorno_solicitado");
+  const c2 = await cancelarCliente(res.codigo, telC);
+  checar("K1  cancelar de novo não pede outro estorno", c2.status === 200 && c2.corpo.repetido === true && asaasPedidos.length === 2, JSON.stringify(c2.corpo));
+  const errado = await cancelarCliente(res.codigo, "21988887777");
+  checar("K1  WhatsApp diferente → 404, sem novo estorno", errado.status === 404 && asaasPedidos.length === 2);
+
+  const telPar = tel();
+  const par = await reservar({ data: D4, hora: 15, pagamento: "sinal", telefone: telPar });
+  await pagar(checkoutPorRef(par.corpo.pagamento.ref));
+  const resPar = reservaPorRef(par.corpo.pagamento.ref);
+  asaasPedidos = [];
+  const [pA, pB] = await Promise.all([cancelarCliente(resPar.codigo, telPar), cancelarCliente(resPar.codigo, telPar)]);
+  const estornos = asaasPedidos.filter(x => x.metodo === "POST" && /\/refund$/.test(x.url));
+  const umPediu = [pA, pB].filter(x => x.corpo && x.corpo.estorno === "solicitado").length;
+  const outroEsperou = [pA, pB].filter(x => x.corpo && x.corpo.estorno === "em_andamento").length;
+  checar("K1  dois cancelamentos ao mesmo tempo geram um único estorno", umPediu === 1 && outroEsperou === 1 && estornos.length === 1 && reservaPorRef(par.corpo.pagamento.ref).pagamento_status === "estorno_solicitado", JSON.stringify({ pA: pA.corpo, pB: pB.corpo, estornos: estornos.length }));
+
+  const telT = tel();
+  const tarde = await reservar({ data: D4, hora: 14, pagamento: "sinal", telefone: telT });
+  await pagar(checkoutPorRef(tarde.corpo.pagamento.ref));
+  const idTarde = reservaPorRef(tarde.corpo.pagamento.ref).id;
+  relogio("2026-10-29T06:00:00Z"); // saída das 14h é 14h20 em Trindade = 17:20 UTC; 06:00 UTC já passou das 12 h
+  asaasPedidos = [];
+  const sem = await admin(`/api/admin/reservas/${idTarde}/cancelar`, "POST", {});
+  checar("K2  painel cancela com menos de 12 h: sem estorno, sinal fica", sem.status === 200 && sem.corpo.estorno === "nao_coube" && asaasPedidos.length === 0 && linha("SELECT status, pagamento_status FROM reservas WHERE id = ?", idTarde).pagamento_status === "sem_devolucao", JSON.stringify(sem.corpo));
+  const st = await getJSON("/api/pagamento?ref=" + tarde.corpo.pagamento.ref);
+  checar("K2  página de volta: cancelada sem estorno", st.corpo.situacao === "cancelada_sem_estorno", JSON.stringify(st.corpo));
   relogio("2026-10-26T13:00:00Z");
 }
 
