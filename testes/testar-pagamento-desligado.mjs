@@ -46,7 +46,25 @@ function criarD1() {
     async all() { return { results: db.prepare(this.sql).all(...this.args) }; }
     async run() { const r = db.prepare(this.sql).run(...this.args); return { meta: { changes: Number(r.changes) } }; }
   }
-  return { DB: { prepare: sql => new Stmt(sql) }, db, sqls };
+  const DB = {
+    prepare: sql => new Stmt(sql),
+    async batch(stmts) {
+      db.exec("BEGIN");
+      const out = [];
+      try {
+        for (const s of stmts) {
+          const r = db.prepare(s.sql).run(...s.args);
+          out.push({ meta: { changes: Number(r.changes) } });
+        }
+        db.exec("COMMIT");
+        return out;
+      } catch (e) {
+        try { db.exec("ROLLBACK"); } catch { /* a transação já foi desfeita */ }
+        throw e;
+      }
+    }
+  };
+  return { DB, db, sqls };
 }
 const carregar = src => import("data:text/javascript;base64," + Buffer.from(src).toString("base64") + "#" + Math.random());
 const srcNovo = readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");

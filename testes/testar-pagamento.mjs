@@ -39,7 +39,30 @@ class Stmt {
   async all() { return { results: db.prepare(this.sql).all(...this.args) }; }
   async run() { const r = db.prepare(this.sql).run(...this.args); return { meta: { changes: Number(r.changes) } }; }
 }
-const DB = { prepare: sql => new Stmt(sql) };
+// O worker grava reserva e aceite num batch (uma transação). Se o aceite falha, a reserva também sai.
+let aceiteDeveFalhar = false;
+const DB = {
+  prepare: sql => new Stmt(sql),
+  async batch(stmts) {
+    db.exec("BEGIN");
+    const out = [];
+    try {
+      for (const s of stmts) {
+        if (aceiteDeveFalhar && /INSERT INTO aceite_termos/i.test(s.sql)) {
+          aceiteDeveFalhar = false;
+          throw new Error("falha simulada no aceite");
+        }
+        const r = db.prepare(s.sql).run(...s.args);
+        out.push({ meta: { changes: Number(r.changes) } });
+      }
+      db.exec("COMMIT");
+      return out;
+    } catch (e) {
+      try { db.exec("ROLLBACK"); } catch { /* a transação já foi desfeita */ }
+      throw e;
+    }
+  }
+};
 const linha = (q, ...p) => db.prepare(q).get(...p);
 
 // ---------- Asaas e Turnstile simulados ----------
@@ -186,6 +209,29 @@ const pagar = (ckId, evento = "CHECKOUT_PAID", id = "evt_" + (++seqEv)) => webho
   let bloqueouUp = false;
   try { db.prepare("UPDATE aceite_termos SET termo_versao = 'x' WHERE reserva_id = ?").run(res.id); } catch { bloqueouUp = true; }
   checar("T0  a tabela de aceite recusa UPDATE", bloqueouUp);
+
+  const nReservas = () => linha("SELECT COUNT(*) AS n FROM reservas").n;
+  const nAceites = () => linha("SELECT COUNT(*) AS n FROM aceite_termos").n;
+  const chaveAtom = "chave-aceite-atomica-01";
+  const corpoAtom = { pagamento: "sinal", telefone: tel(), pax: 1 };
+  const antesR = nReservas(), antesA = nAceites(), antesAsaas = asaasPedidos.length;
+  aceiteDeveFalhar = true;
+  const falhou = await reservar(corpoAtom, ENV_ON, { "idempotency-key": chaveAtom });
+  checar("T0  falha ao gravar o aceite desfaz a reserva e não chama o Asaas", falhou.status === 500 && nReservas() === antesR && nAceites() === antesA && asaasPedidos.length === antesAsaas && aceiteDeveFalhar === false, JSON.stringify(falhou));
+  const gravou = await reservar(corpoAtom, ENV_ON, { "idempotency-key": chaveAtom });
+  const rowAtom = linha("SELECT id FROM reservas WHERE chave_idempotencia = ?", chaveAtom);
+  const aceiteAtom = rowAtom && linha("SELECT termo_hash FROM aceite_termos WHERE reserva_id = ? AND termo_versao = 'v0-provisorio'", rowAtom.id);
+  checar("T0  a mesma chave, depois da falha, grava a reserva e o aceite juntos", gravou.status === 200 && nReservas() === antesR + 1 && nAceites() === antesA + 1 && aceiteAtom && aceiteAtom.termo_hash === hash && asaasPedidos.length === antesAsaas + 1, JSON.stringify(gravou.corpo));
+
+  db.exec("DROP TRIGGER aceite_termos_bloqueia_delete");
+  db.prepare("DELETE FROM aceite_termos WHERE reserva_id = ?").run(rowAtom.id);
+  db.exec("CREATE TRIGGER aceite_termos_bloqueia_delete BEFORE DELETE ON aceite_termos BEGIN SELECT RAISE(ABORT, 'aceite_termos é somente inclusão'); END");
+  const semAceite = await reservar(corpoAtom, ENV_ON, { "idempotency-key": chaveAtom });
+  checar("T0  reenvio sem o aceite da versão atual → 409 aceite_ausente, sem nova reserva nem novo checkout", semAceite.status === 409 && semAceite.corpo && semAceite.corpo.motivo === "aceite_ausente" && nReservas() === antesR + 1 && nAceites() === antesA && asaasPedidos.length === antesAsaas + 1, JSON.stringify(semAceite.corpo));
+
+  db.prepare("INSERT INTO aceite_termos (reserva_id, termo_versao, termo_hash, aceito_em, ip, user_agent) VALUES (?,?,?,?,?,?)").run(rowAtom.id, "v0-provisorio", "0".repeat(64), "2026-10-26T13:00:00.000Z", "10.0.0.1", "teste");
+  const hashRuim = await reservar(corpoAtom, ENV_ON, { "idempotency-key": chaveAtom });
+  checar("T0  reenvio com hash diferente da versão atual → 409 aceite_ausente", hashRuim.status === 409 && hashRuim.corpo && hashRuim.corpo.motivo === "aceite_ausente" && nReservas() === antesR + 1 && asaasPedidos.length === antesAsaas + 1, JSON.stringify(hashRuim.corpo));
 }
 
 // ======================= ligado: disponibilidade =======================

@@ -1326,17 +1326,18 @@ async function garantirEsquemaAceite(env) {
   esquemaAceitePronto = true;
 }
 
-async function registrarAceite(env, request, reservaId, termo) {
+const SQL_INSERIR_ACEITE =
+  "INSERT INTO aceite_termos (reserva_id, termo_versao, termo_hash, aceito_em, ip, user_agent) " +
+  "SELECT ?1, ?2, ?3, ?4, ?5, ?6 WHERE EXISTS (SELECT 1 FROM reservas WHERE id = ?1)";
+
+async function aceiteDaVersaoAtual(env, reservaId) {
   await garantirEsquemaAceite(env);
-  const ip = String(request.headers.get("cf-connecting-ip") || "sem-ip").slice(0, 80);
-  const ua = String(request.headers.get("user-agent") || "").slice(0, 1024);
-  try {
-    await env.DB.prepare(
-      "INSERT INTO aceite_termos (reserva_id, termo_versao, termo_hash, aceito_em, ip, user_agent) VALUES (?1,?2,?3,?4,?5,?6)"
-    ).bind(reservaId, termo.versao, termo.hash, new Date().toISOString(), ip, ua).run();
-  } catch (e) {
-    if (!/UNIQUE/i.test(String(e && e.message))) throw e;
-  }
+  const row = await env.DB.prepare(
+    "SELECT termo_hash FROM aceite_termos WHERE reserva_id = ?1 AND termo_versao = ?2"
+  ).bind(reservaId, TERMO_VERSAO_ATUAL).first();
+  if (!row) return false;
+  const termo = await termoAtual(env);
+  return row.termo_hash === termo.hash;
 }
 
 async function adminListarAceites(env, url) {
@@ -1419,26 +1420,32 @@ async function criarReserva(b, env, request) {
     ? new Date(criadoMs + (pg.minutos + PAGAMENTO.folgaVagaMin) * 60000).toISOString()
     : expiraEm(d.data, d.hora, criadoMs);
 
+  const ipAceite = String(request.headers.get("cf-connecting-ip") || "sem-ip").slice(0, 80);
+  const uaAceite = String(request.headers.get("user-agent") || "").slice(0, 1024);
+  const aceitoEm = new Date().toISOString();
   let codigo = null;
   for (let tentativa = 0; tentativa < 3 && !codigo; tentativa++) {
     const candidato = gerarCodigo();
     try {
-      const r = await env.DB
-        .prepare(SQL_INSERIR_RESERVA)
-        .bind(
+      // Um batch do D1 é uma transação: se o aceite falha, a reserva não fica gravada.
+      // O aceite só insere se a reserva com este id existir (o INSERT acima não inseriu = 0 linhas).
+      const resultados = await env.DB.batch([
+        env.DB.prepare(SQL_INSERIR_RESERVA).bind(
           id, candidato, criadoEm, d.plano, d.data, d.hora, d.pax, d.nome, d.telefone, d.email, d.obs,
           total, voucher, d.origem, d.origemDetalhe, d.comoConheceu, d.igCliente, d.seguiu, cfg.capacidade,
           prazo, chave, limiteDuplicata, d.adultos, d.criancas, d.idades.length ? JSON.stringify(d.idades) : null,
           consentiuWhatsapp
-        )
-        .run();
-      if (r.meta.changes !== 1) {
+        ),
+        env.DB.prepare(SQL_INSERIR_ACEITE).bind(id, termo.versao, termo.hash, aceitoEm, ipAceite, uaAceite)
+      ]);
+      if (resultados[0].meta.changes !== 1) {
         if (chave) {
           const antiga = await env.DB.prepare(SQL_RESERVA_POR_CHAVE).bind(chave).first();
           if (antiga) return await repetirReserva(env, antiga, d, cfg, criadoEm);
         }
         return await explicarRecusa(env, d, cfg, criadoEm, limiteDuplicata);
       }
+      if (resultados[1].meta.changes !== 1) throw new Error("aceite não gravado junto com a reserva");
       codigo = candidato;
     } catch (err) {
       const msg = String(err && err.message);
@@ -1450,8 +1457,6 @@ async function criarReserva(b, env, request) {
       if (!/UNIQUE/i.test(msg) || tentativa === 2) throw err;
     }
   }
-
-  await registrarAceite(env, request, id, termo);
 
   await env.DB
     .prepare("INSERT INTO eventos (ts, tipo, origem, origem_detalhe, sessao, reserva_codigo) VALUES (?,?,?,?,?,?)")
@@ -1496,6 +1501,12 @@ async function repetirReserva(env, r, d, cfg, agoraISO) {
   const igual = r.plano === d.plano && r.data === d.data && Number(r.hora) === d.hora && Number(r.pax) === d.pax
     && adultosGravados === d.adultos && criancasGravadas === d.criancas && r.telefone === d.telefone;
   if (!igual) return ok({ ok: false, motivo: "chave_em_uso", erro: "Esta chave já foi usada em outro pedido." }, 409);
+  if (!(await aceiteDaVersaoAtual(env, r.id))) {
+    return ok({
+      ok: false, motivo: "aceite_ausente",
+      erro: "Esta reserva não tem o aceite da versão atual dos termos."
+    }, 409);
+  }
   const uso = await env.DB.prepare(SQL_USADO_NO_HORARIO).bind(r.data, Number(r.hora), agoraISO).first();
   if (r.pagamento_modalidade) return repetirPagamento(env, r, Math.max(0, cfg.capacidade - Number(uso.usado || 0)));
   return respostaDaReserva({

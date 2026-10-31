@@ -80,12 +80,11 @@ const PLANOS = [
 const planoPor = id => PLANOS.find(p => p.id === id) || PLANOS[1];
 
 /* Selos do passeio. O texto visível fica no HTML; o ícone é só apoio (aria-hidden).
-   snorkel está fora de todos os planos até o dono confirmar (TODO).
+   O selo de snorkel não entra aqui até o dono dizer em qual passeio o equipamento é incluso.
    "pagamento" só aparece com o pagamento online ligado. "reserva" aparece sempre. */
 const SELOS = {
   guia: { titulo: "Guia local", icone: "i-selo-guia" },
   seguranca: { titulo: "Orientações de segurança", icone: "i-selo-seguranca" },
-  snorkel: { titulo: "Equipamento de snorkel incluso", icone: "i-selo-snorkel" },
   pagamento: { titulo: "Pagamento protegido", icone: "i-selo-pagamento", soOnline: true },
   reserva: { titulo: "Reserva digital confirmada", icone: "i-selo-reserva" }
 };
@@ -102,7 +101,6 @@ function selosDoPlano(id) {
   const online = pagamentoOnlineNoHtml();
   const chaves = SELOS_POR_PLANO[id] || [];
   return chaves
-    .filter(k => k !== "snorkel")
     .concat(online ? ["pagamento"] : [])
     .map(k => SELOS[k])
     .filter(Boolean);
