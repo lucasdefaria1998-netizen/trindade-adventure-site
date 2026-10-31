@@ -112,6 +112,7 @@ dialog::backdrop{background:rgba(6,26,15,.5)}
     <button role="tab" data-aba="hoje" aria-current="true">Hoje &amp; agenda</button>
     <button role="tab" data-aba="reservas" aria-current="false">Reservas</button>
     <button role="tab" data-aba="origem" aria-current="false">Origem</button>
+    <button role="tab" data-aba="parceiros" aria-current="false">Parceiros</button>
     <button role="tab" data-aba="config" aria-current="false">Ajustes</button>
   </nav>
 
@@ -170,6 +171,36 @@ dialog::backdrop{background:rgba(6,26,15,.5)}
     </div>
   </section>
 
+  <section class="painel" id="painel-parceiros" hidden>
+    <div class="msg" id="parceirosDesligado" hidden>Rede de parceiros desativada. Ligue <code>parceiros_ativo</code> em Ajustes (técnico) para usar esta aba — ver LEIA-ME.</div>
+    <div id="parceirosConteudo" hidden>
+      <div class="card">
+        <h3>Parceiros indicadores</h3>
+        <div class="scroll-x"><table id="tabelaParceiros"></table></div>
+        <button class="btn sm" id="novoParceiro" style="margin-top:12px">+ Novo parceiro</button>
+      </div>
+      <div class="card">
+        <h3>Guias</h3>
+        <div class="scroll-x"><table id="tabelaGuias"></table></div>
+        <button class="btn sm" id="novoGuia" style="margin-top:12px">+ Novo guia</button>
+      </div>
+      <div class="card">
+        <h3>Comissões</h3>
+        <div class="filtros">
+          <select id="cParceiro"><option value="">Todos os parceiros</option></select>
+          <select id="cStatus">
+            <option value="todas">Todos os status</option>
+            <option value="pendente" selected>Pendentes</option>
+            <option value="paga">Pagas</option>
+            <option value="cancelada">Canceladas</option>
+          </select>
+          <button class="btn sm" id="cAplicar">Filtrar</button>
+        </div>
+        <div class="scroll-x"><table id="tabelaComissoes"></table></div>
+      </div>
+    </div>
+  </section>
+
   <section class="painel" id="painel-config" hidden>
     <div class="card">
       <h3>Ajustes da operação</h3>
@@ -198,6 +229,35 @@ dialog::backdrop{background:rgba(6,26,15,.5)}
   </div>
 </dialog>
 
+<dialog id="dlgParceiro">
+  <h3 style="font-size:15px;margin-bottom:12px">Novo parceiro</h3>
+  <div class="grade-form">
+    <label>Nome <input id="pNome" placeholder="Nome do parceiro"></label>
+    <label>Tipo
+      <select id="pTipo"><option value="estacionamento">Estacionamento</option><option value="restaurante">Restaurante</option><option value="pousada">Pousada</option><option value="comercio">Comércio</option><option value="outro">Outro</option></select>
+    </label>
+    <label>Cupom (opcional) <input id="pCupom" placeholder="Ex.: HYMBE10" style="text-transform:uppercase"></label>
+    <label>Contato (uso interno) <input id="pContato" placeholder="Telefone ou e-mail"></label>
+  </div>
+  <div class="acoes" style="margin-top:16px;justify-content:flex-end">
+    <button class="btn sm" id="pCancelar">Cancelar</button>
+    <button class="btn primary sm" id="pSalvar">Cadastrar</button>
+  </div>
+</dialog>
+
+<dialog id="dlgGuia">
+  <h3 style="font-size:15px;margin-bottom:12px">Novo guia</h3>
+  <div class="grade-form">
+    <label>Nome <input id="gNome" placeholder="Nome do guia"></label>
+    <label>WhatsApp <input id="gWhatsapp" placeholder="(24) 9...."></label>
+  </div>
+  <div class="acoes" style="margin-top:16px;justify-content:flex-end">
+    <button class="btn sm" id="gCancelar">Cancelar</button>
+    <button class="btn primary sm" id="gSalvar">Cadastrar</button>
+  </div>
+</dialog>
+
+<script src="/vendor/qrcode-generator-0.14.0.js" defer></script>
 <script>
 "use strict";
 const API = "/api/admin";
@@ -231,6 +291,7 @@ $$(".abas button").forEach(b => b.addEventListener("click", () => {
   $$(".painel").forEach(p => { p.hidden = p.id !== "painel-" + b.dataset.aba; });
   if (b.dataset.aba === "reservas") carregarReservas();
   if (b.dataset.aba === "origem") carregarOrigem();
+  if (b.dataset.aba === "parceiros") carregarParceiros();
   if (b.dataset.aba === "config") carregarConfig();
 }));
 
@@ -303,20 +364,33 @@ async function carregarReservas() {
   try { d = await api("/reservas?" + qs.toString()); } catch (e) { return aviso("Erro: " + e.message, true); }
 
   const t = $("#tabelaReservas");
+  // Pagamento online ligado (o servidor diz): alerta de pago sem vaga + colunas e botões de pagamento.
+  const pg = d.pagamentoOnline === true;
+  const rede = d.parceirosAtivo === true; // rede de parceiros ligada (E11)
+  if (pg) {
+    let caixa = $("#alertasPagamento");
+    if (!caixa) { caixa = document.createElement("div"); caixa.id = "alertasPagamento"; t.closest(".scroll-x").before(caixa); }
+    caixa.innerHTML = alertaPagoSemVaga(d.reservas);
+  }
   if (!d.reservas.length) { t.innerHTML = '<tbody><tr><td class="vazio">Nada encontrado.</td></tr></tbody>'; return; }
 
+  const colspan = 11 + (pg ? 4 : 0) + (rede ? 3 : 0);
   t.innerHTML =
-    "<thead><tr><th>Data</th><th>Hora</th><th>Código</th><th>Cliente</th><th>Contato</th><th>Passeio</th><th>Pax</th><th>Total</th><th>Origem</th><th>Status</th><th></th></tr></thead><tbody>" +
+    "<thead><tr><th>Data</th><th>Hora</th><th>Código</th><th>Cliente</th><th>Contato</th><th>Passeio</th><th>Pax</th><th>Total</th>" +
+    (pg ? "<th>Modalidade</th><th>Pago</th><th>Saldo</th><th>Cobrança</th>" : "") +
+    (rede ? "<th>Parceiro</th><th>Guia</th><th>Check-in</th>" : "") +
+    "<th>Origem</th><th>Status</th><th></th></tr></thead><tbody>" +
     d.reservas.map(r => {
       const orig = r.origem === "outro" && r.como_conheceu ? r.como_conheceu : (r.origem || "—");
       const ig = r.instagram_cliente ? '<br><span style="color:var(--gold)">@' + esc(r.instagram_cliente) + (r.seguiu_instagram ? " ✓" : "") + "</span>" : "";
       return "<tr><td>" + dataBR(r.data) + "</td><td>" + hLabel(r.hora) + "</td><td>" + r.codigo +
         "</td><td>" + esc(r.nome) + ig + "</td><td>" + esc(r.telefone || "—") +
         (r.email ? "<br>" + esc(r.email) : "") + "</td><td>" + esc(nomePlano(r.plano)) +
-        "</td><td>" + r.pax + "</td><td>" + money(r.total) + "</td><td>" + esc(orig) +
+        "</td><td>" + r.pax + "</td><td>" + money(r.total) + "</td>" + (pg ? colunasPagamento(r) : "") +
+        (rede ? colunasParceiro(r) : "") + "<td>" + esc(orig) +
         '</td><td><span class="pill ' + r.status + '">' + rotStatus(r.status) + "</span></td><td>" +
-        acoesReserva(r) + "</td></tr>" +
-        (r.obs ? '<tr><td colspan="11" style="color:var(--muted);font-size:11px;padding-top:0">obs: ' + esc(r.obs) + "</td></tr>" : "");
+        (pg ? acoesReserva(r).replace(/<\/div>$/, acoesPagamento(r) + "</div>") : acoesReserva(r)).replace(/<\/div>$/, (rede ? acaoCheckin(r) : "") + "</div>") + "</td></tr>" +
+        (r.obs ? '<tr><td colspan="' + colspan + '" style="color:var(--muted);font-size:11px;padding-top:0">obs: ' + esc(r.obs) + "</td></tr>" : "");
     }).join("") + "</tbody>";
 
   $$("#tabelaReservas [data-acao]").forEach(btn => btn.addEventListener("click", async () => {
@@ -326,6 +400,43 @@ async function carregarReservas() {
       carregarReservas();
     } catch (e) { aviso("Falhou: " + e.message, true); }
   }));
+  if (pg) $$("#tabelaReservas [data-pg]").forEach(btn => btn.addEventListener("click", () => {
+    const r = d.reservas.find(x => x.id === btn.dataset.id);
+    if (!r) return;
+    if (btn.dataset.pg === "saldo") gerarLinkSaldo(r);
+    if (btn.dataset.pg === "saldo-local") saldoNoLocal(r);
+    if (btn.dataset.pg === "reagendar") reagendar(r);
+    if (btn.dataset.pg === "devolver") devolver(r);
+  }));
+  if (rede) $$("#tabelaReservas [data-checkin]").forEach(btn => btn.addEventListener("click", () => {
+    const r = d.reservas.find(x => x.id === btn.dataset.id);
+    if (r) fazerCheckin(r);
+  }));
+}
+
+/* ------- REDE DE PARCEIROS (check-in, colunas) ------- */
+function colunasParceiro(r) {
+  const parceiro = r.parceiro ? esc(r.parceiro.nome) : "—";
+  const guia = r.guiaNome ? esc(r.guiaNome) : "—";
+  const ck = r.checkin ? (r.checkin.status === "faltou" ? "faltou" : r.checkin.presentes + "/" + r.pax + " presentes") : "—";
+  return "<td>" + parceiro + "</td><td>" + guia + "</td><td>" + ck + "</td>";
+}
+function acaoCheckin(r) {
+  if (r.status === "cancelada") return "";
+  const label = r.checkin ? "refazer check-in" : "check-in";
+  return '<button class="btn sm" data-checkin data-id="' + esc(r.id) + '">' + label + "</button>";
+}
+async function fazerCheckin(r) {
+  const atual = r.checkin ? String(r.checkin.presentes) : String(r.pax);
+  const resp = prompt("Quantas pessoas de " + r.pax + " (" + esc(r.codigo || "") + ") estiveram presentes? 0 = faltou.", atual);
+  if (resp === null) return;
+  const presentes = Number(resp);
+  if (!Number.isInteger(presentes) || presentes < 0 || presentes > r.pax) return aviso("Informe um número entre 0 e " + r.pax + ".", true);
+  try {
+    await api("/reservas/" + encodeURIComponent(r.id) + "/checkin", { method: "POST", body: JSON.stringify({ presentes }) });
+    aviso("Check-in registrado.");
+    carregarReservas();
+  } catch (e) { aviso("Falhou: " + esc(e.message), true); }
 }
 
 function acoesReserva(r) {
@@ -334,6 +445,179 @@ function acoesReserva(r) {
   if (r.status !== "nao_compareceu" && r.status !== "cancelada") b.push('<button class="btn sm" data-acao="nao_compareceu" data-id="' + r.id + '">faltou</button>');
   if (r.status !== "cancelada") b.push('<button class="btn sm danger" data-acao="cancelada" data-id="' + r.id + '">cancelar</button>');
   return '<div class="acoes">' + b.join("") + "</div>";
+}
+
+/* ------- PAGAMENTO ONLINE (Asaas, só Pix) — Sessão 3 -------
+   Só aparece quando /api/admin/reservas responde "pagamentoOnline: true" (flag ligada). Com a flag
+   desligada a resposta é a de sempre e a tabela fica igual: nada daqui é desenhado. */
+/* <painel-pagamento-puro> — sem DOM; testes/testar-pagamento-ui.mjs roda este trecho isolado. */
+const PainelPagamento = (() => {
+  const MODALIDADE = { sinal: "sinal 30%", integral: "integral" };
+  const STATUS = {
+    aguardando: "aguardando Pix", sinal_pago: "sinal pago", quitado: "quitado", sinal_retido: "sinal retido",
+    pago_sem_vaga: "pago sem vaga", devolucao_solicitada: "devolução pedida", devolucao_manual: "devolver por fora",
+    falha_asaas: "falha no Asaas", saldo_no_local: "saldo pago no local"
+  };
+  const COBRANCA = { aguardando: "link aberto", paga: "paga", expirada: "expirou", cancelada: "cancelada" };
+  const TIPO = { sinal: "sinal", integral: "integral", saldo: "saldo" };
+  const reais = c => "R$ " + (c % 100 ? (c / 100).toFixed(2).replace(".", ",") : String(c / 100).replace(/\B(?=(\d{3})+(?!\d))/g, "."));
+
+  // Uma linha da tabela: o que mostrar e quais botões cabem.
+  function linha(r) {
+    const online = !!r.pagamento_modalidade;
+    const totalC = Math.round(Number(r.total || 0) * 100);
+    const pagoC = Math.max(0, Number(r.pago_centavos || 0));
+    const st = r.pagamento_status || "";
+    const saldoC = st === "sinal_pago" ? Math.max(0, totalC - pagoC) : st === "quitado" || st === "saldo_no_local" ? 0 : null;
+    const alertas = [];
+    if (st === "pago_sem_vaga") alertas.push({ tipo: "erro", texto: "Pagou e ficou sem vaga: reagende ou devolva." });
+    if (st === "sinal_retido") alertas.push({ tipo: "aviso", texto: "Cancelada: saldo não pago até 15 min antes da saída (sinal retido)." });
+    if (st === "devolucao_manual") alertas.push({ tipo: "erro", texto: "O Asaas não fez o estorno: devolva por fora (Pix manual) ou tente de novo." });
+    if (r.saldo_sem_tempo) alertas.push({ tipo: "aviso", texto: "Sinal confirmado tarde: não dá mais tempo para o link do saldo." });
+    return {
+      online,
+      modalidade: online ? (MODALIDADE[r.pagamento_modalidade] || r.pagamento_modalidade) : "—",
+      pago: online ? reais(pagoC) : "—",
+      saldo: saldoC === null ? "—" : reais(saldoC),
+      status: online ? (STATUS[st] || st || "—") : "",
+      cobranca: r.cobranca_tipo ? (TIPO[r.cobranca_tipo] || r.cobranca_tipo) + ": " + (COBRANCA[r.cobranca_status] || r.cobranca_status || "—") : "—",
+      alertas,
+      acoes: {
+        saldo: r.status === "confirmada" && st === "sinal_pago" && !r.saldo_sem_tempo,
+        saldoLocal: r.status === "confirmada" && st === "sinal_pago",
+        reagendar: st === "pago_sem_vaga",
+        devolver: st === "pago_sem_vaga" || st === "devolucao_manual"
+      }
+    };
+  }
+
+  // Horários que servem para reagendar: os do passeio, sem bloqueio e com vaga para todo o grupo.
+  function horariosLivres(disp, plano, pax) {
+    if (!disp || !disp.ok || !disp.grade) return [];
+    const lista = (disp.horariosPorPlano && disp.horariosPorPlano[plano]) || [];
+    return lista.map(Number).filter(h => {
+      const s = disp.grade[String(h)];
+      return s && !s.bloqueado && Number(s.restam) >= Number(pax);
+    });
+  }
+
+  return { linha, horariosLivres, reais, STATUS };
+})();
+/* </painel-pagamento-puro> */
+
+function colunasPagamento(r) {
+  const l = PainelPagamento.linha(r);
+  return "<td>" + esc(l.modalidade) + '</td><td style="white-space:nowrap">' + esc(l.pago) + '</td><td style="white-space:nowrap">' + esc(l.saldo) + "</td><td>" +
+    (l.status ? '<span class="pill ' + (l.alertas.some(a => a.tipo === "erro") ? "cancelada" : l.status === "quitado" || l.status === "sinal pago" || l.status === "saldo pago no local" ? "confirmada" : "pendente") + '">' + esc(l.status) + "</span><br>" : "") +
+    '<span style="font-size:11px;color:var(--muted)">' + esc(l.cobranca) + "</span>" +
+    l.alertas.map(a => '<br><span style="font-size:11px;color:var(' + (a.tipo === "erro" ? "--bad" : "--warn") + ')">⚠ ' + esc(a.texto) + "</span>").join("") +
+    "</td>";
+}
+
+function acoesPagamento(r) {
+  const a = PainelPagamento.linha(r).acoes, b = [];
+  if (a.saldo) b.push('<button class="btn sm" data-pg="saldo" data-id="' + esc(r.id) + '">gerar link do saldo</button>');
+  if (a.saldoLocal) b.push('<button class="btn sm" data-pg="saldo-local" data-id="' + esc(r.id) + '">saldo pago no local</button>');
+  if (a.reagendar) b.push('<button class="btn sm" data-pg="reagendar" data-id="' + esc(r.id) + '">reagendar</button>');
+  if (a.devolver) b.push('<button class="btn sm danger" data-pg="devolver" data-id="' + esc(r.id) + '">' + (r.pagamento_status === "devolucao_manual" ? "tentar devolver de novo" : "devolver") + "</button>");
+  return b.join("");
+}
+
+function alertaPagoSemVaga(reservas) {
+  const n = reservas.filter(r => r.pagamento_status === "pago_sem_vaga").length;
+  const m = reservas.filter(r => r.pagamento_status === "devolucao_manual").length;
+  const partes = [];
+  if (n) partes.push(n + (n > 1 ? " reservas pagas ficaram" : " reserva paga ficou") + " sem vaga: reagende ou devolva e avise o cliente (a página de retorno diz a ele que a equipe vai entrar em contato).");
+  if (m) partes.push(m + (m > 1 ? " devoluções precisam" : " devolução precisa") + " ser feita por fora (o Asaas recusou o estorno).");
+  return partes.length ? '<div class="msg erro" role="alert">' + partes.map(esc).join("<br>") + "</div>" : "";
+}
+
+function dialogoPagamento(html) {
+  let d = $("#dlgPagamento");
+  if (!d) {
+    d = document.createElement("dialog");
+    d.id = "dlgPagamento";
+    d.setAttribute("aria-labelledby", "dlgPagamentoTitulo");
+    document.body.appendChild(d);
+  }
+  d.innerHTML = html;
+  d.showModal();
+  return d;
+}
+
+async function gerarLinkSaldo(r) {
+  let j;
+  try { j = await api("/reservas/" + encodeURIComponent(r.id) + "/saldo", { method: "POST", body: "{}" }); }
+  catch (e) { return aviso("Falhou: " + esc(e.message), true); }
+  const expira = j.expiraEm ? new Date(j.expiraEm).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" }) : "";
+  const d = dialogoPagamento(
+    '<h3 id="dlgPagamentoTitulo" style="font-size:15px;margin-bottom:8px">Link do saldo — ' + esc(r.codigo || "") + "</h3>" +
+    '<p style="font-size:12.5px;margin:0 0 10px">' + esc(money(j.valor)) + " · vale até " + esc(expira) + (j.repetido ? " · mesmo link já gerado antes" : "") + "</p>" +
+    '<label style="font-size:12px">Link (envie ao cliente pelo WhatsApp — o painel não envia nada)' +
+    '<input id="pgLink" readonly style="width:100%;margin-top:4px;padding:7px;font-family:var(--mono);font-size:11px" value="' + esc(j.link) + '"></label>' +
+    '<div class="acoes" style="margin-top:14px;justify-content:flex-end"><button class="btn sm" id="pgFechar">Fechar</button><button class="btn primary sm" id="pgCopiar">Copiar link</button></div>');
+  $("#pgFechar").onclick = () => d.close();
+  $("#pgCopiar").onclick = async () => {
+    const campo = $("#pgLink");
+    try { await navigator.clipboard.writeText(campo.value); }
+    catch (e) { campo.select(); document.execCommand("copy"); }
+    $("#pgCopiar").textContent = "Copiado";
+  };
+  $("#pgLink").focus(); $("#pgLink").select();
+  carregarReservas();
+}
+
+function reagendar(r) {
+  const hoje = new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  const d = dialogoPagamento(
+    '<h3 id="dlgPagamentoTitulo" style="font-size:15px;margin-bottom:8px">Reagendar ' + esc(r.codigo || "") + " — " + esc(nomePlano(r.plano)) + ", " + esc(String(r.pax)) + " pax</h3>" +
+    '<p style="font-size:12px;color:var(--muted);margin:0 0 10px">Escolha um dia e um horário com vaga. O pagamento continua o mesmo.</p>' +
+    '<div class="grade-form"><label>Data <input type="date" id="rgData" min="' + hoje + '" value="' + esc(r.data >= hoje ? r.data : hoje) + '"></label>' +
+    '<label>Horário <select id="rgHora"></select></label></div>' +
+    '<p id="rgMsg" style="font-size:12px;color:var(--muted);margin:8px 0 0" aria-live="polite"></p>' +
+    '<div class="acoes" style="margin-top:14px;justify-content:flex-end"><button class="btn sm" id="rgCancelar">Cancelar</button><button class="btn primary sm" id="rgSalvar" disabled>Reagendar</button></div>');
+  const carregarHoras = async () => {
+    $("#rgSalvar").disabled = true; $("#rgHora").innerHTML = ""; $("#rgMsg").textContent = "Carregando vagas…";
+    const data = $("#rgData").value;
+    let disp = null;
+    try { const resp = await fetch("/api/disponibilidade?data=" + encodeURIComponent(data)); disp = await resp.json(); } catch (e) { disp = null; }
+    const horas = PainelPagamento.horariosLivres(disp, r.plano, r.pax);
+    $("#rgHora").innerHTML = horas.map(h => '<option value="' + h + '">' + hLabel(h) + " (" + disp.grade[String(h)].restam + " vagas)</option>").join("");
+    $("#rgMsg").textContent = horas.length ? "" : (disp && disp.ok ? "Nenhum horário com vaga para " + r.pax + " pessoa(s) nesse dia." : "Não consegui ler as vagas desse dia.");
+    $("#rgSalvar").disabled = !horas.length;
+  };
+  $("#rgData").onchange = carregarHoras;
+  $("#rgCancelar").onclick = () => d.close();
+  $("#rgSalvar").onclick = async () => {
+    try {
+      const j = await api("/reservas/" + encodeURIComponent(r.id) + "/reagendar", { method: "POST", body: JSON.stringify({ data: $("#rgData").value, hora: Number($("#rgHora").value) }) });
+      if (!j.ok) { $("#rgMsg").textContent = Object.values(j.erros || {}).join(" ") || "Não foi possível reagendar."; return; }
+      d.close();
+      aviso("Reserva reagendada para " + esc(dataBR(j.data)) + " " + esc(hLabel(j.hora)) + ". Avise o cliente.");
+      carregarReservas();
+    } catch (e) { $("#rgMsg").textContent = e.message; carregarHoras(); }
+  };
+  carregarHoras();
+}
+
+async function saldoNoLocal(r) {
+  const l = PainelPagamento.linha(r);
+  if (!confirm("Marcar o saldo de " + l.saldo + " da reserva " + (r.codigo || "") + " como pago no local?\nA reserva deixa de ser cancelada aos 15 min e não recebe mais link de saldo.")) return;
+  try {
+    await api("/reservas/" + encodeURIComponent(r.id) + "/saldo-local", { method: "POST", body: "{}" });
+    aviso("Saldo marcado como pago no local.");
+  } catch (e) { aviso("Falhou: " + esc(e.message), true); }
+  carregarReservas();
+}
+
+async function devolver(r) {
+  const pagoC = Math.max(0, Number(r.pago_centavos || 0));
+  if (!confirm("Devolver " + PainelPagamento.reais(pagoC) + " por Pix (estorno integral pelo Asaas) da reserva " + (r.codigo || "") + "?\nA reserva será cancelada. Não dá para desfazer.")) return;
+  try {
+    await api("/reservas/" + encodeURIComponent(r.id) + "/devolver", { method: "POST", body: "{}" });
+    aviso("Devolução pedida ao Asaas. Avise o cliente.");
+  } catch (e) { aviso("Falhou: " + esc(e.message), true); }
+  carregarReservas();
 }
 
 $("#fAplicar").addEventListener("click", carregarReservas);
@@ -394,6 +678,133 @@ async function carregarOrigem() {
 }
 $("#oDias").addEventListener("change", carregarOrigem);
 
+/* ------- REDE DE PARCEIROS (painel) ------- */
+const TIPO_PARCEIRO = { estacionamento: "Estacionamento", restaurante: "Restaurante", pousada: "Pousada", comercio: "Comércio", outro: "Outro" };
+let guiasCache = [];
+
+async function carregarParceiros() {
+  let dp;
+  try { dp = await api("/parceiros"); }
+  catch (e) {
+    if (String(e.message || "").includes("desativada")) { $("#parceirosDesligado").hidden = false; $("#parceirosConteudo").hidden = true; return; }
+    return aviso("Erro: " + e.message, true);
+  }
+  $("#parceirosDesligado").hidden = true; $("#parceirosConteudo").hidden = false;
+
+  $("#tabelaParceiros").innerHTML =
+    "<thead><tr><th>Nome</th><th>Tipo</th><th>Código (link/QR)</th><th>Cupom</th><th>Indicados</th><th>Presentes</th><th>Comissão pendente</th><th>Status</th><th></th></tr></thead><tbody>" +
+    (dp.parceiros.length ? dp.parceiros.map(p =>
+      "<tr><td>" + esc(p.nome) + "</td><td>" + (TIPO_PARCEIRO[p.tipo] || esc(p.tipo)) + "</td><td>" +
+      '<code style="font-size:11px">' + esc(p.codigo) + "</code></td><td>" + (p.cupom ? esc(p.cupom) : "—") +
+      "</td><td>" + p.indicados + "</td><td>" + p.presentes + "</td><td>" + money(p.comissao_pendente_centavos / 100) +
+      '</td><td><span class="pill ' + (p.ativo ? "confirmada" : "cancelada") + '">' + (p.ativo ? "ativo" : "inativo") + "</span></td><td>" +
+      '<div class="acoes"><button class="btn sm" data-qr="' + esc(p.id) + '">QR / link</button>' +
+      '<button class="btn sm" data-ativo="' + esc(p.id) + '" data-valor="' + (p.ativo ? 0 : 1) + '">' + (p.ativo ? "desativar" : "ativar") + "</button></div></td></tr>"
+    ).join("") : '<tr><td colspan="9" class="vazio">Nenhum parceiro cadastrado.</td></tr>') + "</tbody>";
+
+  $$("#tabelaParceiros [data-qr]").forEach(btn => btn.addEventListener("click", () => {
+    const p = dp.parceiros.find(x => x.id === btn.dataset.qr);
+    if (p) mostrarQrParceiro(p);
+  }));
+  $$("#tabelaParceiros [data-ativo]").forEach(btn => btn.addEventListener("click", async () => {
+    try {
+      await api("/parceiros/" + btn.dataset.ativo, { method: "PATCH", body: JSON.stringify({ ativo: btn.dataset.valor === "1" }) });
+      carregarParceiros();
+    } catch (e) { aviso("Falhou: " + esc(e.message), true); }
+  }));
+
+  $("#cParceiro").innerHTML = '<option value="">Todos os parceiros</option>' +
+    dp.parceiros.map(p => '<option value="' + esc(p.id) + '">' + esc(p.nome) + "</option>").join("");
+
+  let dg;
+  try { dg = await api("/guias"); } catch (e) { dg = { guias: [] }; }
+  guiasCache = dg.guias;
+  $("#tabelaGuias").innerHTML =
+    "<thead><tr><th>Nome</th><th>WhatsApp</th><th>Status</th><th></th></tr></thead><tbody>" +
+    (dg.guias.length ? dg.guias.map(g =>
+      "<tr><td>" + esc(g.nome) + "</td><td>" + esc(g.whatsapp || "—") + '</td><td><span class="pill ' + (g.ativo ? "confirmada" : "cancelada") + '">' +
+      (g.ativo ? "ativo" : "inativo") + "</span></td><td>" +
+      '<button class="btn sm" data-guia-ativo="' + esc(g.id) + '" data-valor="' + (g.ativo ? 0 : 1) + '">' + (g.ativo ? "desativar" : "ativar") + "</button></td></tr>"
+    ).join("") : '<tr><td colspan="4" class="vazio">Nenhum guia cadastrado.</td></tr>') + "</tbody>";
+  $$("#tabelaGuias [data-guia-ativo]").forEach(btn => btn.addEventListener("click", async () => {
+    try {
+      await api("/guias/" + btn.dataset.guiaAtivo, { method: "PATCH", body: JSON.stringify({ ativo: btn.dataset.valor === "1" }) });
+      carregarParceiros();
+    } catch (e) { aviso("Falhou: " + esc(e.message), true); }
+  }));
+
+  carregarComissoes();
+}
+
+async function carregarComissoes() {
+  const qs = new URLSearchParams();
+  if ($("#cParceiro").value) qs.set("parceiroId", $("#cParceiro").value);
+  if ($("#cStatus").value) qs.set("status", $("#cStatus").value);
+  let dc;
+  try { dc = await api("/comissoes?" + qs.toString()); } catch (e) { return aviso("Erro: " + e.message, true); }
+  $("#tabelaComissoes").innerHTML =
+    "<thead><tr><th>Data</th><th>Reserva</th><th>Parceiro</th><th>Valor</th><th>Status</th><th></th></tr></thead><tbody>" +
+    (dc.comissoes.length ? dc.comissoes.map(c =>
+      "<tr><td>" + dataBR(c.reserva_data) + "</td><td>" + esc(c.reserva_codigo) + "</td><td>" + esc(c.parceiro_nome) +
+      "</td><td>" + money(c.valor_centavos / 100) + '</td><td><span class="pill ' + (c.status === "paga" ? "confirmada" : c.status === "cancelada" ? "cancelada" : "pendente") + '">' +
+      c.status + "</span></td><td>" + (c.status === "pendente" ? '<button class="btn sm" data-pagar="' + esc(c.id) + '">marcar como pago</button>' : "") + "</td></tr>"
+    ).join("") : '<tr><td colspan="6" class="vazio">Nenhuma comissão encontrada.</td></tr>') + "</tbody>";
+  $$("#tabelaComissoes [data-pagar]").forEach(btn => btn.addEventListener("click", async () => {
+    const obs = prompt("Observação do pagamento (opcional, ex.: Pix em 05/11):", "") || "";
+    try {
+      await api("/comissoes/" + btn.dataset.pagar + "/pagar", { method: "POST", body: JSON.stringify({ obs }) });
+      aviso("Comissão marcada como paga.");
+      carregarComissoes();
+    } catch (e) { aviso("Falhou: " + esc(e.message), true); }
+  }));
+}
+$("#cAplicar").addEventListener("click", carregarComissoes);
+
+function mostrarQrParceiro(p) {
+  const link = location.origin + "/p/" + p.codigo;
+  const d = dialogoPagamento(
+    '<h3 id="dlgPagamentoTitulo" style="font-size:15px;margin-bottom:8px">QR / link — ' + esc(p.nome) + "</h3>" +
+    '<div id="qrDesenho" style="text-align:center;margin:10px 0"></div>' +
+    '<label style="font-size:12px">Link<input id="qrLink" readonly style="width:100%;margin-top:4px;padding:7px;font-family:var(--mono);font-size:11px" value="' + esc(link) + '"></label>' +
+    '<div class="acoes" style="margin-top:14px;justify-content:flex-end"><button class="btn sm" id="qrFechar">Fechar</button><button class="btn sm" id="qrImprimir">Imprimir</button><button class="btn primary sm" id="qrCopiar">Copiar link</button></div>');
+  try {
+    const qr = qrcode(0, "M");
+    qr.addData(link);
+    qr.make();
+    $("#qrDesenho").innerHTML = qr.createSvgTag({ cellSize: 5, margin: 8 });
+  } catch (e) { $("#qrDesenho").textContent = "Não consegui desenhar o QR agora — use o link abaixo."; }
+  $("#qrFechar").onclick = () => d.close();
+  $("#qrImprimir").onclick = () => window.print();
+  $("#qrCopiar").onclick = async () => {
+    try { await navigator.clipboard.writeText(link); } catch (e) { $("#qrLink").select(); document.execCommand("copy"); }
+    $("#qrCopiar").textContent = "Copiado";
+  };
+}
+
+const dlgP = $("#dlgParceiro");
+$("#novoParceiro").addEventListener("click", () => { $("#pNome").value = ""; $("#pCupom").value = ""; $("#pContato").value = ""; dlgP.showModal(); });
+$("#pCancelar").addEventListener("click", () => dlgP.close());
+$("#pSalvar").addEventListener("click", async () => {
+  try {
+    await api("/parceiros", { method: "POST", body: JSON.stringify({ nome: $("#pNome").value, tipo: $("#pTipo").value, cupom: $("#pCupom").value, contato: $("#pContato").value }) });
+    dlgP.close();
+    aviso("Parceiro cadastrado.");
+    carregarParceiros();
+  } catch (e) { aviso("Falhou: " + e.message, true); }
+});
+
+const dlgG = $("#dlgGuia");
+$("#novoGuia").addEventListener("click", () => { $("#gNome").value = ""; $("#gWhatsapp").value = ""; dlgG.showModal(); });
+$("#gCancelar").addEventListener("click", () => dlgG.close());
+$("#gSalvar").addEventListener("click", async () => {
+  try {
+    await api("/guias", { method: "POST", body: JSON.stringify({ nome: $("#gNome").value, whatsapp: $("#gWhatsapp").value }) });
+    dlgG.close();
+    aviso("Guia cadastrado.");
+    carregarParceiros();
+  } catch (e) { aviso("Falhou: " + e.message, true); }
+});
+
 /* ------- CONFIG ------- */
 const CAMPOS_CFG = [
   ["capacidade", "Vagas por horário"],
@@ -405,7 +816,11 @@ const CAMPOS_CFG = [
   ["whatsapp", "WhatsApp (55 + DDD + número)"],
   ["instagram", "@ do Instagram (sem @)"],
   ["cupom", "Cupom das pousadas"],
-  ["beneficio_instagram", "Texto do benefício de seguir"]
+  ["beneficio_instagram", "Texto do benefício de seguir"],
+  ["parceiros_ativo", "Rede de parceiros ligada (1) ou desligada (0)"],
+  ["comissao_por_pax_centavos", "Comissão por presente (centavos)"],
+  ["parceiro_validade_dias", "Validade da atribuição do parceiro (dias)"],
+  ["parceiro_regra", "Regra de atribuição (ultimo_clique)"]
 ];
 async function carregarConfig() {
   let d;

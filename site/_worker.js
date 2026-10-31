@@ -396,6 +396,12 @@ async function servirSite(request, env, url) {
 
   if (metodo !== "GET" && metodo !== "HEAD") return env.ASSETS.fetch(request);
 
+  // Link curto do QR do parceiro (rede de parceiros — E5/C6): /p/<codigo> → /reservar?parceiro=<codigo>.
+  // Redirecionamento simples (302, não é um endereço permanente); o app.js resolve e guarda a atribuição.
+  // Sempre existe (mesmo com a rede desligada): resolverParceiro() não acha nada e a reserva segue normal.
+  const codigoQr = p.match(/^\/p\/([a-z0-9]{6,32})$/i);
+  if (codigoQr) return Response.redirect(url.origin + "/reservar?parceiro=" + codigoQr[1].toLowerCase() + "&parceiroVia=qr", 302);
+
   // Endereços que mudaram de lugar: 301 permanente, mantendo a query string. Vale com ou sem
   // barra no fim (um salto só, sem passar pelo endereço sem barra).
   const destino = REDIRECIONAMENTOS[p.length > 1 ? p.replace(/\/+$/, "") : p];
@@ -664,6 +670,7 @@ async function rotearAPI(request, env, url) {
   const metodo = request.method;
 
   if (p === "/api/disponibilidade" && metodo === "GET") return disponibilidade(env, url);
+  if (p === "/api/parceiro" && metodo === "GET") return parceiroInfoPublico(request, env, url);
   if (p === "/api/pagamento" && metodo === "GET") return statusDoPagamento(request, env, url);
   if (p === "/api/asaas/webhook") return webhookAsaas(request, env);
   if (p === "/api/tarefas/pagamento") return rotaTarefasPagamento(request, env);
@@ -686,6 +693,8 @@ async function rotearAPI(request, env, url) {
     if (p === "/api/admin/reservas" && metodo === "POST") return adminCriarReserva(request, env);
     if (p.match(/^\/api\/admin\/reservas\/[\w-]+\/saldo$/) && metodo === "POST")
       return adminLinkSaldo(request, env, p.split("/")[4]);
+    if (p.match(/^\/api\/admin\/reservas\/[\w-]+\/saldo-local$/) && metodo === "POST")
+      return adminSaldoNoLocal(env, p.split("/")[4]);
     if (p.match(/^\/api\/admin\/reservas\/[\w-]+\/reagendar$/) && metodo === "POST")
       return adminReagendar(request, env, p.split("/")[4]);
     if (p.match(/^\/api\/admin\/reservas\/[\w-]+\/devolver$/) && metodo === "POST")
@@ -699,6 +708,21 @@ async function rotearAPI(request, env, url) {
     if (p === "/api/admin/origem" && metodo === "GET") return adminOrigem(env, url);
     if (p === "/api/admin/config" && metodo === "GET") return adminLerConfig(env);
     if (p === "/api/admin/config" && metodo === "POST") return adminGravarConfig(request, env);
+
+    // Rede de parceiros indicadores (migracoes/0004_parceiros.sql) — tudo atrás de cfg.parceirosAtivo.
+    if (p === "/api/admin/parceiros" && metodo === "GET") return adminListarParceiros(env);
+    if (p === "/api/admin/parceiros" && metodo === "POST") return adminCriarParceiro(request, env);
+    if (p.match(/^\/api\/admin\/parceiros\/[\w-]+$/) && metodo === "PATCH")
+      return adminAtualizarParceiro(request, env, p.split("/").pop());
+    if (p === "/api/admin/guias" && metodo === "GET") return adminListarGuias(env);
+    if (p === "/api/admin/guias" && metodo === "POST") return adminCriarGuia(request, env);
+    if (p.match(/^\/api\/admin\/guias\/[\w-]+$/) && metodo === "PATCH")
+      return adminAtualizarGuia(request, env, p.split("/").pop());
+    if (p.match(/^\/api\/admin\/reservas\/[\w-]+\/checkin$/) && metodo === "POST")
+      return adminCheckin(request, env, p.split("/")[4]);
+    if (p === "/api/admin/comissoes" && metodo === "GET") return adminListarComissoes(env, url);
+    if (p.match(/^\/api\/admin\/comissoes\/[\w-]+\/pagar$/) && metodo === "POST")
+      return adminPagarComissao(request, env, p.split("/")[4]);
 
     return erro("Rota de painel não encontrada.", 404);
   }
@@ -827,7 +851,12 @@ async function lerConfig(env) {
     whatsapp: c.whatsapp || "5524992073621",
     instagram: c.instagram || "trindadeadventure",
     cupom: c.cupom || "TRINDADE10",
-    beneficioInstagram: c.beneficio_instagram || "Siga e receba as fotos do seu dia de passeio."
+    beneficioInstagram: c.beneficio_instagram || "Siga e receba as fotos do seu dia de passeio.",
+    // Rede de parceiros indicadores (ver migracoes/0004_parceiros.sql): tudo desligado por padrão.
+    parceirosAtivo: c.parceiros_ativo === "1",
+    comissaoPorPaxCentavos: Number(c.comissao_por_pax_centavos || 1000),
+    parceiroValidadeDias: Number(c.parceiro_validade_dias || 7),
+    parceiroRegra: c.parceiro_regra || "ultimo_clique"
   };
 }
 
@@ -1098,9 +1127,13 @@ async function disponibilidade(env, url) {
 
   // Com o pagamento online ligado, o site fica sabendo quais passeios pagam pelo site e o "hoje" de Trindade
   // (para mostrar 30%/100% ou só 100%). Desligado, a resposta é a mesma de antes.
+  // O site mostra os valores a partir dos preços daqui (os mesmos que o servidor cobra) e esconde os horários
+  // em que já não cabe um link de pagamento (saída − quitarAntesMin − minimoLinkMin).
   const extra = pagamentoOnlineAtivo(env) ? {
     pagamentoOnline: {
-      planos: Object.keys(PLANOS).filter(planoPagaOnline), percentualSinal: PAGAMENTO.percentualSinal, hoje: agoraEmTrindade().data
+      planos: Object.keys(PLANOS).filter(planoPagaOnline), percentualSinal: PAGAMENTO.percentualSinal, hoje: agoraEmTrindade().data,
+      precos: Object.fromEntries(Object.keys(PLANOS).filter(planoPagaOnline).map(id => [id, PLANOS[id].preco])),
+      saidaAposMin: cfg.saidaApos, quitarAntesMin: PAGAMENTO.quitarAntesDaSaidaMin, minimoLinkMin: PAGAMENTO.minimoAsaasMin
     }
   } : {};
   return ok({ ok: true, data, capacidade: cfg.capacidade, grade, horariosPorPlano, ...extra });
@@ -1169,6 +1202,102 @@ async function garantirEsquemaReservas(env) {
   esquemaReservasPronto = true;
 }
 
+/* Rede de parceiros indicadores: ver migracoes/0004_parceiros.sql. Só roda quando cfg.parceirosAtivo é
+   true — chamadores sempre conferem a flag antes de chamar esta função (mesmo padrão de
+   garantirEsquemaPagamento/pagamentoOnlineAtivo), então com a rede desligada nenhuma SQL nova roda. */
+let esquemaParceirosPronto = false;
+async function garantirEsquemaParceiros(env) {
+  if (esquemaParceirosPronto) return;
+  await garantirEsquemaReservas(env);
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS parceiros (id TEXT PRIMARY KEY, nome TEXT NOT NULL, tipo TEXT NOT NULL, " +
+    "codigo TEXT NOT NULL UNIQUE, cupom TEXT UNIQUE, contato TEXT, pix_chave TEXT, " +
+    "recebe_voucher INTEGER NOT NULL DEFAULT 0, ativo INTEGER NOT NULL DEFAULT 1, criado_em TEXT NOT NULL, atualizado_em TEXT)"
+  ).run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_parceiros_ativo ON parceiros (ativo)").run();
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS guias (id TEXT PRIMARY KEY, nome TEXT NOT NULL, whatsapp TEXT, " +
+    "ativo INTEGER NOT NULL DEFAULT 1, obs TEXT, criado_em TEXT NOT NULL, atualizado_em TEXT)"
+  ).run();
+  const { results } = await env.DB.prepare("PRAGMA table_info(reservas)").all();
+  const tem = new Set(results.map(c => c.name));
+  const novas = [
+    ["parceiro_id", "ALTER TABLE reservas ADD COLUMN parceiro_id TEXT"],
+    ["parceiro_via", "ALTER TABLE reservas ADD COLUMN parceiro_via TEXT"],
+    ["parceiro_em", "ALTER TABLE reservas ADD COLUMN parceiro_em TEXT"],
+    ["guia_id", "ALTER TABLE reservas ADD COLUMN guia_id TEXT"]
+  ];
+  for (const [nome, ddl] of novas) {
+    if (tem.has(nome)) continue;
+    try { await env.DB.prepare(ddl).run(); } catch (e) { if (!/duplicate column/i.test(String(e && e.message))) throw e; }
+  }
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_reservas_parceiro ON reservas (parceiro_id)").run();
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS checkins (id TEXT PRIMARY KEY, reserva_id TEXT NOT NULL UNIQUE, " +
+    "presentes INTEGER NOT NULL, guia_id TEXT, status TEXT NOT NULL, feito_em TEXT NOT NULL, feito_por TEXT)"
+  ).run();
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS comissoes (id TEXT PRIMARY KEY, reserva_id TEXT NOT NULL UNIQUE, " +
+    "parceiro_id TEXT NOT NULL, valor_centavos INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'pendente', " +
+    "criado_em TEXT NOT NULL, pago_em TEXT, pago_obs TEXT)"
+  ).run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_comissoes_parceiro ON comissoes (parceiro_id, status)").run();
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS vouchers (id TEXT PRIMARY KEY, reserva_id TEXT NOT NULL, quantidade INTEGER NOT NULL, " +
+    "valor_unit_centavos INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'emitido', criado_em TEXT NOT NULL)"
+  ).run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_vouchers_reserva ON vouchers (reserva_id)").run();
+  esquemaParceirosPronto = true;
+}
+
+// Identificador do QR/link (/p/<codigo> e ?parceiro=<codigo>): sorteado, não é o nome nem o slug do
+// parceiro (S3 — não adivinhável). TODO(DECISAO-C6): formato definitivo a confirmar com o Lucas.
+function gerarCodigoParceiro() {
+  const alfabeto = "23456789abcdefghjkmnpqrstuvwxyz"; // sem 0/1/l/i/o, para não confundir ao digitar
+  const bytes = crypto.getRandomValues(new Uint8Array(10));
+  let s = "";
+  for (const b of bytes) s += alfabeto[b % alfabeto.length];
+  return s;
+}
+const CODIGO_PARCEIRO_RE = /^[a-z0-9]{6,32}$/;
+const CUPOM_PARCEIRO_RE = /^[A-Za-z0-9_-]{3,32}$/;
+
+/* Resolve o parceiro da reserva A PARTIR DO SERVIDOR (nunca aceita parceiro_id vindo do cliente — S3).
+   Regra (parceiroRegra = 'ultimo_clique', configurável): cupom digitado vence o link/QR em conflito
+   (D1/D2, TODO(DECISAO-D1) para a regra definitiva). Código/cupom inválido ou de parceiro inativo:
+   devolve null silenciosamente — a reserva segue sem parceiro, sem erro para o turista. */
+async function resolverParceiro(env, b) {
+  // Cupom é guardado em caixa alta (adminCriarParceiro/adminAtualizarParceiro) — compara do mesmo jeito,
+  // senão "testex1" digitado minúsculo nunca bate com o "TESTEX1" cadastrado.
+  const cupom = typeof b.parceiroCupom === "string" ? b.parceiroCupom.trim().toUpperCase() : "";
+  const codigo = typeof b.parceiroCodigo === "string" ? b.parceiroCodigo.trim().toLowerCase() : "";
+  if (cupom && CUPOM_PARCEIRO_RE.test(cupom)) {
+    const p = await env.DB.prepare("SELECT id FROM parceiros WHERE cupom = ? AND ativo = 1").bind(cupom).first();
+    if (p) return { id: p.id, via: "cupom" };
+  }
+  if (codigo && CODIGO_PARCEIRO_RE.test(codigo)) {
+    const p = await env.DB.prepare("SELECT id FROM parceiros WHERE codigo = ? AND ativo = 1").bind(codigo).first();
+    if (p) return { id: p.id, via: b.parceiroVia === "qr" ? "qr" : "link" };
+  }
+  return null;
+}
+
+// Consulta pública (só o nome, para a faixa "Indicado por …" — F2): nunca lista parceiros, só resolve
+// um código exato; código inexistente/inativo → 404 igual, sem distinguir (não dá pra adivinhar nada).
+async function parceiroInfoPublico(request, env, url) {
+  const cfg = await lerConfig(env);
+  if (!cfg.parceirosAtivo) return erro("Rota não encontrada.", 404);
+  const ip = request.headers.get("cf-connecting-ip") || "sem-ip";
+  const espera = await excedeuLimite(env, "parceiro-info", ip, { max: 30, janelaS: 60 });
+  if (espera) return erro("Muitos pedidos. Tente de novo em instantes.", 429, { "Retry-After": String(espera) });
+  const codigo = String(url.searchParams.get("codigo") || "").trim().toLowerCase();
+  if (!CODIGO_PARCEIRO_RE.test(codigo)) return erro("Não encontrado.", 404);
+  await garantirEsquemaParceiros(env);
+  const p = await env.DB.prepare("SELECT nome FROM parceiros WHERE codigo = ? AND ativo = 1").bind(codigo).first();
+  if (!p) return erro("Não encontrado.", 404);
+  return ok({ ok: true, nome: p.nome });
+}
+
 const CHAVE_IDEMPOTENCIA = /^[A-Za-z0-9_-]{16,64}$/;
 
 /* Vaga, duplicata e gravação numa operação só: o INSERT … SELECT só insere se,
@@ -1201,6 +1330,14 @@ async function criarReserva(b, env, request) {
     else erros.idempotencyKey = "Chave inválida.";
   }
   if (Object.keys(erros).length) return ok({ ok: false, erros }, 422);
+
+  // Rede de parceiros (S3): o servidor resolve o parceiro a partir do código/cupom recebido — nunca de um
+  // parceiro_id enviado pelo cliente (esse campo nem existe na validação). Com a flag desligada, nada roda.
+  let parceiroResolvido = null;
+  if (cfg.parceirosAtivo) {
+    await garantirEsquemaParceiros(env);
+    parceiroResolvido = await resolverParceiro(env, b);
+  }
 
   // Passeio de PLANOS com pagamento online ligado: decide 30%/100% (mesmo dia = 100%) antes de gravar.
   let pg = null;
@@ -1281,6 +1418,11 @@ async function criarReserva(b, env, request) {
       // Código repetido (chance mínima): sorteia outro. Qualquer outro erro sobe.
       if (!/UNIQUE/i.test(msg) || tentativa === 2) throw err;
     }
+  }
+
+  if (parceiroResolvido) {
+    await env.DB.prepare("UPDATE reservas SET parceiro_id = ?, parceiro_via = ?, parceiro_em = ? WHERE id = ?")
+      .bind(parceiroResolvido.id, parceiroResolvido.via, criadoEm, id).run();
   }
 
   await env.DB
@@ -1403,7 +1545,15 @@ function pagamentoOnlineAtivo(env) {
   return !!(env && env.PAGAMENTO_ONLINE === "1" && env.ASAAS_API_KEY && env.ASAAS_WEBHOOK_TOKEN);
 }
 
-// Todo plano de PLANOS (preço fixo e horário fixo) paga online quando o pagamento está ligado.
+/* Todo plano de PLANOS (preço fixo e horário fixo) paga online quando o pagamento está ligado.
+   PENDENTE-LUCAS: horários/vagas do parapente. Decidido: com o pagamento ligado, o parapente entra na regra
+   30/100 como os outros. Mas ele não está em PLANOS: não tem horário de saída nem vaga, e sem saída não há
+   "mesmo dia × outro dia" por horário, limite de 15 min, link do saldo 12 h antes nem cancelamento automático.
+   Enquanto isso não for definido, ele segue só pelo WhatsApp (ligado ou desligado). Para encaixar quando vier:
+   1) entrada em PLANOS com preco (350, por voo), horarios e duracaoMin; 2) vaga própria do parapente — hoje a
+   vaga é por horário e somada entre todos os passeios (contaNaVaga/cabeNoHorario com cfg.capacidade), então precisa de um
+   filtro por plano ou de uma capacidade separada; 3) no app.js, tirar soWhatsApp/horarioCombinado do
+   parapente (ver pagaOnline no PagamentoPuro). Esta função já passa a valer para ele sem mudança. */
 function planoPagaOnline(planoId) {
   const p = Object.prototype.hasOwnProperty.call(PLANOS, planoId) ? PLANOS[planoId] : null;
   return !!p && Number(p.preco) > 0;
@@ -1679,7 +1829,7 @@ async function statusDoPagamento(request, env, url) {
   };
   if (status === "pago") {
     const pago = await env.DB.prepare(SQL_PAGO_CENTAVOS).bind(c.reserva_id).first();
-    resp.saldo = Math.max(0, Math.round(Number(c.total) * 100) - Number(pago.pago)) / 100;
+    resp.saldo = c.pagamento_status === "saldo_no_local" ? 0 : Math.max(0, Math.round(Number(c.total) * 100) - Number(pago.pago)) / 100;
     resp.confirmada = c.reserva_status === "confirmada";
     if (resp.confirmada) resp.codigo = c.codigo;
     // Situação da reserva depois do pagamento (sem prazo nem dado interno): o site mostra a mensagem certa.
@@ -1750,7 +1900,7 @@ async function registrarPagamento(env, cob) {
       await env.DB.prepare("UPDATE reservas SET pagamento_status = 'quitado', atualizado_em = ?1 WHERE id = ?2").bind(agoraISO, r.id).run();
     return;
   }
-  if (["sinal_pago", "quitado", "sinal_retido", ...SITUACAO_SEM_VAGA].includes(r.pagamento_status)) return; // já processado
+  if (["sinal_pago", "quitado", "sinal_retido", "saldo_no_local", ...SITUACAO_SEM_VAGA].includes(r.pagamento_status)) return; // já processado
   const novo = cob.tipo === "integral" ? "quitado" : "sinal_pago";
   const cfg = await lerConfig(env);
   const conf = await env.DB.prepare(SQL_CONFIRMAR_PAGA).bind(r.id, novo, agoraISO, cfg.capacidade).run();
@@ -1899,6 +2049,28 @@ async function rotaTarefasPagamento(request, env) {
 /* ------------------------------ pago sem vaga: reagendar ou devolver ------------------------------
    O cliente escolhe (decisão do Lucas); a equipe executa pelo painel. */
 
+/* POST /api/admin/reservas/:id/saldo-local — o cliente pagou o saldo no local (balcão/maquininha/Pix direto).
+   Só marca: pagamento_status 'saldo_no_local' (valor novo na coluna da 0003, sem migração nova). Como a
+   tarefa de 15 min (cancelarSaldosVencidos) e o link automático (gerarSaldosAutomaticos) só pegam
+   'sinal_pago', a reserva sai dos dois; o link do saldo pelo painel também passa a ser recusado.
+   Quando: atualizado_em. Quem: não é gravado — não há coluna nem padrão de "quem fez" nas reservas
+   (fica como dúvida para o Lucas). Sem valor parcial, sem recibo, sem aviso ao cliente. */
+async function adminSaldoNoLocal(env, id) {
+  if (!pagamentoOnlineAtivo(env)) return erro("Pagamento online desligado.", 409);
+  await garantirEsquemaPagamento(env);
+  const agoraISO = new Date().toISOString();
+  const r = await env.DB.prepare(
+    "UPDATE reservas SET pagamento_status = 'saldo_no_local', atualizado_em = ?2 " +
+    "WHERE id = ?1 AND status = 'confirmada' AND pagamento_status = 'sinal_pago'"
+  ).bind(id, agoraISO).run();
+  if (!r.meta.changes) {
+    const existe = await env.DB.prepare("SELECT 1 FROM reservas WHERE id = ?1").bind(id).first();
+    if (!existe) return erro("Reserva não encontrada.", 404);
+    return erro("Só reserva confirmada com sinal pago (e saldo em aberto) pode ter o saldo marcado como pago no local.", 409);
+  }
+  return ok({ ok: true, pagamentoStatus: "saldo_no_local", em: agoraISO });
+}
+
 // POST /api/admin/reservas/:id/reagendar {data, hora} — move para outro horário COM vaga, mantendo o pagamento.
 async function adminReagendar(request, env, id) {
   if (!pagamentoOnlineAtivo(env)) return erro("Pagamento online desligado.", 409);
@@ -1959,6 +2131,13 @@ async function adminDevolver(request, env, id) {
   const status = falhas ? "devolucao_manual" : "devolucao_solicitada";
   await env.DB.prepare("UPDATE reservas SET status = 'cancelada', pagamento_status = ?2, atualizado_em = ?3 WHERE id = ?1")
     .bind(r.id, status, new Date().toISOString()).run();
+  {
+    const cfgP = await lerConfig(env);
+    if (cfgP.parceirosAtivo) {
+      await garantirEsquemaParceiros(env);
+      await env.DB.prepare("UPDATE comissoes SET status = 'cancelada' WHERE reserva_id = ? AND status = 'pendente'").bind(r.id).run();
+    }
+  }
   return ok({ ok: !falhas, pagamentoStatus: status, valorSolicitado: valor / 100,
     ...(falhas ? { erro: "O Asaas não fez o estorno. Devolva por fora (Pix manual) ou tente de novo." } : {}) });
 }
@@ -2180,7 +2359,10 @@ const SQL_LISTAR_RESERVAS_COM_PAGAMENTO =
   "(SELECT COALESCE(SUM(c.valor_centavos),0) FROM cobrancas c WHERE c.reserva_id = reservas.id AND c.status = 'paga') AS pago_centavos, " +
   "(SELECT c.link FROM cobrancas c WHERE c.reserva_id = reservas.id AND c.tipo = 'saldo' AND c.status = 'aguardando' AND c.expira_em > ?3 ORDER BY c.criado_em DESC LIMIT 1) AS saldo_link, " +
   "(SELECT c.expira_em FROM cobrancas c WHERE c.reserva_id = reservas.id AND c.tipo = 'saldo' AND c.status = 'aguardando' AND c.expira_em > ?3 ORDER BY c.criado_em DESC LIMIT 1) AS saldo_link_expira_em, " +
-  "(SELECT MIN(c.pago_em) FROM cobrancas c WHERE c.reserva_id = reservas.id AND c.tipo = 'sinal' AND c.status = 'paga') AS sinal_pago_em " +
+  "(SELECT MIN(c.pago_em) FROM cobrancas c WHERE c.reserva_id = reservas.id AND c.tipo = 'sinal' AND c.status = 'paga') AS sinal_pago_em, " +
+  // Última cobrança (sinal, integral ou saldo) — coluna "cobrança" do painel.
+  "(SELECT c.tipo FROM cobrancas c WHERE c.reserva_id = reservas.id ORDER BY c.criado_em DESC, c.rowid DESC LIMIT 1) AS cobranca_tipo, " +
+  "(SELECT c.status FROM cobrancas c WHERE c.reserva_id = reservas.id ORDER BY c.criado_em DESC, c.rowid DESC LIMIT 1) AS cobranca_status " +
   "FROM reservas WHERE data >= ?1 AND data <= ?2";
 
 async function adminListarReservas(env, url) {
@@ -2194,6 +2376,7 @@ async function adminListarReservas(env, url) {
   const agoraISO = new Date().toISOString();
   let cfg = null;
   if (online) { await garantirEsquemaPagamento(env); cfg = await lerConfig(env); await cancelarSaldosVencidos(env, cfg); }
+  else cfg = await lerConfig(env);
   let sql = online ? SQL_LISTAR_RESERVAS_COM_PAGAMENTO : SQL_LISTAR_RESERVAS;
   // Com pagamento, os parâmetros são numerados (?1 de, ?2 até, ?3 agora); sem, posicionais como sempre.
   const bind = online ? [de, ate, agoraISO] : [de, ate];
@@ -2209,7 +2392,40 @@ async function adminListarReservas(env, url) {
     r.saldo_sem_tempo = r.status === "confirmada" && r.pagamento_status === "sinal_pago" && sinalSemTempoDeSaldo(r, cfg);
     delete r.sinal_pago_em;
   }
-  return ok({ ok: true, reservas: results });
+
+  // Rede de parceiros (E11): parceiro, guia, check-in e comissão — nunca dados pessoais do turista ao parceiro
+  // (isso não muda aqui: esta resposta é só para o admin, atrás do Access/JWT).
+  if (cfg.parceirosAtivo && results.length) {
+    await garantirEsquemaParceiros(env);
+    const ids = results.map(r => r.id);
+    const marcadores = ids.map(() => "?").join(",");
+    const [parceiros, checkins, comissoes, guias] = await Promise.all([
+      env.DB.prepare(
+        "SELECT r.id AS reserva_id, p.id AS parceiro_id, p.nome AS parceiro_nome, r.parceiro_via, r.guia_id " +
+        "FROM reservas r LEFT JOIN parceiros p ON p.id = r.parceiro_id WHERE r.id IN (" + marcadores + ")"
+      ).bind(...ids).all(),
+      env.DB.prepare("SELECT reserva_id, presentes, status FROM checkins WHERE reserva_id IN (" + marcadores + ")").bind(...ids).all(),
+      env.DB.prepare("SELECT reserva_id, valor_centavos, status FROM comissoes WHERE reserva_id IN (" + marcadores + ")").bind(...ids).all(),
+      env.DB.prepare("SELECT id, nome FROM guias").all()
+    ]);
+    const porReserva = new Map(parceiros.results.map(x => [x.reserva_id, x]));
+    const checkinPorReserva = new Map(checkins.results.map(x => [x.reserva_id, x]));
+    const comissaoPorReserva = new Map(comissoes.results.map(x => [x.reserva_id, x]));
+    const guiaNomePorId = new Map(guias.results.map(x => [x.id, x.nome]));
+    for (const r of results) {
+      const info = porReserva.get(r.id);
+      r.parceiro = info && info.parceiro_id ? { id: info.parceiro_id, nome: info.parceiro_nome, via: info.parceiro_via } : null;
+      r.guiaId = info ? info.guia_id : null;
+      r.guiaNome = info && info.guia_id ? guiaNomePorId.get(info.guia_id) || null : null;
+      const ck = checkinPorReserva.get(r.id);
+      r.checkin = ck ? { presentes: ck.presentes, status: ck.status } : null;
+      const co = comissaoPorReserva.get(r.id);
+      r.comissao = co ? { valorCentavos: co.valor_centavos, status: co.status } : null;
+    }
+  }
+
+  // pagamentoOnline/parceirosAtivo só com a flag ligada: com elas desligadas a resposta é a de sempre.
+  return ok({ ok: true, reservas: results, ...(online ? { pagamentoOnline: true } : {}), ...(cfg.parceirosAtivo ? { parceirosAtivo: true } : {}) });
 }
 
 // Código sequencial só das reservas lançadas à mão no painel (as do site usam código aleatório).
@@ -2251,6 +2467,18 @@ async function adminCriarReserva(request, env) {
 async function adminAtualizarReserva(request, env, id) {
   let b;
   try { b = await request.json(); } catch { return erro("Corpo inválido."); }
+
+  // Designar guia (rede de parceiros — E8): não exige status junto.
+  if (typeof b.guiaId === "string" && !b.status) {
+    const cfg = await lerConfig(env);
+    if (!cfg.parceirosAtivo) return semFlagParceiros();
+    await garantirEsquemaParceiros(env);
+    const r = await env.DB.prepare("UPDATE reservas SET guia_id = ?, atualizado_em = ? WHERE id = ?")
+      .bind(b.guiaId || null, new Date().toISOString(), id).run();
+    if (!r.meta.changes) return erro("Reserva não encontrada.", 404);
+    return ok({ ok: true });
+  }
+
   const status = ["pendente", "confirmada", "cancelada", "nao_compareceu"];
   if (!status.includes(b.status)) return erro("Status inválido.");
 
@@ -2284,6 +2512,15 @@ async function adminAtualizarReserva(request, env, id) {
     .run();
 
   if (!r.meta.changes) return erro("Reserva não encontrada.", 404);
+
+  // Cancelamento/no-show: comissão pendente do parceiro é cancelada (nunca a paga — isso é estorno manual).
+  if (b.status === "cancelada" || b.status === "nao_compareceu") {
+    const cfg = await lerConfig(env);
+    if (cfg.parceirosAtivo) {
+      await garantirEsquemaParceiros(env);
+      await env.DB.prepare("UPDATE comissoes SET status = 'cancelada' WHERE reserva_id = ? AND status = 'pendente'").bind(id).run();
+    }
+  }
   return ok({ ok: true });
 }
 
@@ -2357,6 +2594,228 @@ async function adminOrigem(env, url) {
   });
 }
 
+/* ------------------------------ parceiros (admin) ------------------------------ */
+
+function semFlagParceiros() { return erro("Rede de parceiros desativada (config.parceiros_ativo).", 404); }
+
+async function adminListarParceiros(env) {
+  const cfg = await lerConfig(env);
+  if (!cfg.parceirosAtivo) return semFlagParceiros();
+  await garantirEsquemaParceiros(env);
+  const { results } = await env.DB.prepare(
+    "SELECT p.id, p.nome, p.tipo, p.codigo, p.cupom, p.contato, p.recebe_voucher, p.ativo, p.criado_em, " +
+    "(SELECT COUNT(*) FROM reservas r WHERE r.parceiro_id = p.id) AS indicados, " +
+    "(SELECT COUNT(*) FROM checkins c JOIN reservas r ON r.id = c.reserva_id WHERE r.parceiro_id = p.id AND c.status = 'presente') AS presentes, " +
+    "(SELECT COALESCE(SUM(valor_centavos),0) FROM comissoes WHERE parceiro_id = p.id AND status = 'pendente') AS comissao_pendente_centavos, " +
+    "(SELECT COALESCE(SUM(valor_centavos),0) FROM comissoes WHERE parceiro_id = p.id AND status = 'paga') AS comissao_paga_centavos " +
+    "FROM parceiros p ORDER BY p.criado_em DESC"
+  ).all();
+  return ok({ ok: true, parceiros: results });
+}
+
+const TIPOS_PARCEIRO = new Set(["estacionamento", "restaurante", "pousada", "comercio", "outro"]);
+
+async function adminCriarParceiro(request, env) {
+  const cfg = await lerConfig(env);
+  if (!cfg.parceirosAtivo) return semFlagParceiros();
+  await garantirEsquemaParceiros(env);
+  let b;
+  try { b = await request.json(); } catch { return erro("Corpo inválido."); }
+  const nome = typeof b.nome === "string" ? b.nome.trim().slice(0, 120) : "";
+  const tipo = TIPOS_PARCEIRO.has(b.tipo) ? b.tipo : null;
+  if (!nome || !tipo) return erro("Nome e tipo são obrigatórios.", 422);
+  const cupom = typeof b.cupom === "string" && CUPOM_PARCEIRO_RE.test(b.cupom.trim()) ? b.cupom.trim().toUpperCase() : null;
+  const contato = typeof b.contato === "string" ? b.contato.trim().slice(0, 200) || null : null;
+  const pixChave = typeof b.pixChave === "string" ? b.pixChave.trim().slice(0, 200) || null : null;
+  const recebeVoucher = b.recebeVoucher ? 1 : 0;
+
+  let codigo = null;
+  for (let tentativa = 0; tentativa < 5 && !codigo; tentativa++) {
+    const candidato = gerarCodigoParceiro();
+    const existe = await env.DB.prepare("SELECT 1 FROM parceiros WHERE codigo = ?").bind(candidato).first();
+    if (!existe) codigo = candidato;
+  }
+  if (!codigo) return erro("Não deu para gerar um código único. Tente de novo.", 503);
+
+  const id = crypto.randomUUID();
+  const agora = new Date().toISOString();
+  try {
+    await env.DB.prepare(
+      "INSERT INTO parceiros (id, nome, tipo, codigo, cupom, contato, pix_chave, recebe_voucher, ativo, criado_em) " +
+      "VALUES (?,?,?,?,?,?,?,?,1,?)"
+    ).bind(id, nome, tipo, codigo, cupom, contato, pixChave, recebeVoucher, agora).run();
+  } catch (e) {
+    if (/UNIQUE/i.test(String(e && e.message))) return erro("Esse cupom já está em uso por outro parceiro.", 409);
+    throw e;
+  }
+  return ok({ ok: true, id, codigo });
+}
+
+async function adminAtualizarParceiro(request, env, id) {
+  const cfg = await lerConfig(env);
+  if (!cfg.parceirosAtivo) return semFlagParceiros();
+  await garantirEsquemaParceiros(env);
+  let b;
+  try { b = await request.json(); } catch { return erro("Corpo inválido."); }
+  const campos = [], valores = [];
+  if (typeof b.nome === "string" && b.nome.trim()) { campos.push("nome = ?"); valores.push(b.nome.trim().slice(0, 120)); }
+  if (TIPOS_PARCEIRO.has(b.tipo)) { campos.push("tipo = ?"); valores.push(b.tipo); }
+  if (typeof b.contato === "string") { campos.push("contato = ?"); valores.push(b.contato.trim().slice(0, 200) || null); }
+  if (typeof b.pixChave === "string") { campos.push("pix_chave = ?"); valores.push(b.pixChave.trim().slice(0, 200) || null); }
+  if (typeof b.recebeVoucher === "boolean") { campos.push("recebe_voucher = ?"); valores.push(b.recebeVoucher ? 1 : 0); }
+  if (typeof b.ativo === "boolean") { campos.push("ativo = ?"); valores.push(b.ativo ? 1 : 0); }
+  if (typeof b.cupom === "string") {
+    const cupom = b.cupom.trim();
+    if (cupom && !CUPOM_PARCEIRO_RE.test(cupom)) return erro("Cupom inválido.", 422);
+    campos.push("cupom = ?"); valores.push(cupom ? cupom.toUpperCase() : null);
+  }
+  if (!campos.length) return erro("Nada para atualizar.", 422);
+  campos.push("atualizado_em = ?"); valores.push(new Date().toISOString());
+  valores.push(id);
+  let r;
+  try { r = await env.DB.prepare("UPDATE parceiros SET " + campos.join(", ") + " WHERE id = ?").bind(...valores).run(); }
+  catch (e) {
+    if (/UNIQUE/i.test(String(e && e.message))) return erro("Esse cupom já está em uso por outro parceiro.", 409);
+    throw e;
+  }
+  if (!r.meta.changes) return erro("Parceiro não encontrado.", 404);
+  return ok({ ok: true });
+}
+
+/* ------------------------------ guias (admin) ------------------------------ */
+
+async function adminListarGuias(env) {
+  const cfg = await lerConfig(env);
+  if (!cfg.parceirosAtivo) return semFlagParceiros();
+  await garantirEsquemaParceiros(env);
+  const { results } = await env.DB.prepare("SELECT id, nome, whatsapp, ativo, obs, criado_em FROM guias ORDER BY criado_em DESC").all();
+  return ok({ ok: true, guias: results });
+}
+
+async function adminCriarGuia(request, env) {
+  const cfg = await lerConfig(env);
+  if (!cfg.parceirosAtivo) return semFlagParceiros();
+  await garantirEsquemaParceiros(env);
+  let b;
+  try { b = await request.json(); } catch { return erro("Corpo inválido."); }
+  const nome = typeof b.nome === "string" ? b.nome.trim().slice(0, 120) : "";
+  if (!nome) return erro("Nome é obrigatório.", 422);
+  const id = crypto.randomUUID();
+  await env.DB.prepare("INSERT INTO guias (id, nome, whatsapp, ativo, obs, criado_em) VALUES (?,?,?,1,?,?)")
+    .bind(id, nome, typeof b.whatsapp === "string" ? b.whatsapp.replace(/\D/g, "").slice(0, 13) || null : null,
+      typeof b.obs === "string" ? b.obs.trim().slice(0, 500) || null : null, new Date().toISOString()).run();
+  return ok({ ok: true, id });
+}
+
+async function adminAtualizarGuia(request, env, id) {
+  const cfg = await lerConfig(env);
+  if (!cfg.parceirosAtivo) return semFlagParceiros();
+  await garantirEsquemaParceiros(env);
+  let b;
+  try { b = await request.json(); } catch { return erro("Corpo inválido."); }
+  const campos = [], valores = [];
+  if (typeof b.nome === "string" && b.nome.trim()) { campos.push("nome = ?"); valores.push(b.nome.trim().slice(0, 120)); }
+  if (typeof b.whatsapp === "string") { campos.push("whatsapp = ?"); valores.push(b.whatsapp.replace(/\D/g, "").slice(0, 13) || null); }
+  if (typeof b.obs === "string") { campos.push("obs = ?"); valores.push(b.obs.trim().slice(0, 500) || null); }
+  if (typeof b.ativo === "boolean") { campos.push("ativo = ?"); valores.push(b.ativo ? 1 : 0); }
+  if (!campos.length) return erro("Nada para atualizar.", 422);
+  campos.push("atualizado_em = ?"); valores.push(new Date().toISOString());
+  valores.push(id);
+  const r = await env.DB.prepare("UPDATE guias SET " + campos.join(", ") + " WHERE id = ?").bind(...valores).run();
+  if (!r.meta.changes) return erro("Guia não encontrado.", 404);
+  return ok({ ok: true });
+}
+
+/* ------------------------------ check-in (admin) ------------------------------
+   Nº de presentes por reserva (0..pax; 0 = faltou). Refazer o check-in é permitido e idempotente:
+   recalcula a comissão sem duplicar linha (UNIQUE em checkins.reserva_id e comissoes.reserva_id). */
+async function adminCheckin(request, env, reservaId) {
+  const cfg = await lerConfig(env);
+  if (!cfg.parceirosAtivo) return semFlagParceiros();
+  await garantirEsquemaParceiros(env);
+  let b;
+  try { b = await request.json(); } catch { return erro("Corpo inválido."); }
+  const r = await env.DB.prepare("SELECT id, pax, plano, status, parceiro_id, guia_id FROM reservas WHERE id = ?").bind(reservaId).first();
+  if (!r) return erro("Reserva não encontrada.", 404);
+  const presentes = Number(b.presentes);
+  if (!Number.isInteger(presentes) || presentes < 0 || presentes > r.pax) return erro("Presentes deve ser um número entre 0 e " + r.pax + ".", 422);
+
+  const agora = new Date().toISOString();
+  const status = presentes === 0 ? "faltou" : "presente";
+  const guiaId = typeof b.guiaId === "string" && b.guiaId ? b.guiaId : r.guia_id || null;
+  const auth = await checarAdmin(request, env);
+
+  await env.DB.prepare(
+    "INSERT INTO checkins (id, reserva_id, presentes, guia_id, status, feito_em, feito_por) VALUES (?,?,?,?,?,?,?) " +
+    "ON CONFLICT(reserva_id) DO UPDATE SET presentes = ?, guia_id = ?, status = ?, feito_em = ?, feito_por = ?"
+  ).bind(
+    crypto.randomUUID(), reservaId, presentes, guiaId, status, agora, auth.email || "",
+    presentes, guiaId, status, agora, auth.email || ""
+  ).run();
+
+  // Comissão só se há parceiro ligado à reserva; recalcular check-in recalcula o valor sem duplicar.
+  if (r.parceiro_id) {
+    const valor = presentes * cfg.comissaoPorPaxCentavos;
+    if (valor > 0) {
+      await env.DB.prepare(
+        "INSERT INTO comissoes (id, reserva_id, parceiro_id, valor_centavos, status, criado_em) VALUES (?,?,?,?,'pendente',?) " +
+        "ON CONFLICT(reserva_id) DO UPDATE SET valor_centavos = ?, status = CASE WHEN status = 'paga' THEN status ELSE 'pendente' END"
+      ).bind(crypto.randomUUID(), reservaId, r.parceiro_id, valor, agora, valor).run();
+    } else {
+      await env.DB.prepare("UPDATE comissoes SET status = 'cancelada' WHERE reserva_id = ? AND status = 'pendente'").bind(reservaId).run();
+    }
+  }
+
+  // Voucher (planos com voucher > 0): estrutura só — validade/baixa ficam em TODO(DECISAO-D3).
+  const plano = PLANOS[r.plano];
+  if (plano && plano.voucher > 0 && presentes > 0) {
+    const existe = await env.DB.prepare("SELECT id FROM vouchers WHERE reserva_id = ?").bind(reservaId).first();
+    if (!existe) {
+      await env.DB.prepare("INSERT INTO vouchers (id, reserva_id, quantidade, valor_unit_centavos, status, criado_em) VALUES (?,?,?,?,'emitido',?)")
+        .bind(crypto.randomUUID(), reservaId, presentes, plano.voucher * 100, agora).run();
+    } else {
+      await env.DB.prepare("UPDATE vouchers SET quantidade = ? WHERE reserva_id = ?").bind(presentes, reservaId).run();
+    }
+  }
+
+  return ok({ ok: true, status, presentes });
+}
+
+/* ------------------------------ comissões (admin) ------------------------------ */
+
+async function adminListarComissoes(env, url) {
+  const cfg = await lerConfig(env);
+  if (!cfg.parceirosAtivo) return semFlagParceiros();
+  await garantirEsquemaParceiros(env);
+  const parceiroId = url.searchParams.get("parceiroId");
+  const status = url.searchParams.get("status");
+  let sql =
+    "SELECT co.id, co.reserva_id, co.parceiro_id, co.valor_centavos, co.status, co.criado_em, co.pago_em, " +
+    "p.nome AS parceiro_nome, r.codigo AS reserva_codigo, r.data AS reserva_data " +
+    "FROM comissoes co JOIN parceiros p ON p.id = co.parceiro_id JOIN reservas r ON r.id = co.reserva_id WHERE 1=1";
+  const bind = [];
+  if (parceiroId) { sql += " AND co.parceiro_id = ?"; bind.push(parceiroId); }
+  if (status && status !== "todas") { sql += " AND co.status = ?"; bind.push(status); }
+  sql += " ORDER BY co.criado_em DESC LIMIT 500";
+  const { results } = await env.DB.prepare(sql).bind(...bind).all();
+  return ok({ ok: true, comissoes: results });
+}
+
+async function adminPagarComissao(request, env, id) {
+  const cfg = await lerConfig(env);
+  if (!cfg.parceirosAtivo) return semFlagParceiros();
+  await garantirEsquemaParceiros(env);
+  let b = {};
+  try { b = await request.json(); } catch { /* corpo opcional */ }
+  const atual = await env.DB.prepare("SELECT status FROM comissoes WHERE id = ?").bind(id).first();
+  if (!atual) return erro("Comissão não encontrada.", 404);
+  if (atual.status !== "pendente") return erro("Só comissão pendente pode ser marcada como paga.", 409);
+  const obs = typeof b.obs === "string" ? b.obs.trim().slice(0, 300) || null : null;
+  await env.DB.prepare("UPDATE comissoes SET status = 'paga', pago_em = ?, pago_obs = ? WHERE id = ?")
+    .bind(new Date().toISOString(), obs, id).run();
+  return ok({ ok: true });
+}
+
 async function adminLerConfig(env) {
   const { results } = await env.DB.prepare("SELECT chave, valor FROM config").all();
   const c = {};
@@ -2369,7 +2828,8 @@ async function adminGravarConfig(request, env) {
   try { b = await request.json(); } catch { return erro("Corpo inválido."); }
   const permitidas = new Set([
     "capacidade", "slot_inicio", "slot_fim", "saida_apos", "cancelamento_h", "retorno_limite",
-    "whatsapp", "instagram", "cupom", "beneficio_instagram"
+    "whatsapp", "instagram", "cupom", "beneficio_instagram",
+    "parceiros_ativo", "comissao_por_pax_centavos", "parceiro_validade_dias", "parceiro_regra"
   ]);
   const stmts = [];
   for (const [k, v] of Object.entries(b || {})) {
