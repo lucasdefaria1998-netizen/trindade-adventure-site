@@ -2764,6 +2764,17 @@ async function adminCheckin(request, env, reservaId) {
   const guiaId = typeof b.guiaId === "string" && b.guiaId ? b.guiaId : r.guia_id || null;
   const auth = await checarAdmin(request, env);
 
+  // DECISAO-CEO-2: comissão paga é imutável — estorno só por novo lançamento (nunca sobrescrita aqui).
+  // Se o recálculo do check-in divergir do valor já pago, a requisição inteira é recusada (nada é
+  // gravado, nem o check-in): quem refizer o check-in tem de resolver a divergência manualmente.
+  let comissaoExistente = null;
+  if (r.parceiro_id) {
+    comissaoExistente = await env.DB.prepare("SELECT id, valor_centavos, status FROM comissoes WHERE reserva_id = ?").bind(reservaId).first();
+    if (comissaoExistente && comissaoExistente.status === "paga" && comissaoExistente.valor_centavos !== presentes * cfg.comissaoPorPaxCentavos) {
+      return erro("Comissão já paga para esta reserva (R$ " + (comissaoExistente.valor_centavos / 100).toFixed(2) + ") — ajuste manual, não recálculo automático.", 409);
+    }
+  }
+
   await env.DB.prepare(
     "INSERT INTO checkins (id, reserva_id, presentes, guia_id, status, feito_em, feito_por) VALUES (?,?,?,?,?,?,?) " +
     "ON CONFLICT(reserva_id) DO UPDATE SET presentes = ?, guia_id = ?, status = ?, feito_em = ?, feito_por = ?"
@@ -2772,15 +2783,18 @@ async function adminCheckin(request, env, reservaId) {
     presentes, guiaId, status, agora, auth.email || ""
   ).run();
 
-  // Comissão só se há parceiro ligado à reserva; recalcular check-in recalcula o valor sem duplicar.
+  // Comissão só se há parceiro ligado à reserva; recalcular check-in recalcula o valor sem duplicar —
+  // exceto quando já está paga (status/valor protegidos pelo CASE, nunca sobrescritos aqui).
   if (r.parceiro_id) {
     const valor = presentes * cfg.comissaoPorPaxCentavos;
     if (valor > 0) {
       await env.DB.prepare(
         "INSERT INTO comissoes (id, reserva_id, parceiro_id, valor_centavos, status, criado_em) VALUES (?,?,?,?,'pendente',?) " +
-        "ON CONFLICT(reserva_id) DO UPDATE SET valor_centavos = ?, status = CASE WHEN status = 'paga' THEN status ELSE 'pendente' END"
+        "ON CONFLICT(reserva_id) DO UPDATE SET " +
+        "valor_centavos = CASE WHEN status = 'paga' THEN valor_centavos ELSE ? END, " +
+        "status = CASE WHEN status = 'paga' THEN status ELSE 'pendente' END"
       ).bind(crypto.randomUUID(), reservaId, r.parceiro_id, valor, agora, valor).run();
-    } else {
+    } else if (!comissaoExistente || comissaoExistente.status !== "paga") {
       await env.DB.prepare("UPDATE comissoes SET status = 'cancelada' WHERE reserva_id = ? AND status = 'pendente'").bind(reservaId).run();
     }
   }

@@ -228,6 +228,25 @@ let reservaComParceiroId, reservaComCupomId, reservaSemParceiroId;
 
   const paga = sql("SELECT status FROM comissoes WHERE id = ?", idDaComissao)[0];
   checar("P10 comissão já paga não é afetada por cancelamentos de outras reservas", paga.status === "paga");
+
+  // ---------- Bloco 2 [P0]: comissão paga é imutável (DECISAO-CEO-2) ----------
+  const antesB2 = sql("SELECT valor_centavos, status FROM comissoes WHERE id = ?", idDaComissao)[0];
+  checar("B2 pré-condição: comissão paga com 1000 centavos", antesB2.status === "paga" && antesB2.valor_centavos === 1000, JSON.stringify(antesB2));
+
+  const rDivergente = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 2 }) });
+  checar("B2 refazer check-in com valor diferente do pago (2×1000=2000 ≠ 1000) → 409", rDivergente.status === 409, rDivergente.status);
+  let depoisB2 = sql("SELECT valor_centavos, status FROM comissoes WHERE id = ?", idDaComissao)[0];
+  checar("B2 …comissão continua 1000/paga", depoisB2.valor_centavos === 1000 && depoisB2.status === "paga", JSON.stringify(depoisB2));
+
+  const rFaltouPosPago = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 0 }) });
+  checar("B2 check-in 0 (faltou) depois de paga → 409", rFaltouPosPago.status === 409, rFaltouPosPago.status);
+  depoisB2 = sql("SELECT valor_centavos, status FROM comissoes WHERE id = ?", idDaComissao)[0];
+  checar("B2 …comissão continua 1000/paga (2ª tentativa)", depoisB2.valor_centavos === 1000 && depoisB2.status === "paga", JSON.stringify(depoisB2));
+
+  const rIgual = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1 }) });
+  checar("B2 refazer com o mesmo valor já pago (1×1000=1000) → 200, sem divergência", rIgual.status === 200, rIgual.status);
+  depoisB2 = sql("SELECT valor_centavos, status FROM comissoes WHERE id = ?", idDaComissao)[0];
+  checar("B2 …comissão continua 1000/paga, sem mudar", depoisB2.valor_centavos === 1000 && depoisB2.status === "paga", JSON.stringify(depoisB2));
 }
 
 // ---------- Guias: cadastro simples ----------
