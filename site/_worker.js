@@ -1244,12 +1244,59 @@ async function garantirEsquemaParceiros(env) {
     "criado_em TEXT NOT NULL, pago_em TEXT, pago_obs TEXT)"
   ).run();
   await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_comissoes_parceiro ON comissoes (parceiro_id, status)").run();
+  {
+    const { results: colunasComissoes } = await env.DB.prepare("PRAGMA table_info(comissoes)").all();
+    const temComissoes = new Set(colunasComissoes.map(c => c.name));
+    const novasComissoes = [
+      // [P1 — bloco 4] quem marcou como paga (e-mail do JWT do Access) — pago_obs já existia, mas sem autor.
+      ["pago_por", "ALTER TABLE comissoes ADD COLUMN pago_por TEXT"],
+      // [P1 — bloco 7] comissão paga cuja reserva foi cancelada/devolvida depois: nunca altera status/valor
+      // (imutável — bloco 2), só sinaliza para o admin resolver manualmente (DECISAO-CEO-2/D4).
+      ["estorno_pendente", "ALTER TABLE comissoes ADD COLUMN estorno_pendente INTEGER NOT NULL DEFAULT 0"]
+    ];
+    for (const [nome, ddl] of novasComissoes) {
+      if (temComissoes.has(nome)) continue;
+      try { await env.DB.prepare(ddl).run(); } catch (e) { if (!/duplicate column/i.test(String(e && e.message))) throw e; }
+    }
+  }
   await env.DB.prepare(
     "CREATE TABLE IF NOT EXISTS vouchers (id TEXT PRIMARY KEY, reserva_id TEXT NOT NULL, quantidade INTEGER NOT NULL, " +
     "valor_unit_centavos INTEGER NOT NULL, status TEXT NOT NULL DEFAULT 'emitido', criado_em TEXT NOT NULL)"
   ).run();
   await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_vouchers_reserva ON vouchers (reserva_id)").run();
+  // [P1 — bloco 4] Ledger de auditoria append-only (DECISAO-CEO-3): quem, quando, o quê. Os dois
+  // gatilhos abaixo são a garantia de verdade (não só disciplina no código) — nem o próprio worker
+  // consegue UPDATE/DELETE numa linha já gravada.
+  await env.DB.prepare(
+    "CREATE TABLE IF NOT EXISTS parceiros_auditoria (id TEXT PRIMARY KEY, quando TEXT NOT NULL, email TEXT NOT NULL, " +
+    "acao TEXT NOT NULL, entidade TEXT NOT NULL, entidade_id TEXT, antes TEXT, depois TEXT, motivo TEXT)"
+  ).run();
+  await env.DB.prepare("CREATE INDEX IF NOT EXISTS idx_auditoria_entidade ON parceiros_auditoria (entidade, entidade_id)").run();
+  await env.DB.prepare(
+    "CREATE TRIGGER IF NOT EXISTS trg_auditoria_sem_update BEFORE UPDATE ON parceiros_auditoria " +
+    "BEGIN SELECT RAISE(ABORT, 'parceiros_auditoria é append-only'); END"
+  ).run();
+  await env.DB.prepare(
+    "CREATE TRIGGER IF NOT EXISTS trg_auditoria_sem_delete BEFORE DELETE ON parceiros_auditoria " +
+    "BEGIN SELECT RAISE(ABORT, 'parceiros_auditoria é append-only'); END"
+  ).run();
   esquemaParceirosPronto = true;
+}
+
+/* [P1 — bloco 4] Grava um evento no ledger append-only. "antes"/"depois" são objetos (ou null) — vão
+   como JSON; nunca lançar por causa da auditoria (log e segue) para não travar a ação principal
+   por um problema só de trilha. */
+async function registrarAuditoria(env, { email, acao, entidade, entidadeId, antes, depois, motivo }) {
+  try {
+    await env.DB.prepare(
+      "INSERT INTO parceiros_auditoria (id, quando, email, acao, entidade, entidade_id, antes, depois, motivo) VALUES (?,?,?,?,?,?,?,?,?)"
+    ).bind(
+      crypto.randomUUID(), new Date().toISOString(), email || "", acao, entidade, entidadeId || null,
+      antes === undefined ? null : JSON.stringify(antes), depois === undefined ? null : JSON.stringify(depois), motivo || null
+    ).run();
+  } catch (e) {
+    console.error("[auditoria]", mascarar(e && e.message ? e.message : String(e)));
+  }
 }
 
 // Identificador do QR/link (/p/<codigo> e ?parceiro=<codigo>): sorteado, não é o nome nem o slug do
@@ -2404,13 +2451,15 @@ async function adminListarReservas(env, url) {
     await garantirEsquemaParceiros(env);
     const ids = results.map(r => r.id);
     const marcadores = ids.map(() => "?").join(",");
+    const sqlParceirosPorReserva =
+      "SELECT r.id AS reserva_id, p.id AS parceiro_id, p.nome AS parceiro_nome, r.parceiro_via, r.guia_id " +
+      "FROM reservas r LEFT JOIN parceiros p ON p.id = r.parceiro_id WHERE r.id IN (" + marcadores + ")";
+    const sqlCheckinsPorReserva = "SELECT reserva_id, presentes, status FROM checkins WHERE reserva_id IN (" + marcadores + ")";
+    const sqlComissoesPorReserva = "SELECT reserva_id, valor_centavos, status, estorno_pendente FROM comissoes WHERE reserva_id IN (" + marcadores + ")";
     const [parceiros, checkins, comissoes, guias] = await Promise.all([
-      env.DB.prepare(
-        "SELECT r.id AS reserva_id, p.id AS parceiro_id, p.nome AS parceiro_nome, r.parceiro_via, r.guia_id " +
-        "FROM reservas r LEFT JOIN parceiros p ON p.id = r.parceiro_id WHERE r.id IN (" + marcadores + ")"
-      ).bind(...ids).all(),
-      env.DB.prepare("SELECT reserva_id, presentes, status FROM checkins WHERE reserva_id IN (" + marcadores + ")").bind(...ids).all(),
-      env.DB.prepare("SELECT reserva_id, valor_centavos, status FROM comissoes WHERE reserva_id IN (" + marcadores + ")").bind(...ids).all(),
+      env.DB.prepare(sqlParceirosPorReserva).bind(...ids).all(),
+      env.DB.prepare(sqlCheckinsPorReserva).bind(...ids).all(),
+      env.DB.prepare(sqlComissoesPorReserva).bind(...ids).all(),
       env.DB.prepare("SELECT id, nome FROM guias").all()
     ]);
     const porReserva = new Map(parceiros.results.map(x => [x.reserva_id, x]));
@@ -2425,7 +2474,9 @@ async function adminListarReservas(env, url) {
       const ck = checkinPorReserva.get(r.id);
       r.checkin = ck ? { presentes: ck.presentes, status: ck.status } : null;
       const co = comissaoPorReserva.get(r.id);
-      r.comissao = co ? { valorCentavos: co.valor_centavos, status: co.status } : null;
+      // estornoPendente (bloco 7): comissão paga cuja reserva foi cancelada/devolvida depois — nunca
+      // muda status/valor (imutável — DECISAO-CEO-2), só sinaliza para o admin resolver manualmente.
+      r.comissao = co ? { valorCentavos: co.valor_centavos, status: co.status, estornoPendente: !!co.estorno_pendente } : null;
     }
   }
 
@@ -2478,9 +2529,21 @@ async function adminAtualizarReserva(request, env, id) {
     const cfg = await lerConfig(env);
     if (!cfg.parceirosAtivo) return semFlagParceiros();
     await garantirEsquemaParceiros(env);
-    const r = await env.DB.prepare("UPDATE reservas SET guia_id = ?, atualizado_em = ? WHERE id = ?")
-      .bind(b.guiaId || null, new Date().toISOString(), id).run();
-    if (!r.meta.changes) return erro("Reserva não encontrada.", 404);
+    const novoGuiaId = b.guiaId || null;
+    // [P1 — bloco 8d] guiaId precisa existir (e estar ativo) — senão 422, em vez de aceitar qualquer texto.
+    if (novoGuiaId) {
+      const guia = await env.DB.prepare("SELECT 1 FROM guias WHERE id = ? AND ativo = 1").bind(novoGuiaId).first();
+      if (!guia) return erro("Guia não encontrado ou inativo.", 422);
+    }
+    const antes = await env.DB.prepare("SELECT guia_id FROM reservas WHERE id = ?").bind(id).first();
+    if (!antes) return erro("Reserva não encontrada.", 404);
+    await env.DB.prepare("UPDATE reservas SET guia_id = ?, atualizado_em = ? WHERE id = ?")
+      .bind(novoGuiaId, new Date().toISOString(), id).run();
+    const auth = await checarAdmin(request, env);
+    await registrarAuditoria(env, {
+      email: auth.email, acao: "guia_designado", entidade: "reserva", entidadeId: id,
+      antes: { guiaId: antes.guia_id }, depois: { guiaId: novoGuiaId }
+    });
     return ok({ ok: true });
   }
 
@@ -2523,7 +2586,14 @@ async function adminAtualizarReserva(request, env, id) {
     const cfg = await lerConfig(env);
     if (cfg.parceirosAtivo) {
       await garantirEsquemaParceiros(env);
-      await env.DB.prepare("UPDATE comissoes SET status = 'cancelada' WHERE reserva_id = ? AND status = 'pendente'").bind(id).run();
+      const comissaoAtingida = await env.DB.prepare("UPDATE comissoes SET status = 'cancelada' WHERE reserva_id = ? AND status = 'pendente' RETURNING id").bind(id).first();
+      if (comissaoAtingida) {
+        const auth = await checarAdmin(request, env);
+        await registrarAuditoria(env, {
+          email: auth.email, acao: "comissao_cancelada", entidade: "comissao", entidadeId: comissaoAtingida.id,
+          antes: { status: "pendente" }, depois: { status: "cancelada" }, motivo: "reserva " + b.status
+        });
+      }
     }
   }
   return ok({ ok: true });
@@ -2677,13 +2747,22 @@ async function adminAtualizarParceiro(request, env, id) {
   if (!campos.length) return erro("Nada para atualizar.", 422);
   campos.push("atualizado_em = ?"); valores.push(new Date().toISOString());
   valores.push(id);
+  const sqlAtualizar = "UPDATE parceiros SET " + campos.join(", ") + " WHERE id = ?";
   let r;
-  try { r = await env.DB.prepare("UPDATE parceiros SET " + campos.join(", ") + " WHERE id = ?").bind(...valores).run(); }
+  try { r = await env.DB.prepare(sqlAtualizar).bind(...valores).run(); }
   catch (e) {
     if (/UNIQUE/i.test(String(e && e.message))) return erro("Esse cupom já está em uso por outro parceiro.", 409);
     throw e;
   }
   if (!r.meta.changes) return erro("Parceiro não encontrado.", 404);
+  // [P1 — bloco 4] Auditoria de ativar/desativar (as demais edições de cadastro não são o foco do pedido).
+  if (typeof b.ativo === "boolean") {
+    const auth = await checarAdmin(request, env);
+    await registrarAuditoria(env, {
+      email: auth.email, acao: b.ativo ? "parceiro_ativado" : "parceiro_desativado", entidade: "parceiro", entidadeId: id,
+      antes: { ativo: !b.ativo }, depois: { ativo: b.ativo }
+    });
+  }
   return ok({ ok: true });
 }
 
@@ -2726,7 +2805,8 @@ async function adminAtualizarGuia(request, env, id) {
   if (!campos.length) return erro("Nada para atualizar.", 422);
   campos.push("atualizado_em = ?"); valores.push(new Date().toISOString());
   valores.push(id);
-  const r = await env.DB.prepare("UPDATE guias SET " + campos.join(", ") + " WHERE id = ?").bind(...valores).run();
+  const sqlAtualizar = "UPDATE guias SET " + campos.join(", ") + " WHERE id = ?";
+  const r = await env.DB.prepare(sqlAtualizar).bind(...valores).run();
   if (!r.meta.changes) return erro("Guia não encontrado.", 404);
   return ok({ ok: true });
 }
@@ -2766,8 +2846,21 @@ async function adminCheckin(request, env, reservaId) {
 
   const agora = new Date().toISOString();
   const status = presentes === 0 ? "faltou" : "presente";
-  const guiaId = typeof b.guiaId === "string" && b.guiaId ? b.guiaId : r.guia_id || null;
+  const guiaIdInformado = typeof b.guiaId === "string" && b.guiaId ? b.guiaId : null;
+  // [P1 — bloco 8d] guiaId precisa existir (e estar ativo) — senão 422, em vez de aceitar qualquer texto.
+  if (guiaIdInformado) {
+    const guia = await env.DB.prepare("SELECT 1 FROM guias WHERE id = ? AND ativo = 1").bind(guiaIdInformado).first();
+    if (!guia) return erro("Guia não encontrado ou inativo.", 422);
+  }
   const auth = await checarAdmin(request, env);
+
+  // [P1 — bloco 4] Refazer o check-in (já existe uma linha em checkins) exige motivo — é o que vira a
+  // trilha de auditoria legível para quem conferir depois. O primeiro check-in não exige.
+  const checkinAntes = await env.DB.prepare("SELECT presentes, guia_id, status FROM checkins WHERE reserva_id = ?").bind(reservaId).first();
+  const motivo = typeof b.motivo === "string" ? b.motivo.trim().slice(0, 300) : "";
+  if (checkinAntes && !motivo) return erro("Informe o motivo para refazer o check-in.", 400);
+
+  const guiaId = guiaIdInformado || (checkinAntes ? checkinAntes.guia_id : r.guia_id) || null;
 
   // DECISAO-CEO-2: comissão paga é imutável — estorno só por novo lançamento (nunca sobrescrita aqui).
   // Se o recálculo do check-in divergir do valor já pago, a requisição inteira é recusada (nada é
@@ -2776,6 +2869,12 @@ async function adminCheckin(request, env, reservaId) {
   if (r.parceiro_id) {
     comissaoExistente = await env.DB.prepare("SELECT id, valor_centavos, status FROM comissoes WHERE reserva_id = ?").bind(reservaId).first();
     if (comissaoExistente && comissaoExistente.status === "paga" && comissaoExistente.valor_centavos !== presentes * cfg.comissaoPorPaxCentavos) {
+      await registrarAuditoria(env, {
+        email: auth.email, acao: "checkin_rejeitado_comissao_paga", entidade: "reserva", entidadeId: reservaId,
+        antes: { comissaoValorCentavos: comissaoExistente.valor_centavos },
+        depois: { tentativaPresentes: presentes, tentativaValorCentavos: presentes * cfg.comissaoPorPaxCentavos },
+        motivo
+      });
       return erro("Comissão já paga para esta reserva (R$ " + (comissaoExistente.valor_centavos / 100).toFixed(2) + ") — ajuste manual, não recálculo automático.", 409);
     }
   }
@@ -2816,6 +2915,11 @@ async function adminCheckin(request, env, reservaId) {
     }
   }
 
+  await registrarAuditoria(env, {
+    email: auth.email, acao: checkinAntes ? "checkin_refazer" : "checkin_criar", entidade: "reserva", entidadeId: reservaId,
+    antes: checkinAntes || null, depois: { presentes, status, guiaId }, motivo: motivo || null
+  });
+
   return ok({ ok: true, status, presentes });
 }
 
@@ -2845,12 +2949,18 @@ async function adminPagarComissao(request, env, id) {
   await garantirEsquemaParceiros(env);
   let b = {};
   try { b = await request.json(); } catch { /* corpo opcional */ }
-  const atual = await env.DB.prepare("SELECT status FROM comissoes WHERE id = ?").bind(id).first();
+  const atual = await env.DB.prepare("SELECT status, valor_centavos FROM comissoes WHERE id = ?").bind(id).first();
   if (!atual) return erro("Comissão não encontrada.", 404);
   if (atual.status !== "pendente") return erro("Só comissão pendente pode ser marcada como paga.", 409);
   const obs = typeof b.obs === "string" ? b.obs.trim().slice(0, 300) || null : null;
-  await env.DB.prepare("UPDATE comissoes SET status = 'paga', pago_em = ?, pago_obs = ? WHERE id = ?")
-    .bind(new Date().toISOString(), obs, id).run();
+  const auth = await checarAdmin(request, env);
+  const agora = new Date().toISOString();
+  await env.DB.prepare("UPDATE comissoes SET status = 'paga', pago_em = ?, pago_obs = ?, pago_por = ? WHERE id = ?")
+    .bind(agora, obs, auth.email || "", id).run();
+  await registrarAuditoria(env, {
+    email: auth.email, acao: "comissao_paga", entidade: "comissao", entidadeId: id,
+    antes: { status: "pendente" }, depois: { status: "paga", valorCentavos: atual.valor_centavos }, motivo: obs
+  });
   return ok({ ok: true });
 }
 

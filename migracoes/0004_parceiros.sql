@@ -60,8 +60,10 @@ CREATE TABLE IF NOT EXISTS checkins (
 );
 
 -- Comissão do parceiro: R$10 (config.comissao_por_pax_centavos) por presente, calculada só no servidor a
--- partir do check-in. status fica "atualizável" (pendente -> paga) pelo admin — ledger imutável é
--- [proposta] de segurança além do pedido do cliente (ver C9), não implementado nesta fase.
+-- partir do check-in e só com reserva confirmada (e paga, se usar pagamento online — DECISAO-CEO-1). Uma
+-- vez "paga", a linha é imutável (DECISAO-CEO-2 — ver adminCheckin): estorno só por novo lançamento, nunca
+-- sobrescrevendo valor_centavos/status aqui. estorno_pendente sinaliza (sem mudar status) uma comissão já
+-- paga cuja reserva foi cancelada/devolvida depois — resolução manual do admin (TODO(DECISAO-D4/D8)).
 CREATE TABLE IF NOT EXISTS comissoes (
   id TEXT PRIMARY KEY,
   reserva_id TEXT NOT NULL UNIQUE,
@@ -70,7 +72,9 @@ CREATE TABLE IF NOT EXISTS comissoes (
   status TEXT NOT NULL DEFAULT 'pendente',   -- 'pendente' | 'paga' | 'cancelada'
   criado_em TEXT NOT NULL,
   pago_em TEXT,
-  pago_obs TEXT
+  pago_obs TEXT,
+  pago_por TEXT,                             -- e-mail do admin que marcou como paga (JWT do Access)
+  estorno_pendente INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS idx_comissoes_parceiro ON comissoes (parceiro_id, status);
 
@@ -85,6 +89,26 @@ CREATE TABLE IF NOT EXISTS vouchers (
   criado_em TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_vouchers_reserva ON vouchers (reserva_id);
+
+-- Ledger de auditoria append-only (DECISAO-CEO-3): quem, quando, o quê. Os gatilhos impedem UPDATE/DELETE
+-- mesmo pelo próprio worker — não é só disciplina de código. Gravado em: check-in (criar/refazer e
+-- recusado por comissão paga), pagar comissão, cancelar comissão, ativar/desativar parceiro, designar guia.
+CREATE TABLE IF NOT EXISTS parceiros_auditoria (
+  id TEXT PRIMARY KEY,
+  quando TEXT NOT NULL,
+  email TEXT NOT NULL,        -- e-mail do JWT do Access (ou "" se o portão caiu no ADMIN_KEY de dev)
+  acao TEXT NOT NULL,
+  entidade TEXT NOT NULL,      -- 'reserva' | 'comissao' | 'parceiro'
+  entidade_id TEXT,
+  antes TEXT,                  -- JSON ou NULL
+  depois TEXT,                 -- JSON ou NULL
+  motivo TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_auditoria_entidade ON parceiros_auditoria (entidade, entidade_id);
+CREATE TRIGGER IF NOT EXISTS trg_auditoria_sem_update BEFORE UPDATE ON parceiros_auditoria
+BEGIN SELECT RAISE(ABORT, 'parceiros_auditoria é append-only'); END;
+CREATE TRIGGER IF NOT EXISTS trg_auditoria_sem_delete BEFORE DELETE ON parceiros_auditoria
+BEGIN SELECT RAISE(ABORT, 'parceiros_auditoria é append-only'); END;
 
 -- Flags e valores em centavos de config (INSERT OR IGNORE: nunca sobrescreve o que o admin já configurou).
 INSERT OR IGNORE INTO config (chave, valor) VALUES

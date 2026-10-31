@@ -189,9 +189,11 @@ let reservaComParceiroId, reservaComCupomId, reservaSemParceiroId;
   let com = sql("SELECT valor_centavos, status FROM comissoes WHERE reserva_id = ?", reservaComParceiroId)[0];
   checar("P9 comissão = 2 × 1000 = 2000 centavos, pendente", com.valor_centavos === 2000 && com.status === "pendente", JSON.stringify(com));
 
-  // Refazer o check-in recalcula sem duplicar linha.
-  const r3 = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1 }) });
-  checar("P9 refazer check-in (1 presente) → 200", r3.status === 200);
+  // Refazer o check-in sem motivo → 400 (Bloco 4); recalcula sem duplicar linha quando o motivo vem.
+  const r3semMotivo = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1 }) });
+  checar("B4 refazer check-in sem motivo → 400", r3semMotivo.status === 400, r3semMotivo.status);
+  const r3 = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1, motivo: "contagem errada na hora" }) });
+  checar("P9 refazer check-in (1 presente) com motivo → 200", r3.status === 200, r3.status);
   const linhas = sql("SELECT COUNT(*) AS n FROM checkins WHERE reserva_id = ?", reservaComParceiroId)[0];
   checar("P9 continua 1 linha só em checkins (idempotente)", Number(linhas.n) === 1);
   com = sql("SELECT valor_centavos FROM comissoes WHERE reserva_id = ?", reservaComParceiroId)[0];
@@ -220,7 +222,7 @@ let reservaComParceiroId, reservaComCupomId, reservaSemParceiroId;
   checar("P10 marcar como pago de novo → 409 (já está paga)", pagarDeNovo.status === 409, pagarDeNovo.status);
 
   // Cancela a reserva do cupom (que ainda tem comissão pendente de outra rodada de check-in).
-  await admin("/reservas/" + reservaComCupomId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1 }) });
+  await admin("/reservas/" + reservaComCupomId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1, motivo: "veio depois" }) });
   const cancelar = await admin("/reservas/" + reservaComCupomId, { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) });
   checar("P10 cancelar reserva → 200", cancelar.status === 200);
   const comCancelada = sql("SELECT status FROM comissoes WHERE reserva_id = ?", reservaComCupomId)[0];
@@ -233,17 +235,17 @@ let reservaComParceiroId, reservaComCupomId, reservaSemParceiroId;
   const antesB2 = sql("SELECT valor_centavos, status FROM comissoes WHERE id = ?", idDaComissao)[0];
   checar("B2 pré-condição: comissão paga com 1000 centavos", antesB2.status === "paga" && antesB2.valor_centavos === 1000, JSON.stringify(antesB2));
 
-  const rDivergente = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 2 }) });
+  const rDivergente = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 2, motivo: "teste B2" }) });
   checar("B2 refazer check-in com valor diferente do pago (2×1000=2000 ≠ 1000) → 409", rDivergente.status === 409, rDivergente.status);
   let depoisB2 = sql("SELECT valor_centavos, status FROM comissoes WHERE id = ?", idDaComissao)[0];
   checar("B2 …comissão continua 1000/paga", depoisB2.valor_centavos === 1000 && depoisB2.status === "paga", JSON.stringify(depoisB2));
 
-  const rFaltouPosPago = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 0 }) });
+  const rFaltouPosPago = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 0, motivo: "teste B2" }) });
   checar("B2 check-in 0 (faltou) depois de paga → 409", rFaltouPosPago.status === 409, rFaltouPosPago.status);
   depoisB2 = sql("SELECT valor_centavos, status FROM comissoes WHERE id = ?", idDaComissao)[0];
   checar("B2 …comissão continua 1000/paga (2ª tentativa)", depoisB2.valor_centavos === 1000 && depoisB2.status === "paga", JSON.stringify(depoisB2));
 
-  const rIgual = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1 }) });
+  const rIgual = await admin("/reservas/" + reservaComParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1, motivo: "teste B2" }) });
   checar("B2 refazer com o mesmo valor já pago (1×1000=1000) → 200, sem divergência", rIgual.status === 200, rIgual.status);
   depoisB2 = sql("SELECT valor_centavos, status FROM comissoes WHERE id = ?", idDaComissao)[0];
   checar("B2 …comissão continua 1000/paga, sem mudar", depoisB2.valor_centavos === 1000 && depoisB2.status === "paga", JSON.stringify(depoisB2));
@@ -277,13 +279,64 @@ let reservaComParceiroId, reservaComCupomId, reservaSemParceiroId;
 }
 
 // ---------- Guias: cadastro simples ----------
+let guiaId;
 {
   const r = await admin("/guias", { method: "POST", body: JSON.stringify({ nome: "Guia Teste", whatsapp: "(24) 99999-1111" }) });
   const j = await jsonDe(r);
   checar("P11 cadastra guia → 200", r.status === 200 && j.id, r.status);
+  guiaId = j.id;
   const lst = await jsonDe(await admin("/guias"));
   const g = lst.guias.find(x => x.id === j.id);
   checar("P11 whatsapp gravado só com dígitos", g.whatsapp === "24999991111", g.whatsapp);
+}
+
+// ---------- Bloco 4 [P1]: ledger de auditoria (DECISAO-CEO-3), pago_por, guiaId validado (8d) ----------
+{
+  // Check-in (criar/refazer) grava auditoria.
+  const auditCriar = sql("SELECT * FROM parceiros_auditoria WHERE entidade = 'reserva' AND entidade_id = ? AND acao = 'checkin_criar'", reservaSemParceiroId);
+  checar("B4 check-in (criar) gravou 1 evento de auditoria", auditCriar.length === 1, auditCriar.length);
+  checar("B4 …com e-mail do JWT de teste", auditCriar[0].email === "teste@example.com", auditCriar[0].email);
+  const auditRefazer = sql("SELECT * FROM parceiros_auditoria WHERE entidade = 'reserva' AND entidade_id = ? AND acao = 'checkin_refazer'", reservaComParceiroId);
+  checar("B4 refazer check-in gravou eventos com motivo", auditRefazer.length >= 1 && auditRefazer.every(a => a.motivo), JSON.stringify(auditRefazer.map(a => a.motivo)));
+  const auditRecusado = sql("SELECT * FROM parceiros_auditoria WHERE acao = 'checkin_rejeitado_comissao_paga' AND entidade_id = ?", reservaComParceiroId);
+  checar("B4 check-in recusado por comissão paga também foi auditado", auditRecusado.length >= 1, auditRecusado.length);
+
+  // Pagar comissão: pago_por gravado + auditoria.
+  const comissaoPaga = sql("SELECT id, pago_por FROM comissoes WHERE reserva_id = ?", reservaComParceiroId)[0];
+  checar("B4 comissão paga tem pago_por = e-mail do JWT", comissaoPaga.pago_por === "teste@example.com", comissaoPaga.pago_por);
+  const auditPagar = sql("SELECT * FROM parceiros_auditoria WHERE acao = 'comissao_paga' AND entidade_id = ?", comissaoPaga.id);
+  checar("B4 pagar comissão gravou auditoria", auditPagar.length === 1, auditPagar.length);
+
+  // Cancelar comissão pendente (reserva cancelada/não-compareceu) grava auditoria.
+  const auditCancelada = sql("SELECT * FROM parceiros_auditoria WHERE acao = 'comissao_cancelada'");
+  checar("B4 cancelar comissão pendente (via cancelamento de reserva) gravou auditoria", auditCancelada.length >= 1, auditCancelada.length);
+
+  // Ativar/desativar parceiro grava auditoria.
+  await admin("/parceiros/" + parceiroId, { method: "PATCH", body: JSON.stringify({ ativo: false }) });
+  await admin("/parceiros/" + parceiroId, { method: "PATCH", body: JSON.stringify({ ativo: true }) });
+  // P8 (mais acima) já desativou/reativou este parceiro antes de a auditoria existir neste teste — por
+  // isso olhamos só os 2 últimos eventos, não a lista inteira.
+  const auditParceiro = sql("SELECT acao FROM parceiros_auditoria WHERE entidade = 'parceiro' AND entidade_id = ? ORDER BY quando", parceiroId).slice(-2);
+  checar("B4 desativar/ativar parceiro gravou os dois eventos", auditParceiro.map(a => a.acao).join(",") === "parceiro_desativado,parceiro_ativado", JSON.stringify(auditParceiro));
+
+  // Designar guia: guiaId inexistente → 422; guia válido → 200 + auditoria.
+  const rGuiaInvalido = await admin("/reservas/" + reservaSemParceiroId, { method: "PATCH", body: JSON.stringify({ guiaId: "guia-que-nao-existe" }) });
+  checar("B4 (8d) designar guia inexistente → 422", rGuiaInvalido.status === 422, rGuiaInvalido.status);
+  const rGuiaValido = await admin("/reservas/" + reservaSemParceiroId, { method: "PATCH", body: JSON.stringify({ guiaId }) });
+  checar("B4 (8d) designar guia existente → 200", rGuiaValido.status === 200, rGuiaValido.status);
+  const auditGuia = sql("SELECT * FROM parceiros_auditoria WHERE acao = 'guia_designado' AND entidade_id = ?", reservaSemParceiroId);
+  checar("B4 designar guia gravou auditoria", auditGuia.length === 1 && JSON.parse(auditGuia[0].depois).guiaId === guiaId, JSON.stringify(auditGuia));
+
+  // guiaId inexistente no check-in → 422 (8d).
+  const rCheckinGuiaInvalido = await admin("/reservas/" + reservaSemParceiroId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1, guiaId: "guia-que-nao-existe", motivo: "teste" }) });
+  checar("B4 (8d) check-in com guiaId inexistente → 422", rCheckinGuiaInvalido.status === 422, rCheckinGuiaInvalido.status);
+
+  // Ledger é append-only de verdade: UPDATE/DELETE direto no D1 têm que falhar (gatilhos).
+  let updateFalhou = false, deleteFalhou = false;
+  try { exec("UPDATE parceiros_auditoria SET motivo = 'adulterado' WHERE id = (SELECT id FROM parceiros_auditoria LIMIT 1)"); } catch { updateFalhou = true; }
+  try { exec("DELETE FROM parceiros_auditoria WHERE id = (SELECT id FROM parceiros_auditoria LIMIT 1)"); } catch { deleteFalhou = true; }
+  checar("B4 UPDATE direto em parceiros_auditoria falha (gatilho append-only)", updateFalhou);
+  checar("B4 DELETE direto em parceiros_auditoria falha (gatilho append-only)", deleteFalhou);
 }
 
 // ---------- adminListarReservas: parceiro/guia/check-in/comissão aparecem; sem PII ao parceiro (isso é sobre a API do admin mesmo, atrás do Access) ----------
