@@ -85,6 +85,12 @@ let parceiroId, parceiroCodigo;
 
   const dup = await admin("/parceiros", { method: "POST", body: JSON.stringify({ nome: "Outro", tipo: "outro", cupom: "testcupom1" }) });
   checar("P4 cupom duplicado → 409", dup.status === 409, dup.status);
+
+  // Bloco 9 [P1]: cupom inválido vira 422 (antes era descartado em silêncio).
+  const antesCupom = contar("parceiros");
+  const rCupomInvalido = await admin("/parceiros", { method: "POST", body: JSON.stringify({ nome: "Pousada X", tipo: "pousada", cupom: "pous 10" }) });
+  checar("B9 cupom inválido (com espaço) → 422", rCupomInvalido.status === 422, rCupomInvalido.status);
+  checar("B9 …e não cadastra o parceiro", contar("parceiros") === antesCupom, contar("parceiros"));
 }
 
 // ---------- Link curto do QR ----------
@@ -301,6 +307,18 @@ let reservaComParceiroId, reservaComCupomId, reservaSemParceiroId;
   await admin("/reservas/" + reservaEstornoId, { method: "PATCH", body: JSON.stringify({ status: "nao_compareceu" }) });
   const auditEstorno2 = sql("SELECT * FROM parceiros_auditoria WHERE acao = 'comissao_estorno_pendente' AND entidade_id = ?", comEstorno.id);
   checar("B7 estorno_pendente já ligado: não duplica auditoria numa 2ª mudança de status", auditEstorno2.length === 1, auditEstorno2.length);
+}
+
+// ---------- Bloco 11 [P1]: comissões — filtro por período (data da reserva) e totais por status ----------
+{
+  const tudo = await jsonDe(await admin("/comissoes?parceiroId=" + parceiroId + "&status=todas"));
+  checar("B11 resposta traz totaisCentavos", tudo.totaisCentavos && typeof tudo.totaisCentavos.paga === "number", JSON.stringify(tudo.totaisCentavos));
+  checar("B11 …paga soma pelo menos as 2 comissões pagas deste parceiro (1000+1000)", tudo.totaisCentavos.paga >= 2000, tudo.totaisCentavos.paga);
+
+  // Período que não cobre nenhuma reserva de teste (todas em hoje/amanhã) → lista e totais zerados.
+  const fora = await jsonDe(await admin("/comissoes?parceiroId=" + parceiroId + "&de=2000-01-01&ate=2000-01-02"));
+  checar("B11 período sem reservas → lista vazia", Array.isArray(fora.comissoes) && fora.comissoes.length === 0, JSON.stringify(fora.comissoes));
+  checar("B11 …e totais zerados", fora.totaisCentavos.pendente === 0 && fora.totaisCentavos.paga === 0 && fora.totaisCentavos.cancelada === 0, JSON.stringify(fora.totaisCentavos));
 }
 
 // ---------- Bloco 5 [P1] (estático): confirmação explícita antes de pagar comissão, Cancelar não paga ----------

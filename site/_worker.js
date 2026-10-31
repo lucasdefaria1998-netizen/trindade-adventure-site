@@ -2774,7 +2774,11 @@ async function adminCriarParceiro(request, env) {
   const nome = typeof b.nome === "string" ? b.nome.trim().slice(0, 120) : "";
   const tipo = TIPOS_PARCEIRO.has(b.tipo) ? b.tipo : null;
   if (!nome || !tipo) return erro("Nome e tipo são obrigatórios.", 422);
-  const cupom = typeof b.cupom === "string" && CUPOM_PARCEIRO_RE.test(b.cupom.trim()) ? b.cupom.trim().toUpperCase() : null;
+  // [P1 — bloco 9] Cupom inválido vira 422 (antes era descartado em silêncio — o parceiro ficava
+  // cadastrado sem cupom sem nenhum aviso de que o valor digitado foi ignorado).
+  const cupomBruto = typeof b.cupom === "string" ? b.cupom.trim() : "";
+  if (cupomBruto && !CUPOM_PARCEIRO_RE.test(cupomBruto)) return erro("Cupom inválido.", 422);
+  const cupom = cupomBruto ? cupomBruto.toUpperCase() : null;
   const contato = typeof b.contato === "string" ? b.contato.trim().slice(0, 200) || null : null;
   const pixChave = typeof b.pixChave === "string" ? b.pixChave.trim().slice(0, 200) || null : null;
   const recebeVoucher = b.recebeVoucher ? 1 : 0;
@@ -3005,22 +3009,41 @@ async function adminCheckin(request, env, reservaId) {
 
 /* ------------------------------ comissões (admin) ------------------------------ */
 
+// [P1 — bloco 11] Filtro por período (data da reserva, não data da comissão) e totais pendente/paga/
+// cancelada — do recorte filtrado (parceiro + período), não da tabela inteira. Período e parceiro
+// valem tanto para a listagem (com paginação por LIMIT) quanto para os totais (sem LIMIT).
 async function adminListarComissoes(env, url) {
   const cfg = await lerConfig(env);
   if (!cfg.parceirosAtivo) return semFlagParceiros();
   await garantirEsquemaParceiros(env);
   const parceiroId = url.searchParams.get("parceiroId");
   const status = url.searchParams.get("status");
-  let sql =
+  const de = url.searchParams.get("de") || "2000-01-01";
+  const ate = url.searchParams.get("ate") || "2999-12-31";
+
+  const condParceiro = parceiroId ? " AND co.parceiro_id = ?" : "";
+  const bindRecorte = parceiroId ? [de, ate, parceiroId] : [de, ate];
+
+  let sqlListar =
     "SELECT co.id, co.reserva_id, co.parceiro_id, co.valor_centavos, co.status, co.criado_em, co.pago_em, " +
     "co.estorno_pendente, p.nome AS parceiro_nome, r.codigo AS reserva_codigo, r.data AS reserva_data " +
-    "FROM comissoes co JOIN parceiros p ON p.id = co.parceiro_id JOIN reservas r ON r.id = co.reserva_id WHERE 1=1";
-  const bind = [];
-  if (parceiroId) { sql += " AND co.parceiro_id = ?"; bind.push(parceiroId); }
-  if (status && status !== "todas") { sql += " AND co.status = ?"; bind.push(status); }
-  sql += " ORDER BY co.criado_em DESC LIMIT 500";
-  const { results } = await env.DB.prepare(sql).bind(...bind).all();
-  return ok({ ok: true, comissoes: results });
+    "FROM comissoes co JOIN parceiros p ON p.id = co.parceiro_id JOIN reservas r ON r.id = co.reserva_id " +
+    "WHERE r.data >= ? AND r.data <= ?" + condParceiro;
+  const bindListar = bindRecorte.slice();
+  if (status && status !== "todas") { sqlListar += " AND co.status = ?"; bindListar.push(status); }
+  sqlListar += " ORDER BY co.criado_em DESC LIMIT 500";
+
+  const sqlTotais =
+    "SELECT co.status, COALESCE(SUM(co.valor_centavos),0) AS total_centavos, COUNT(*) AS n FROM comissoes co " +
+    "JOIN reservas r ON r.id = co.reserva_id WHERE r.data >= ? AND r.data <= ?" + condParceiro + " GROUP BY co.status";
+
+  const [listado, agregado] = await Promise.all([
+    env.DB.prepare(sqlListar).bind(...bindListar).all(),
+    env.DB.prepare(sqlTotais).bind(...bindRecorte).all()
+  ]);
+  const totaisCentavos = { pendente: 0, paga: 0, cancelada: 0 };
+  for (const t of agregado.results) if (Object.hasOwn(totaisCentavos, t.status)) totaisCentavos[t.status] = t.total_centavos;
+  return ok({ ok: true, comissoes: listado.results, totaisCentavos });
 }
 
 async function adminPagarComissao(request, env, id) {

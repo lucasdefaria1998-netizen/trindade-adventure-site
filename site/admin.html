@@ -187,15 +187,18 @@ dialog::backdrop{background:rgba(6,26,15,.5)}
       <div class="card">
         <h3>Comissões</h3>
         <div class="filtros">
-          <select id="cParceiro"><option value="">Todos os parceiros</option></select>
-          <select id="cStatus">
+          <select id="cParceiro" aria-label="Filtrar por parceiro"><option value="">Todos os parceiros</option></select>
+          <select id="cStatus" aria-label="Filtrar por status">
             <option value="todas">Todos os status</option>
             <option value="pendente" selected>Pendentes</option>
             <option value="paga">Pagas</option>
             <option value="cancelada">Canceladas</option>
           </select>
+          <label style="font-size:12px;color:var(--muted)">de (data da reserva) <input type="date" id="cDe"></label>
+          <label style="font-size:12px;color:var(--muted)">até <input type="date" id="cAte"></label>
           <button class="btn sm" id="cAplicar">Filtrar</button>
         </div>
+        <div class="kpis" id="cTotais" style="margin-bottom:14px"></div>
         <div class="scroll-x"><table id="tabelaComissoes"></table></div>
       </div>
     </div>
@@ -740,14 +743,24 @@ async function carregarComissoes() {
   const qs = new URLSearchParams();
   if ($("#cParceiro").value) qs.set("parceiroId", $("#cParceiro").value);
   if ($("#cStatus").value) qs.set("status", $("#cStatus").value);
+  if ($("#cDe").value) qs.set("de", $("#cDe").value);
+  if ($("#cAte").value) qs.set("ate", $("#cAte").value);
   let dc;
   try { dc = await api("/comissoes?" + qs.toString()); } catch (e) { return aviso("Erro: " + e.message, true); }
+
+  // [Bloco 11] Totais do recorte filtrado (parceiro + período) — não da tabela inteira.
+  const t = dc.totaisCentavos || { pendente: 0, paga: 0, cancelada: 0 };
+  $("#cTotais").innerHTML = [
+    ["pendente", t.pendente], ["paga", t.paga], ["cancelada", t.cancelada]
+  ].map(([l, v]) => '<div class="kpi"><div class="k">' + l + '</div><div class="v">' + money(v / 100) + "</div></div>").join("");
+
   $("#tabelaComissoes").innerHTML =
     "<thead><tr><th>Data</th><th>Reserva</th><th>Parceiro</th><th>Valor</th><th>Status</th><th></th></tr></thead><tbody>" +
     (dc.comissoes.length ? dc.comissoes.map(c =>
       "<tr><td>" + dataBR(c.reserva_data) + "</td><td>" + esc(c.reserva_codigo) + "</td><td>" + esc(c.parceiro_nome) +
       "</td><td>" + money(c.valor_centavos / 100) + '</td><td><span class="pill ' + (c.status === "paga" ? "confirmada" : c.status === "cancelada" ? "cancelada" : "pendente") + '">' +
-      c.status + "</span></td><td>" + (c.status === "pendente" ? '<button class="btn sm" data-pagar="' + esc(c.id) + '">marcar como pago</button>' : "") + "</td></tr>"
+      c.status + "</span>" + (c.estorno_pendente ? ' <span class="pill cancelada" title="Reserva cancelada/devolvida depois do pagamento — estorno é lançamento manual (DECISAO-CEO-2).">estorno pendente</span>' : "") +
+      "</td><td>" + (c.status === "pendente" ? '<button class="btn sm" data-pagar="' + esc(c.id) + '">marcar como pago</button>' : "") + "</td></tr>"
     ).join("") : '<tr><td colspan="6" class="vazio">Nenhuma comissão encontrada.</td></tr>') + "</tbody>";
   $$("#tabelaComissoes [data-pagar]").forEach(btn => btn.addEventListener("click", async () => {
     // [Bloco 5] Cancelar aqui tem de abortar o pagamento — antes, "Cancelar" no único prompt (que só
