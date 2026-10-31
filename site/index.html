@@ -797,6 +797,9 @@
     <p data-pagamento="whatsapp">Escolha o passeio, a data e o horário, preencha nome e WhatsApp e envie. A equipe confirma pelo WhatsApp, com o guia do dia — sem cadastro e sem pagamento online.</p><template data-pagamento="online"><p>Escolha o passeio, a data e o horário, preencha nome e WhatsApp e pague pelo site, só por Pix: sinal de 30% ou o valor total (para o mesmo dia, só o valor total). O código da reserva sai logo depois do pagamento — sem cadastro.</p></template>
   </header>
 
+  <!-- Rede de parceiros (F2): preenchido pelo app.js só quando o código do link/QR é válido e ativo. -->
+  <p class="nota" id="faixaParceiro" hidden></p>
+
   <!-- Sem JavaScript, o formulário não tem como montar a mensagem. Em vez de
        mostrar campos que não fazem nada, oferecemos o caminho direto. -->
   <noscript>
@@ -1430,7 +1433,7 @@
 
 <!-- Leaflet é servido pelo próprio site e só carrega quando o mapa se aproxima
      da tela. Se ainda assim faltar, o app.js mostra a lista de pontos. -->
-<script src="/app.js?v=20261026-pix-release" defer></script>
+<script src="/app.js?v=20261030-parceiros" defer></script>
 <script src="/vendor/lenis-1.3.11.min.js" defer></script>
 <script src="/motion.js?v=20261020-s15" defer></script>
 <script src="/pescaria-galeria.js?v=20261005-rotas" defer></script>

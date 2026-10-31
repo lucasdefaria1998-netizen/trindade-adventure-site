@@ -248,6 +248,50 @@ const Origem = {
   }
 };
 
+/* Rede de parceiros indicadores (QR/link — E5/F2): captura ?parceiro= (e ?parceiroVia=) na chegada e
+   guarda no navegador até a validade (TODO(DECISAO-D1): dias configuráveis; aqui, 7 dias fixos — mesmo
+   padrão do servidor, que é quem de fato decide se o código existe e está ativo). Último clique vence
+   (sobrescreve o anterior), como recomendado em D1. O servidor sempre revalida o código: um valor
+   forjado ou de parceiro inativo aqui não gera atribuição nenhuma, só é ignorado silenciosamente. */
+const Parceiro = {
+  CHAVE: "trindade.parceiro",
+  VALIDADE_DIAS: 7,
+
+  capturar() {
+    try {
+      const params = new URLSearchParams(location.search);
+      const codigo = (params.get("parceiro") || "").trim().toLowerCase();
+      if (codigo && /^[a-z0-9]{6,32}$/.test(codigo)) {
+        const via = params.get("parceiroVia") === "qr" ? "qr" : "link";
+        localStorage.setItem(this.CHAVE, JSON.stringify({ codigo, via, ts: Date.now() }));
+      }
+    } catch (e) {}
+  },
+
+  ativo() {
+    try {
+      const salvo = JSON.parse(localStorage.getItem(this.CHAVE) || "null");
+      if (!salvo || !salvo.codigo || !salvo.ts) return null;
+      if (Date.now() - salvo.ts > this.VALIDADE_DIAS * 86400000) { localStorage.removeItem(this.CHAVE); return null; }
+      return salvo;
+    } catch (e) { return null; }
+  }
+};
+
+// Faixa discreta "Indicado por …" na página de reserva (F2). Só confirma o nome com o servidor — nunca
+// lista parceiros, só resolve o código exato já guardado; código inválido/inativo não mostra nada
+// (nem erro), a reserva segue normal.
+async function mostrarFaixaParceiro() {
+  const faixa = document.getElementById("faixaParceiro");
+  const ativo = Parceiro.ativo();
+  if (!faixa || !ativo) return;
+  const r = await chamarAPI("/api/parceiro?codigo=" + encodeURIComponent(ativo.codigo));
+  if (r.status === 200 && r.corpo && r.corpo.nome) {
+    faixa.textContent = "Indicado por " + r.corpo.nome;
+    faixa.hidden = false;
+  }
+}
+
 /* Um relato do próprio cliente ("como conheceu") só deve sobrepor a detecção
    automática quando ela veio fraca (visita direta ou não reconhecida) — nunca
    apaga um clique de fato rastreado vindo do Instagram ou do Google. */
@@ -1836,6 +1880,7 @@ function ligarReserva() {
     if (botao) { botao.disabled = true; botao.textContent = "Enviando…"; }
 
     const o = Origem.detectar();
+    const parceiroAtivo = Parceiro.ativo();
     const escolhaPg = pgOnline ? PagamentoPuro.escolhaEfetiva(pagamentoCfg, reserva.data, escolhaPagamento) : null;
     const chave = chaveDoEnvio([reserva.plano, reserva.data, reserva.hora, reserva.pax, dadosForm.tel, dadosForm.nome].concat(pgOnline ? [escolhaPg] : []).join("|"));
     // Token novo do desafio anti-robô a cada envio. Sem ele (script bloqueado, rede ruim) não
@@ -1848,7 +1893,7 @@ function ligarReserva() {
     } else resultado = await chamarAPI("/api/reservas", {
       method: "POST",
       headers: { "content-type": "application/json", "Idempotency-Key": chave },
-      body: JSON.stringify(PagamentoPuro.corpoDoPedido({
+      body: JSON.stringify(PagamentoPuro.corpoDoPedido(Object.assign({
         plano: reserva.plano, data: reserva.data, hora: reserva.hora, pax: reserva.pax,
         nome: dadosForm.nome, telefone: dadosForm.tel, email: dadosForm.email, obs: dadosForm.obs,
         origem: origemEfetiva(o, reserva.comoConheceu), origemDetalhe: o.detalhe,
@@ -1856,7 +1901,7 @@ function ligarReserva() {
         instagramCliente: reserva.instagramCliente, seguiuInstagram: reserva.seguiuInstagram,
         sessao: Origem.sessao(),
         "cf-turnstile-response": tokenAnti
-      }, pagamentoCfg, planoAtual, reserva.data, escolhaPg))
+      }, parceiroAtivo ? { parceiroCodigo: parceiroAtivo.codigo, parceiroVia: parceiroAtivo.via } : {}), pagamentoCfg, planoAtual, reserva.data, escolhaPg))
     });
 
     if (botao) { botao.disabled = false; botao.textContent = pgOnline ? TEXTO_PAGAR : "Enviar reserva no WhatsApp"; }
@@ -2248,6 +2293,8 @@ function ajustarCanaisDeContato(raiz) {
 function iniciar() {
   // Link antigo (#/passeios?plano=boat) vira o endereço novo antes de tudo.
   migrarEnderecoAntigo();
+  Parceiro.capturar();
+  mostrarFaixaParceiro();
   ligarMenu();
   ligarLinksWhatsApp();
   ajustarCanaisDeContato();
