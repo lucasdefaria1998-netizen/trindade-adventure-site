@@ -251,6 +251,58 @@ let reservaComParceiroId, reservaComCupomId, reservaSemParceiroId;
   checar("B2 …comissão continua 1000/paga, sem mudar", depoisB2.valor_centavos === 1000 && depoisB2.status === "paga", JSON.stringify(depoisB2));
 }
 
+// ---------- Blocos 6 e 7 [P1]: voucher cancelado em faltou/cancelamento; estorno_pendente em comissão paga ----------
+{
+  // Plano "adventure" tem voucher > 0 (essencial não) — precisa de uma reserva própria para este bloco.
+  const rv = await post("/api/reservas", { corpo: reservaValida({ plano: "adventure", parceiroCodigo }) });
+  const linha = sql("SELECT id FROM reservas WHERE codigo = ?", (await jsonDe(rv)).codigo)[0];
+  const reservaVoucherId = linha.id;
+  await admin("/reservas/" + reservaVoucherId, { method: "PATCH", body: JSON.stringify({ status: "confirmada" }) });
+
+  const ckPresente = await admin("/reservas/" + reservaVoucherId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 2 }) });
+  checar("B6 check-in com presentes → 200", ckPresente.status === 200, ckPresente.status);
+  let voucher = sql("SELECT quantidade, status FROM vouchers WHERE reserva_id = ?", reservaVoucherId)[0];
+  checar("B6 voucher emitido com a quantidade de presentes", voucher.status === "emitido" && voucher.quantidade === 2, JSON.stringify(voucher));
+
+  const ckFaltou = await admin("/reservas/" + reservaVoucherId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 0, motivo: "faltou no fim" }) });
+  checar("B6 refazer check-in para faltou → 200", ckFaltou.status === 200, ckFaltou.status);
+  voucher = sql("SELECT status FROM vouchers WHERE reserva_id = ?", reservaVoucherId)[0];
+  checar("B6 check-in 0 (faltou) cancela o voucher", voucher.status === "cancelado", voucher.status);
+
+  // Segunda reserva do mesmo bloco: comissão paga, depois a reserva é cancelada → estorno_pendente (Bloco 7).
+  const rv2 = await post("/api/reservas", { corpo: reservaValida({ plano: "adventure", parceiroCodigo }) });
+  const linha2 = sql("SELECT id FROM reservas WHERE codigo = ?", (await jsonDe(rv2)).codigo)[0];
+  const reservaEstornoId = linha2.id;
+  await admin("/reservas/" + reservaEstornoId, { method: "PATCH", body: JSON.stringify({ status: "confirmada" }) });
+  await admin("/reservas/" + reservaEstornoId + "/checkin", { method: "POST", body: JSON.stringify({ presentes: 1 }) });
+  const comEstorno = sql("SELECT id FROM comissoes WHERE reserva_id = ?", reservaEstornoId)[0];
+  await admin("/comissoes/" + comEstorno.id + "/pagar", { method: "POST", body: JSON.stringify({ obs: "pago antes do cancelamento" }) });
+  let estado = sql("SELECT status, valor_centavos, estorno_pendente FROM comissoes WHERE id = ?", comEstorno.id)[0];
+  checar("B7 pré-condição: comissão paga, sem estorno pendente ainda", estado.status === "paga" && estado.estorno_pendente === 0, JSON.stringify(estado));
+
+  const cancelarComPago = await admin("/reservas/" + reservaEstornoId, { method: "PATCH", body: JSON.stringify({ status: "cancelada" }) });
+  checar("B7 cancelar reserva com comissão já paga → 200", cancelarComPago.status === 200, cancelarComPago.status);
+  estado = sql("SELECT status, valor_centavos, estorno_pendente FROM comissoes WHERE id = ?", comEstorno.id)[0];
+  checar("B7 comissão continua 'paga' com o mesmo valor (imutável — DECISAO-CEO-2)", estado.status === "paga" && estado.valor_centavos === 1000, JSON.stringify(estado));
+  checar("B7 …mas ganha estorno_pendente = 1", estado.estorno_pendente === 1, estado.estorno_pendente);
+  const auditEstorno = sql("SELECT * FROM parceiros_auditoria WHERE acao = 'comissao_estorno_pendente' AND entidade_id = ?", comEstorno.id);
+  checar("B7 evento de auditoria gravado para o estorno pendente", auditEstorno.length === 1, auditEstorno.length);
+  const voucherEstorno = sql("SELECT status FROM vouchers WHERE reserva_id = ?", reservaEstornoId)[0];
+  checar("B7 voucher também cancelado junto (Bloco 6)", voucherEstorno.status === "cancelado", voucherEstorno.status);
+
+  // Chamar de novo (ex.: no-show registrado depois) não duplica o sinalizador nem gera 2º evento de auditoria.
+  await admin("/reservas/" + reservaEstornoId, { method: "PATCH", body: JSON.stringify({ status: "nao_compareceu" }) });
+  const auditEstorno2 = sql("SELECT * FROM parceiros_auditoria WHERE acao = 'comissao_estorno_pendente' AND entidade_id = ?", comEstorno.id);
+  checar("B7 estorno_pendente já ligado: não duplica auditoria numa 2ª mudança de status", auditEstorno2.length === 1, auditEstorno2.length);
+}
+
+// ---------- Bloco 5 [P1] (estático): confirmação explícita antes de pagar comissão, Cancelar não paga ----------
+{
+  const html = readFileSync(new URL("../site/admin.html", import.meta.url), "utf8");
+  checar("B5 pagar comissão passa por confirm() com valor e parceiro", /confirm\(\s*"Confirma o pagamento/.test(html));
+  checar("B5 não sobrou o padrão antigo 'prompt(...) || \"\"' que ignorava o Cancelar", !/prompt\([^)]*\)\s*\|\|\s*""/.test(html));
+}
+
 // ---------- Bloco 3 [P0]: validar config (comissão/parceiros_ativo/validade/regra) ----------
 {
   const antes = sql("SELECT valor FROM config WHERE chave = 'comissao_por_pax_centavos'")[0]?.valor;

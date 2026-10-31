@@ -1299,6 +1299,32 @@ async function registrarAuditoria(env, { email, acao, entidade, entidadeId, ante
   }
 }
 
+/* [P1 — blocos 6 e 7] Reserva cancelada, não-compareceu ou devolvida (Asaas): a comissão pendente é
+   cancelada; uma comissão já PAGA nunca muda de valor/status aqui (DECISAO-CEO-2 — imutável), só
+   ganha estorno_pendente = 1 para o admin resolver manualmente (TODO(DECISAO-D4/D8): como estornar).
+   Voucher de alimentação (DECISAO-CEO-4): cancelado junto, porque sem participação não há voucher. */
+async function marcarComissaoEVoucherPorCancelamento(env, reservaId, motivo, auth) {
+  const canceladaRow = await env.DB.prepare(
+    "UPDATE comissoes SET status = 'cancelada' WHERE reserva_id = ? AND status = 'pendente' RETURNING id"
+  ).bind(reservaId).first();
+  if (canceladaRow) {
+    await registrarAuditoria(env, {
+      email: auth.email, acao: "comissao_cancelada", entidade: "comissao", entidadeId: canceladaRow.id,
+      antes: { status: "pendente" }, depois: { status: "cancelada" }, motivo
+    });
+  }
+  const pagaRow = await env.DB.prepare(
+    "UPDATE comissoes SET estorno_pendente = 1 WHERE reserva_id = ? AND status = 'paga' AND estorno_pendente = 0 RETURNING id"
+  ).bind(reservaId).first();
+  if (pagaRow) {
+    await registrarAuditoria(env, {
+      email: auth.email, acao: "comissao_estorno_pendente", entidade: "comissao", entidadeId: pagaRow.id,
+      antes: { estornoPendente: false }, depois: { estornoPendente: true }, motivo
+    });
+  }
+  await env.DB.prepare("UPDATE vouchers SET status = 'cancelado' WHERE reserva_id = ? AND status != 'cancelado'").bind(reservaId).run();
+}
+
 // Identificador do QR/link (/p/<codigo> e ?parceiro=<codigo>): sorteado, não é o nome nem o slug do
 // parceiro (S3 — não adivinhável). TODO(DECISAO-C6): formato definitivo a confirmar com o Lucas.
 function gerarCodigoParceiro() {
@@ -2187,7 +2213,8 @@ async function adminDevolver(request, env, id) {
     const cfgP = await lerConfig(env);
     if (cfgP.parceirosAtivo) {
       await garantirEsquemaParceiros(env);
-      await env.DB.prepare("UPDATE comissoes SET status = 'cancelada' WHERE reserva_id = ? AND status = 'pendente'").bind(r.id).run();
+      const auth = await checarAdmin(request, env);
+      await marcarComissaoEVoucherPorCancelamento(env, r.id, "reserva devolvida (" + status + ")", auth);
     }
   }
   return ok({ ok: !falhas, pagamentoStatus: status, valorSolicitado: valor / 100,
@@ -2581,19 +2608,14 @@ async function adminAtualizarReserva(request, env, id) {
 
   if (!r.meta.changes) return erro("Reserva não encontrada.", 404);
 
-  // Cancelamento/no-show: comissão pendente do parceiro é cancelada (nunca a paga — isso é estorno manual).
+  // Cancelamento/no-show (blocos 6 e 7): comissão pendente cancelada; comissão já paga nunca muda,
+  // só ganha estorno_pendente; voucher de alimentação é cancelado junto (DECISAO-CEO-2/4).
   if (b.status === "cancelada" || b.status === "nao_compareceu") {
     const cfg = await lerConfig(env);
     if (cfg.parceirosAtivo) {
       await garantirEsquemaParceiros(env);
-      const comissaoAtingida = await env.DB.prepare("UPDATE comissoes SET status = 'cancelada' WHERE reserva_id = ? AND status = 'pendente' RETURNING id").bind(id).first();
-      if (comissaoAtingida) {
-        const auth = await checarAdmin(request, env);
-        await registrarAuditoria(env, {
-          email: auth.email, acao: "comissao_cancelada", entidade: "comissao", entidadeId: comissaoAtingida.id,
-          antes: { status: "pendente" }, depois: { status: "cancelada" }, motivo: "reserva " + b.status
-        });
-      }
+      const auth = await checarAdmin(request, env);
+      await marcarComissaoEVoucherPorCancelamento(env, id, "reserva " + b.status, auth);
     }
   }
   return ok({ ok: true });
@@ -2903,15 +2925,20 @@ async function adminCheckin(request, env, reservaId) {
     }
   }
 
-  // Voucher (planos com voucher > 0): estrutura só — validade/baixa ficam em TODO(DECISAO-D3).
+  // Voucher (planos com voucher > 0): emitido com presentes > 0; faltou (0) cancela (Bloco 6 — DECISAO-CEO-4).
+  // Condições de uso/validade/baixa continuam em TODO(DECISAO-D3).
   const plano = PLANOS[r.plano];
-  if (plano && plano.voucher > 0 && presentes > 0) {
+  if (plano && plano.voucher > 0) {
     const existe = await env.DB.prepare("SELECT id FROM vouchers WHERE reserva_id = ?").bind(reservaId).first();
-    if (!existe) {
-      await env.DB.prepare("INSERT INTO vouchers (id, reserva_id, quantidade, valor_unit_centavos, status, criado_em) VALUES (?,?,?,?,'emitido',?)")
-        .bind(crypto.randomUUID(), reservaId, presentes, plano.voucher * 100, agora).run();
-    } else {
-      await env.DB.prepare("UPDATE vouchers SET quantidade = ? WHERE reserva_id = ?").bind(presentes, reservaId).run();
+    if (presentes > 0) {
+      if (!existe) {
+        await env.DB.prepare("INSERT INTO vouchers (id, reserva_id, quantidade, valor_unit_centavos, status, criado_em) VALUES (?,?,?,?,'emitido',?)")
+          .bind(crypto.randomUUID(), reservaId, presentes, plano.voucher * 100, agora).run();
+      } else {
+        await env.DB.prepare("UPDATE vouchers SET quantidade = ?, status = 'emitido' WHERE reserva_id = ?").bind(presentes, reservaId).run();
+      }
+    } else if (existe) {
+      await env.DB.prepare("UPDATE vouchers SET status = 'cancelado' WHERE reserva_id = ?").bind(reservaId).run();
     }
   }
 
@@ -2933,7 +2960,7 @@ async function adminListarComissoes(env, url) {
   const status = url.searchParams.get("status");
   let sql =
     "SELECT co.id, co.reserva_id, co.parceiro_id, co.valor_centavos, co.status, co.criado_em, co.pago_em, " +
-    "p.nome AS parceiro_nome, r.codigo AS reserva_codigo, r.data AS reserva_data " +
+    "co.estorno_pendente, p.nome AS parceiro_nome, r.codigo AS reserva_codigo, r.data AS reserva_data " +
     "FROM comissoes co JOIN parceiros p ON p.id = co.parceiro_id JOIN reservas r ON r.id = co.reserva_id WHERE 1=1";
   const bind = [];
   if (parceiroId) { sql += " AND co.parceiro_id = ?"; bind.push(parceiroId); }

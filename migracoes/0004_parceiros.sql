@@ -78,8 +78,9 @@ CREATE TABLE IF NOT EXISTS comissoes (
 );
 CREATE INDEX IF NOT EXISTS idx_comissoes_parceiro ON comissoes (parceiro_id, status);
 
--- Voucher de alimentação (planos com voucher > 0): só a estrutura nesta fase — condições de uso, validade
--- e baixa pelo restaurante ficam como TODO(DECISAO-D3).
+-- Voucher de alimentação (planos com voucher > 0): emitido no check-in com presença; faltou (presentes=0)
+-- ou reserva cancelada/não-compareceu/devolvida cancela o voucher (Bloco 6 — DECISAO-CEO-4). Condições de
+-- uso no restaurante (qual, validade, baixa) ficam como TODO(DECISAO-D3).
 CREATE TABLE IF NOT EXISTS vouchers (
   id TEXT PRIMARY KEY,
   reserva_id TEXT NOT NULL,

@@ -750,7 +750,17 @@ async function carregarComissoes() {
       c.status + "</span></td><td>" + (c.status === "pendente" ? '<button class="btn sm" data-pagar="' + esc(c.id) + '">marcar como pago</button>' : "") + "</td></tr>"
     ).join("") : '<tr><td colspan="6" class="vazio">Nenhuma comissão encontrada.</td></tr>') + "</tbody>";
   $$("#tabelaComissoes [data-pagar]").forEach(btn => btn.addEventListener("click", async () => {
-    const obs = prompt("Observação do pagamento (opcional, ex.: Pix em 05/11):", "") || "";
+    // [Bloco 5] Cancelar aqui tem de abortar o pagamento — antes, "Cancelar" no único prompt (que só
+    // pedia a observação) virava "" por causa do "|| \"\"" e a comissão era paga do mesmo jeito.
+    // Agora a decisão de pagar fica num confirm() explícito com valor e parceiro; a observação é um
+    // prompt() separado e opcional, pedido só depois que o pagamento já foi confirmado.
+    const c = dc.comissoes.find(x => x.id === btn.dataset.pagar);
+    const valorFmt = money((c ? c.valor_centavos : 0) / 100);
+    const parceiroNome = c ? c.parceiro_nome : "este parceiro";
+    if (!confirm("Confirma o pagamento de " + valorFmt + " para " + parceiroNome + "?\n\nComissão paga é imutável — não dá para desfazer automaticamente depois."))
+      return;
+    const obsResp = prompt("Observação do pagamento (opcional, ex.: Pix em 05/11):", "");
+    const obs = obsResp === null ? "" : obsResp;
     try {
       await api("/comissoes/" + btn.dataset.pagar + "/pagar", { method: "POST", body: JSON.stringify({ obs }) });
       aviso("Comissão marcada como paga.");
