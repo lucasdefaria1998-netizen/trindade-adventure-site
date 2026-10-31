@@ -249,6 +249,33 @@ let reservaComParceiroId, reservaComCupomId, reservaSemParceiroId;
   checar("B2 …comissão continua 1000/paga, sem mudar", depoisB2.valor_centavos === 1000 && depoisB2.status === "paga", JSON.stringify(depoisB2));
 }
 
+// ---------- Bloco 3 [P0]: validar config (comissão/parceiros_ativo/validade/regra) ----------
+{
+  const antes = sql("SELECT valor FROM config WHERE chave = 'comissao_por_pax_centavos'")[0]?.valor;
+
+  const rNeg = await admin("/config", { method: "POST", body: JSON.stringify({ comissao_por_pax_centavos: "-500" }) });
+  checar("B3 comissao_por_pax_centavos negativo → 422", rNeg.status === 422, rNeg.status);
+  const rTexto = await admin("/config", { method: "POST", body: JSON.stringify({ comissao_por_pax_centavos: "abc" }) });
+  checar("B3 comissao_por_pax_centavos não numérico → 422", rTexto.status === 422, rTexto.status);
+  checar("B3 nenhum dos dois acima alterou o valor gravado", sql("SELECT valor FROM config WHERE chave = 'comissao_por_pax_centavos'")[0]?.valor === antes);
+
+  const rTalvez = await admin("/config", { method: "POST", body: JSON.stringify({ parceiros_ativo: "talvez" }) });
+  checar("B3 parceiros_ativo fora de {0,1} → 422", rTalvez.status === 422, rTalvez.status);
+
+  const rValidadeZero = await admin("/config", { method: "POST", body: JSON.stringify({ parceiro_validade_dias: "0" }) });
+  checar("B3 parceiro_validade_dias = 0 → 422 (precisa ser >= 1)", rValidadeZero.status === 422, rValidadeZero.status);
+  const rValidadeNeg = await admin("/config", { method: "POST", body: JSON.stringify({ parceiro_validade_dias: "-3" }) });
+  checar("B3 parceiro_validade_dias negativo → 422", rValidadeNeg.status === 422, rValidadeNeg.status);
+
+  const rRegraDesconhecida = await admin("/config", { method: "POST", body: JSON.stringify({ parceiro_regra: "primeiro_clique" }) });
+  checar("B3 parceiro_regra não suportada → 422", rRegraDesconhecida.status === 422, rRegraDesconhecida.status);
+
+  const rOk = await admin("/config", { method: "POST", body: JSON.stringify({ comissao_por_pax_centavos: "1500", parceiro_validade_dias: "10", parceiro_regra: "ultimo_clique" }) });
+  checar("B3 valores válidos → 200 e gravam", rOk.status === 200, rOk.status);
+  checar("B3 …comissao_por_pax_centavos gravado como 1500", sql("SELECT valor FROM config WHERE chave = 'comissao_por_pax_centavos'")[0].valor === "1500");
+  await admin("/config", { method: "POST", body: JSON.stringify({ comissao_por_pax_centavos: "1000", parceiro_validade_dias: "7" }) }); // devolve ao padrão usado pelos testes acima
+}
+
 // ---------- Guias: cadastro simples ----------
 {
   const r = await admin("/guias", { method: "POST", body: JSON.stringify({ nome: "Guia Teste", whatsapp: "(24) 99999-1111" }) });

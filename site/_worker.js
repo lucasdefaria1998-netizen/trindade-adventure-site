@@ -853,10 +853,12 @@ async function lerConfig(env) {
     cupom: c.cupom || "TRINDADE10",
     beneficioInstagram: c.beneficio_instagram || "Siga e receba as fotos do seu dia de passeio.",
     // Rede de parceiros indicadores (ver migracoes/0004_parceiros.sql): tudo desligado por padrão.
+    // adminGravarConfig já valida estes 4 valores na escrita (P0 — bloco 3); aqui é só defesa extra
+    // (nunca negativo/NaN/regra desconhecida) para dado antigo ou gravado fora do painel.
     parceirosAtivo: c.parceiros_ativo === "1",
-    comissaoPorPaxCentavos: Number(c.comissao_por_pax_centavos || 1000),
-    parceiroValidadeDias: Number(c.parceiro_validade_dias || 7),
-    parceiroRegra: c.parceiro_regra || "ultimo_clique"
+    comissaoPorPaxCentavos: Math.max(0, Number(c.comissao_por_pax_centavos) || 1000),
+    parceiroValidadeDias: Math.max(1, Number(c.parceiro_validade_dias) || 7),
+    parceiroRegra: PARCEIRO_REGRAS_SUPORTADAS.has(c.parceiro_regra) ? c.parceiro_regra : "ultimo_clique"
   };
 }
 
@@ -1261,6 +1263,9 @@ function gerarCodigoParceiro() {
 }
 const CODIGO_PARCEIRO_RE = /^[a-z0-9]{6,32}$/;
 const CUPOM_PARCEIRO_RE = /^[A-Za-z0-9_-]{3,32}$/;
+// DECISAO-CEO-5: atribuição por "último clique" — única regra implementada hoje (resolverParceiro
+// sempre sobrescreve com o código mais recente). Lista fechada: nenhum outro valor é aceito em config.
+const PARCEIRO_REGRAS_SUPORTADAS = new Set(["ultimo_clique"]);
 
 /* Resolve o parceiro da reserva A PARTIR DO SERVIDOR (nunca aceita parceiro_id vindo do cliente — S3).
    Regra (parceiroRegra = 'ultimo_clique', configurável): cupom digitado vence o link/QR em conflito
@@ -2856,6 +2861,27 @@ async function adminLerConfig(env) {
   return ok({ ok: true, config: c });
 }
 
+const CONFIG_INTEIRO_NAO_NEGATIVO = /^\d+$/;
+const CONFIG_INTEIRO_POSITIVO = /^[1-9]\d*$/;
+
+/* [P0 — bloco 3] Validação das 4 chaves novas da rede de parceiros: sem isto, um valor negativo ou
+   não numérico em comissao_por_pax_centavos fazia a comissão "desaparecer" em silêncio (valor <= 0
+   não grava linha em adminCheckin) e parceiros_ativo/parceiro_regra aceitavam qualquer string. Vazio
+   continua permitido (lerConfig() volta ao padrão) — só valor não vazio e inválido vira 422. */
+function erroConfigParceiros(chave, valorBruto) {
+  const v = String(valorBruto).trim();
+  if (!v) return null;
+  if (chave === "comissao_por_pax_centavos" && !CONFIG_INTEIRO_NAO_NEGATIVO.test(v))
+    return "Comissão por presente: use um número inteiro em centavos, 0 ou mais.";
+  if (chave === "parceiros_ativo" && v !== "0" && v !== "1")
+    return "Rede de parceiros ligada: use 0 ou 1.";
+  if (chave === "parceiro_validade_dias" && !CONFIG_INTEIRO_POSITIVO.test(v))
+    return "Validade da atribuição do parceiro: use um número inteiro de dias, 1 ou mais.";
+  if (chave === "parceiro_regra" && !PARCEIRO_REGRAS_SUPORTADAS.has(v))
+    return "Regra de atribuição: valor não suportado (hoje só \"ultimo_clique\" — DECISAO-CEO-5).";
+  return null;
+}
+
 async function adminGravarConfig(request, env) {
   let b;
   try { b = await request.json(); } catch { return erro("Corpo inválido."); }
@@ -2871,6 +2897,8 @@ async function adminGravarConfig(request, env) {
     if (k === "retorno_limite" && String(v).trim() && !/^\d{1,2}:\d{2}$/.test(String(v).trim())) {
       return erro("Retorno até: use o formato HH:MM, por exemplo 18:20.");
     }
+    const problema = erroConfigParceiros(k, v);
+    if (problema) return erro(problema, 422);
     stmts.push(
       env.DB.prepare("INSERT INTO config (chave, valor) VALUES (?,?) ON CONFLICT(chave) DO UPDATE SET valor = ?")
         .bind(k, String(v), String(v))
