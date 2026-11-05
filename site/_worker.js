@@ -380,7 +380,11 @@ async function verificarTurnstile(token, ip, env, buscar = fetch) {
 
 // A pescaria tinha duas URLs; fica só /pescaria e o endereço antigo responde 301. O app.js tem a mesma
 // tabela (REDIRECIONAMENTOS) para a navegação sem recarregar e para os links antigos com "#/".
-const REDIRECIONAMENTOS = Object.assign(Object.create(null), { "/passeios/fishing": "/pescaria" });
+const REDIRECIONAMENTOS = Object.assign(Object.create(null), {
+  "/passeios/fishing": "/pescaria",
+  "/voo-de-parapente": "/passeios",
+  "/pousadas": "/passeios",
+});
 
 const EXTENSAO = /\.[a-z0-9]{1,8}$/i;
 const SEM_CACHE = "no-cache";
@@ -884,10 +888,10 @@ const PLANOS = {
 };
 
 // Produtos sem agenda no site (reserva só pelo WhatsApp): usados só para o JSON-LD TouristTrip/Offer
-// de cada página. O voo de parapente não entra em PLANOS porque não tem horário nem vaga compartilhada
-// com os passeios — ver comentário em app.js (PLANOS, plano "parapente") e no LEIA-ME.
+// de cada página. O City tour Paraty não entra em PLANOS porque ainda não tem duração nem horário
+// definidos (PENDENTE Lucas) — ver comentário em app.js (PLANOS, plano "city-tour-paraty") e no LEIA-ME.
 const OFERTAS_SO_WHATSAPP = {
-  "/voo-de-parapente": { nome: "Voo de Parapente duplo", preco: 350 }
+  "/city-tour-paraty": { nome: "City tour Paraty", preco: 200 }
 };
 
 const doisDig = n => String(n).padStart(2, "0");
@@ -1545,8 +1549,8 @@ async function explicarRecusa(env, d, cfg, agoraISO, limiteDuplicata) {
 /* ------------------------------ pagamento online (Asaas) ------------------------------
 
    Regra (decisões do Lucas, out/2026, ajustada em 31/10/2026), para TODOS os passeios com preço e
-   horário fixos (os de PLANOS: Essencial, Adventure e Boat). O voo de parapente não está aqui: não tem
-   horário fixo nem vaga — segue só pelo WhatsApp (ver LEIA-ME).
+   horário fixos (os de PLANOS: Essencial, Adventure e Boat). Produtos de OFERTAS_SO_WHATSAPP (hoje:
+   City tour Paraty) não estão aqui: não têm horário fixo nem vaga — seguem só pelo WhatsApp (ver LEIA-ME).
      - crianças com até 12 anos não pagam; a partir de 13 anos pagam o valor cheio. O total é
        preço × pagantes (no Adventure e no Boat o preço já inclui o voucher de almoço). Pagantes e
        crianças ocupam vaga. O sinal de 30% incide só sobre esse total;

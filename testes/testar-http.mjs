@@ -293,7 +293,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const p = await pegar("/pescaria"); const doc = await p.text();
   checar("E11 /pescaria → 200 com title/canonical próprios", p.status === 200 && /<link rel="canonical" href="[^"]*\/pescaria">/.test(doc) && /<title>[^<]*[Pp]escaria[^<]*<\/title>/.test(doc), `${p.status}`);
   const xml = await (await pegar("/sitemap.xml")).text();
-  checar("E11 sitemap tem 17 URLs e nenhuma de fishing", (xml.match(/<loc>/g) || []).length === 17 && !xml.includes("fishing"), (xml.match(/<loc>/g) || []).length);
+  checar("E11 sitemap tem 16 URLs e nenhuma de fishing", (xml.match(/<loc>/g) || []).length === 16 && !xml.includes("fishing"), (xml.match(/<loc>/g) || []).length);
   checar("E11 site-config sem /passeios/fishing", !Object.keys(SITE.paginas).includes("/passeios/fishing"));
   const n404 = await pegar("/passeios/nao-existe"); await n404.arrayBuffer();
   checar("E11 outras rotas inalteradas: /passeios/nao-existe → 404", n404.status === 404, n404.status);
@@ -339,7 +339,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     const visiveis = secoes.filter(s => !s.oculta).map(s => s.nome);
     const esperada = c === "/nao-existe" ? "nao-encontrada" : SITE.paginas[c].secao;
     tabela.push([c, visiveis.join(",")]);
-    checar(`E13 ${c} → exatamente 1 seção visível, a da rota (${esperada})`, secoes.length === 13 && visiveis.length === 1 && visiveis[0] === esperada, JSON.stringify(visiveis));
+    checar(`E13 ${c} → exatamente 1 seção visível, a da rota (${esperada})`, secoes.length === 12 && visiveis.length === 1 && visiveis[0] === esperada, JSON.stringify(visiveis));
   }
   for (const plano of ["essencial", "adventure", "boat"]) {
     const doc = await (await pegar("/passeios/" + plano)).text();
@@ -385,7 +385,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 {
   const preloads = doc => (doc.match(/rel="preload" as="image"/g) || []).length;
   checar("E15 / mantém o preload da foto da abertura (≥ 1)", preloads(await (await pegar("/")).text()) >= 1);
-  for (const c of ["/historia", "/termos-do-passeio", "/passeios", "/passeios/boat", "/reservar", "/contato", "/pousadas", "/pescaria", "/nao-existe"]) {
+  for (const c of ["/historia", "/termos-do-passeio", "/passeios", "/passeios/boat", "/reservar", "/contato", "/city-tour-paraty", "/pescaria", "/nao-existe"]) {
     const r = await pegar(c); const doc = await r.text();
     checar(`E15 ${c} não faz preload da foto da abertura`, preloads(doc) === 0, preloads(doc));
   }
@@ -416,25 +416,42 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 }
 
 
-// ---------- 26/10/2026: Pousada Hymbé saiu do site; rodapé "Roteiros" sem preço ----------
+// ---------- 05/11/2026: Pousadas e Voo de Parapente saíram do site; entrou o City tour Paraty ----------
 {
-  const { execFileSync } = await import("node:child_process");
-  const { fileURLToPath } = await import("node:url");
-  const raiz = fileURLToPath(new URL("..", import.meta.url));
-  let achados = "";
-  try { achados = execFileSync("git", ["-C", raiz, "grep", "-n", "-i", "-E", "pousada[ -]hymb|pousadahymbe|fotoHymbe\\b", "--", "site", "CREDITOS-FOTOS.md"], { encoding: "utf8" }); } catch (e) { achados = e.stdout || ""; }
-  checar("HYMBE nenhum arquivo do site cita a Pousada Hymbé (fotos, card, links, config)", achados.trim() === "", achados.trim().slice(0, 300));
-  const pous = await (await pegar("/pousadas")).text();
-  checar("HYMBE /pousadas: sem card da Pousada Hymbé e com a Casa de Madeira", !/Pousada Hymb/i.test(pous) && !pous.includes('id="fotoHymbe"') && pous.includes("<h3>Casa de Madeira Trindade</h3>") && pous.includes("TRINDADE10"));
-  checar("HYMBE /pousadas: Restaurante Hymbé continua no site (almoço dos passeios)", pous.includes("Restaurante Hymbé, na praia") && pous.includes("instagram.com/hymberestaurantepraia"));
-  const mp = metaDe(pous);
-  checar("HYMBE /pousadas: og:image volta para a imagem padrão (sem foto da Pousada Hymbé)", mp.ogImagem === SITE.origem + "/assets/og-capa-mirante.jpg", mp.ogImagem);
-  const app = await (await pegar("/app.js")).text();
-  checar("HYMBE app.js sem galeria nem fotos responsivas da Pousada Hymbé", !app.includes("pousada-hymbe") && !app.includes("fotoHymbe") && app.includes("fotoRestauranteHymbe"));
-  const css = await (await pegar("/estilo.css")).text();
-  checar("HYMBE /pousadas: com uma parceira só, card centralizado no desktop (máx. 520px), mobile igual", css.includes("@media(min-width:801px){.pousadas:has(> .parceira:only-child){grid-template-columns:minmax(0,520px);justify-content:center}}") && css.includes("@media(max-width:800px){.pousadas{grid-template-columns:minmax(0,1fr)}}"));
-  const rod = pous.slice(pous.indexOf("<h2>Roteiros</h2>"), pous.indexOf("<h2>Trindade</h2>"));
-  checar("RODAPE lista Roteiros sem preço e sem travessão", rod.length > 0 && !rod.includes("R$") && !rod.includes(" — ") && ["Trindade Essencial", "Trindade Adventure", "Trindade Boat", "Voo de Parapente", "Pescaria em Alto Mar"].every(t => rod.includes(`">${t}</a>`)), rod.replace(/\s+/g, " ").slice(0, 300));
+  const pousadas = await pegar("/pousadas"); await pousadas.arrayBuffer();
+  checar("CITYTOUR /pousadas → 404 (seção removida)", pousadas.status === 404, pousadas.status);
+  const parapente = await pegar("/voo-de-parapente"); await parapente.arrayBuffer();
+  checar("CITYTOUR /voo-de-parapente → 404 (página removida)", parapente.status === 404, parapente.status);
+
+  const home = await (await pegar("/")).text();
+  checar("CITYTOUR menu sem Pousadas nem Parapente", !/data-rota="pousadas"|data-rota="parapente"/.test(home) && !/>Pousadas<\/a>|>Parapente<\/a>/.test(home));
+  checar("CITYTOUR rodapé sem links para /pousadas nem /voo-de-parapente", !home.includes('href="/pousadas"') && !home.includes('href="/voo-de-parapente"'));
+  checar("CITYTOUR tabbar mobile sem o ícone de Pousadas", !/<a href="\/pousadas" data-rota="pousadas">/.test(home));
+  checar("CITYTOUR rodapé lista o City tour Paraty em Roteiros", home.includes('<li><a href="/city-tour-paraty">City tour Paraty</a></li>'));
+
+  const ct = await pegar("/city-tour-paraty"); const ctDoc = await ct.text();
+  checar("CITYTOUR /city-tour-paraty → 200", ct.status === 200, ct.status);
+  checar("CITYTOUR página com o nome, a descrição-base e R$ 200", ctDoc.includes("City tour Paraty") && ctDoc.includes("Tour pelos museus e por todo o centro histórico de Paraty.") && ctDoc.includes("R$ 200"));
+  checar("CITYTOUR botões de reserva e detalhe apontam para os endereços certos", ctDoc.includes('data-wa="Olá! Quero agendar o City tour Paraty'));
+  const ctImgs = [...ctDoc.matchAll(/\ssrc="(\/assets\/paraty-[A-Za-z0-9_.\-]+\.webp)"/g)].map(m => m[1]);
+  checar("CITYTOUR página cita ao menos as 5 fotos aprovadas", new Set(ctImgs.map(s => s.replace(/-\d+\.webp$/, ""))).size === 5, ctImgs.join(", "));
+  let imgsQuebradas = [];
+  for (const src of new Set(ctImgs)) { const r = await pegar(src); await r.arrayBuffer(); if (r.status !== 200) imgsQuebradas.push(`${src} → ${r.status}`); }
+  checar("CITYTOUR todas as fotos citadas respondem 200", !imgsQuebradas.length, imgsQuebradas.join("; "));
+  checar("CITYTOUR crédito discreto das fotos (Wikimedia) na própria página", /Wikimedia Commons/.test(ctDoc) && ctDoc.includes('href="/creditos-das-fotos"'));
+
+  const passeiosDoc = await (await pegar("/passeios")).text();
+  checar("CITYTOUR cartão em /passeios: R$ 200, Reservar e Ver detalhes", passeiosDoc.includes("City tour Paraty") && passeiosDoc.includes("R$ 200") && passeiosDoc.includes('href="/reservar?plano=city-tour-paraty"') && /href="\/city-tour-paraty">Ver detalhes</.test(passeiosDoc));
+  checar("CITYTOUR /passeios sem nada de parapente nem pousadas", !/parapente/i.test(passeiosDoc) && !/pousada/i.test(passeiosDoc));
+
+  const appDoc = await (await pegar("/app.js")).text();
+  checar("CITYTOUR app.js: PLANOS tem city-tour-paraty com preço 200 e sem parapente", /id:"city-tour-paraty"[^}]*preco:200/.test(appDoc) && !appDoc.includes('id:"parapente"'));
+  checar("CITYTOUR app.js sem campo de peso nem contagem de \"voos\" (eram só do parapente)", !appDoc.includes("fPeso") && !appDoc.includes("campoPeso") && !/\.voos\b/.test(appDoc));
+  const reservarDoc = await (await pegar("/reservar")).text();
+  checar("CITYTOUR /reservar sem o campo de peso no HTML", !reservarDoc.includes('id="campoPeso"') && !reservarDoc.includes('id="fPeso"'));
+
+  const sitemapDoc = await (await pegar("/sitemap.xml")).text();
+  checar("CITYTOUR sitemap com /city-tour-paraty e sem /pousadas nem /voo-de-parapente", sitemapDoc.includes("<loc>" + SITE.origem + "/city-tour-paraty</loc>") && !sitemapDoc.includes("/pousadas<") && !sitemapDoc.includes("/voo-de-parapente<"));
 }
 
 
@@ -498,7 +515,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 
 // ---------- ETAPA 24 — higiene: sem comentários de arquitetura no HTML servido; código do fallback com sufixo aleatório ----------
 {
-  const rotas = ["/", "/passeios", "/passeios/boat", "/reservar", "/pousadas", "/pescaria", "/contato", "/historia", "/termos-do-passeio", "/politica-de-privacidade", "/cameras", "/nao-existe"];
+  const rotas = ["/", "/passeios", "/passeios/boat", "/reservar", "/city-tour-paraty", "/pescaria", "/contato", "/historia", "/termos-do-passeio", "/politica-de-privacidade", "/cameras", "/nao-existe"];
   for (const c of rotas) {
     const doc = await (await pegar(c)).text();
     checar(`E24 ${c}: nenhum comentário HTML no que o visitante recebe, e nada de D1, /api/eventos, _worker.js ou LEIA-ME`, !doc.includes("<!--") && !["D1", "api/eventos", "_worker.js", "LEIA-ME"].some(x => doc.includes(x)), (doc.match(/<!--/g) || []).length + " comentários");
@@ -535,7 +552,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const OFICIAL = "https://trindadeadventury.com.br";
   const ANTIGO = "trindade-adventure" + ".pages.dev"; // montado por concatenação para este arquivo não aparecer no rg do domínio antigo
   const locs = [...(await (await pegar("/sitemap.xml")).text()).matchAll(/<loc>([^<]*)<\/loc>/g)].map(m => m[1]);
-  checar("E22 sitemap: 17 <loc>, todos começam com o domínio oficial", locs.length === 17 && locs.every(l => l.startsWith(OFICIAL + "/") || l === OFICIAL + "/"), locs.filter(l => !l.startsWith(OFICIAL)).join(","));
+  checar("E22 sitemap: 16 <loc>, todos começam com o domínio oficial", locs.length === 16 && locs.every(l => l.startsWith(OFICIAL + "/") || l === OFICIAL + "/"), locs.filter(l => !l.startsWith(OFICIAL)).join(","));
   const robots = await (await pegar("/robots.txt")).text();
   checar("E22 robots.txt: Sitemap oficial e Disallow /admin e /api/", robots.includes(`Sitemap: ${OFICIAL}/sitemap.xml`) && /Disallow: \/admin/.test(robots) && /Disallow: \/api\//.test(robots) && !robots.includes(ANTIGO));
   const dimJpg = rel => { const b = readFileSync(new URL("../site" + rel, import.meta.url)); let i = 2; while (i < b.length) { if (b[i] !== 0xff) { i++; continue; } const m = b[i + 1]; if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return [b.readUInt16BE(i + 7), b.readUInt16BE(i + 5)]; i += 2 + b.readUInt16BE(i + 2); } return null; };
@@ -560,7 +577,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
       if (j["@type"] === "TouristTrip") {
         // Essencial/Adventure/Boat vêm de PLANOS (com agenda); o voo de parapente vem de
         // OFERTAS_SO_WHATSAPP (sem agenda) — por isso não diz "por pessoa" na página.
-        const PRECOS = { "/passeios/essencial": ["80", " por pessoa"], "/passeios/adventure": ["150", " por pessoa"], "/passeios/boat": ["400", " por pessoa"], "/voo-de-parapente": ["350", ""] };
+        const PRECOS = { "/passeios/essencial": ["80", " por pessoa"], "/passeios/adventure": ["150", " por pessoa"], "/passeios/boat": ["400", " por pessoa"], "/city-tour-paraty": ["200", ""] };
         const [preco, unidade] = PRECOS[caminho] || [undefined, ""];
         checar(`E22 ${caminho}: TouristTrip com Offer (preço ${preco} BRL, InStock) igual ao da página`, j.offers && j.offers.price === preco && j.offers.priceCurrency === "BRL" && j.offers.availability === "https://schema.org/InStock" && j.offers.url === OFICIAL + caminho && j.provider["@id"] === OFICIAL + "/#empresa" && doc.includes("R$ " + preco + unidade), JSON.stringify(j.offers));
       }
@@ -592,12 +609,12 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const raiz = fileURLToPath(new URL("..", import.meta.url));
   const VELHO = "trindadeadventure" + "rj"; // conta que não é do Lucas; montada por concatenação para este arquivo não a citar
   const temVelho = txt => txt.toLowerCase().includes(VELHO);
-  const PARCEIROS = ["hymberestaurantepraia", "demadeiratrindade"]; // 26/10/2026: Pousada Hymbé saiu do site
+  const PARCEIROS = ["hymberestaurantepraia"]; // 05/11/2026: Pousadas (Casa de Madeira) saiu do site
   let achados = "";
   try { achados = execFileSync("git", ["-C", raiz, "grep", "-n", "-i", VELHO], { encoding: "utf8" }); } catch (e) { achados = e.stdout || ""; }
   checar("E21 nenhum arquivo versionado cita a conta antiga do Instagram (git grep vazio)", achados.trim() === "", achados.trim().slice(0, 200));
   const SOCIAL = "https://www.instagram.com/trindadeadventure/";
-  const rotas21 = ["/", "/contato", "/reservar", "/passeios", "/pousadas", "/pescaria", "/historia", "/termos-do-passeio", "/politica-de-privacidade", "/cameras", "/nao-existe"];
+  const rotas21 = ["/", "/contato", "/reservar", "/passeios", "/city-tour-paraty", "/pescaria", "/historia", "/termos-do-passeio", "/politica-de-privacidade", "/cameras", "/nao-existe"];
   for (const c of rotas21) {
     const doc = await (await pegar(c)).text();
     const hrefs = [...doc.matchAll(/href="([^"]*instagram\.com[^"]*)"/g)].map(m => m[1]);
@@ -606,7 +623,9 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     for (const bloco of doc.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) {
       const j = JSON.parse(bloco[1]);
       if (j.sameAs) checar(`E21 ${c}: JSON-LD sameAs = [${SOCIAL}]`, JSON.stringify(j.sameAs) === JSON.stringify([SOCIAL]), JSON.stringify(j.sameAs));
-      if (j.description) checar(`E21 ${c}: JSON-LD fala de até 15 pessoas por reserva`, /até 15 pessoas por reserva/.test(j.description) && !/20 pessoas/.test(j.description), j.description);
+      // Só o TravelAgency (descrição da empresa, só em "/") carrega esse texto; a descrição de um
+      // TouristTrip é a da própria página (ex.: City tour Paraty, sem limite de pessoas definido ainda).
+      if (j["@type"] === "TravelAgency" && j.description) checar(`E21 ${c}: JSON-LD fala de até 15 pessoas por reserva`, /até 15 pessoas por reserva/.test(j.description) && !/20 pessoas/.test(j.description), j.description);
     }
   }
   const app = await (await pegar("/app.js?v=20261020-s21")).text();
@@ -659,7 +678,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const todas = ["/", ...[...(await (await pegar("/sitemap.xml")).text()).matchAll(/<loc>([^<]*)<\/loc>/g)].map(m => new URL(m[1]).pathname)].filter((u, i, a) => a.indexOf(u) === i);
   let sujas = [];
   for (const u of todas) { const d = await (await pegar(u)).text(); if (/\bTODO\b|PREENCHER/.test(d)) sujas.push(u); }
-  checar(`E19 as ${todas.length} URLs do sitemap sem marcador TODO/PREENCHER`, todas.length === 17 && !sujas.length, sujas.join(","));
+  checar(`E19 as ${todas.length} URLs do sitemap sem marcador TODO/PREENCHER`, todas.length === 16 && !sujas.length, sujas.join(","));
 }
 
 
@@ -809,9 +828,8 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   // "Onde dormir"). "Cinco praias" mudou de página — é validado mais abaixo que ela existe em /historia.
   checar("E26 sem a seção de categorias nem o catálogo antigo na home", !docHome.includes('id="categorias"') && !docHome.includes("Sete passeios saindo de Trindade") && !docHome.includes("Ver os 7 passeios") && !docHome.includes('id="pousadasInicio"') && !docHome.includes('id="catalogoPasseios"') && !docHome.includes("Um dia no Trindade Adventure") && !docHome.includes("Cinco praias e três cachoeiras") && !docHome.includes("Onde dormir"));
 
-  // 26/10/2026: a pedido do cliente, o parapente aparece na home só no menu (como antes da home nova):
-  // sem capa, cartão, galeria "Voos de verdade" nem menção no texto da home. A página /voo-de-parapente
-  // e o cartão em /passeios continuam (checados abaixo).
+  // 05/11/2026: pousadas e voo de parapente saíram do site; o City tour Paraty entrou com cartão
+  // em /passeios (checado abaixo), sem cartão nem capa na home.
   // 3 cartões (Essencial, Adventure, Boat), nessa ordem, com Reservar + WhatsApp (Data/Pessoas).
   const fimCartoes = doc.indexOf("</section>", pontos.cartoes);
   const blocoCartoes = doc.slice(pontos.cartoes, fimCartoes);
@@ -823,8 +841,8 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   }
   checar("E26 WhatsApp dos 3 cartões pede Data e Pessoas", (blocoCartoes.match(/data-wa="[^"]*Data: ___ · Pessoas: ___/g) || []).length === 3);
   checar("E26 garantia de 12h nos 3 cartões", (blocoCartoes.match(/Cancelamento gratuito até 12 h antes da saída/g) || []).length === 3);
-  checar("E26 parapente fora do corpo da home (só no menu)", !/parapente/i.test(docHome) && !docHome.includes('id="titulo-prova"'), (docHome.match(/.{0,60}parapente.{0,60}/i) || [""])[0]);
-  checar("E26 menu mantém o item Parapente", /<a href="\/voo-de-parapente" data-rota="parapente">Parapente<\/a>/.test(doc));
+  checar("E26 parapente e pousadas fora da home (removidos do site)", !/parapente/i.test(docHome) && !/pousada/i.test(docHome) && !docHome.includes('id="titulo-prova"'), (docHome.match(/.{0,60}(parapente|pousada).{0,60}/i) || [""])[0]);
+  checar("E26 menu sem os itens Pousadas e Parapente (removidos)", !/<a href="\/voo-de-parapente" data-rota="parapente">Parapente<\/a>/.test(doc) && !/<a href="\/pousadas" data-rota="pousadas">Pousadas<\/a>/.test(doc));
 
   // Sob consulta: 4 links para as páginas próprias.
   const fimConsulta = doc.indexOf("</section>", pontos.consulta);
@@ -864,13 +882,13 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 
   // Links para as páginas próprias, no lugar das seções longas.
   const blocoLinks = doc.slice(pontos.links);
-  checar("E26 links: Pousadas, Praias e lugares, História, Pescaria, Adventure", ["/pousadas", "/historia#titulo-lugares", "/historia", "/pescaria", "/passeios/adventure"].every(h => blocoLinks.includes(`href="${h}"`)));
+  checar("E26 links: Praias e lugares, História, Pescaria, Adventure (sem Pousadas, removida)", ["/historia#titulo-lugares", "/historia", "/pescaria", "/passeios/adventure"].every(h => blocoLinks.includes(`href="${h}"`)) && !blocoLinks.includes('href="/pousadas"'));
 
   // "Cinco praias e três cachoeiras" foi para /historia, não apagado.
   const historiaDoc = await (await pegar("/historia")).text();
   checar("E26 \"Cinco praias e três cachoeiras\" mudou para /historia (não foi apagado)", historiaDoc.includes("Cinco praias e três cachoeiras") && historiaDoc.includes("Praia do Cepilho") && historiaDoc.includes('id="titulo-lugares"'));
 
-  checar("E26 site-config: paginas agora com 18 entradas (creditos-das-fotos é novo)", Object.keys(SITE.paginas).length === 18, Object.keys(SITE.paginas).length);
+  checar("E26 site-config: paginas com 17 entradas (sem pousadas/voo-de-parapente, com city-tour-paraty e creditos-das-fotos)", Object.keys(SITE.paginas).length === 17, Object.keys(SITE.paginas).length);
 
   checar("E26 sem style= inline na home nova", !docHome.includes("style="));
   checar("E26 sem marcador de pendência na home nova", !/PREENCHER|TODO|\[[A-ZÇÃÕÉ ]{3,}\]/.test(docHome));
@@ -901,8 +919,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const cartaoMamangua = passeiosDoc.slice(passeiosDoc.indexOf('id="consulta-mamangua"'), passeiosDoc.indexOf('id="consulta-fishing"'));
   checar("E26 Mamanguá em /passeios: 3 fotos do Lucas, sem as do Wikimedia nem o crédito delas no cartão", ["mamangua-igreja-paraty-mirim", "mamangua-praia-cruzeiro", "mamangua-pao-de-acucar-lucas"].every(s => cartaoMamangua.includes(s)) && !/mamangua-(vista-pico|barco)/.test(cartaoMamangua) && !cartaoMamangua.includes("Ygaray"));
 
-  // Parapente em /passeios: cartão com Reservar voo e Ver detalhes.
-  checar("E26 parapente em /passeios: cartão com \"Reservar voo\" e \"Ver detalhes\"", passeiosDoc.includes(">Reservar voo<") && /href="\/voo-de-parapente">Ver detalhes</.test(passeiosDoc) && passeiosDoc.includes('href="/reservar?plano=parapente"'));
+  // City tour Paraty em /passeios (antes era o cartão do parapente, removido): já checado no bloco CITYTOUR acima.
 
   checar("E26 /creditos-das-fotos → 200 com a tabela de créditos", (await pegar("/creditos-das-fotos")).status === 200);
 }

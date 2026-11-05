@@ -60,8 +60,9 @@ Dentro do painel:
   cada um, para conferir na sua lista de seguidores antes de mandar as fotos
   prometidas.
 - **Ajustes** — vagas por horário, horário de saída, WhatsApp, Instagram,
-  cupom das pousadas e o texto do benefício de seguir. Muda na hora, sem
-  precisar publicar o site de novo.
+  cupom (hoje sem uso visível: a página de Pousadas que o mostrava foi
+  removida em 05/11/2026) e o texto do benefício de seguir. Muda na hora,
+  sem precisar publicar o site de novo.
 
 ## Como o site sabe de onde veio o cliente
 
@@ -121,15 +122,17 @@ padrão — a operação pediu o horário mesmo assim, então esse plano tem tam
 horário-limite (só vale pra ele; os outros planos continuam seguindo a
 regra normal). Mude os dois arquivos juntos, como em qualquer horário fixo.
 
-**Voo de Parapente no `/reservar`** — não é um "plano" de verdade no
-`_worker.js` (não tem agenda nem vaga: `app.js` PLANOS tem uma entrada
-`parapente` só para aparecer como opção no passo 1, com `soWhatsApp: true` e
-`horarioCombinado: true`). Ao escolher parapente, o passo "Horário" vira um
-aviso ("combinado pelo WhatsApp") em vez da grade, aparece um campo
-obrigatório de peso, e o envio pula o Turnstile e o `POST /api/reservas`:
-vai direto para o WhatsApp. O JSON-LD de `/voo-de-parapente` (TouristTrip +
-Offer, 350 BRL) vem de uma tabela à parte no `_worker.js`,
-`OFERTAS_SO_WHATSAPP` — não de `PLANOS`.
+**City tour Paraty no `/reservar`** (desde 05/11/2026; antes era o Voo de
+Parapente, removido do site) — não é um "plano" de verdade no `_worker.js`
+(não tem agenda: `app.js` PLANOS tem uma entrada `city-tour-paraty` só para
+aparecer como opção no passo 1, com `soWhatsApp: true` e `horarioCombinado:
+true`). Ao escolher o City tour, o passo "Horário" vira um aviso ("combinado
+pelo WhatsApp") em vez da grade, e o envio pula o Turnstile e o `POST
+/api/reservas`: vai direto para o WhatsApp. O JSON-LD de `/city-tour-paraty`
+(TouristTrip + Offer, 200 BRL) vem de uma tabela à parte no `_worker.js`,
+`OFERTAS_SO_WHATSAPP` — não de `PLANOS`. Sem `sinalFixo` definido (ainda não
+há decisão de sinal/cancelamento para esse passeio), o resumo e a mensagem do
+WhatsApp mostram "combinado pelo WhatsApp" em vez de um valor de sinal.
 
 **Texto de uma página no Google/WhatsApp** — tabela `site-config` no
 `<head>` do `index.html`: `titulo`, `descricao`, `imagem` (JPG). Algumas
@@ -140,7 +143,8 @@ preço, mude também ali. Página nova = entrada nova na tabela + seção com
 **CNPJ, razão social, Cadastur** — `negocio` na mesma tabela `site-config`.
 Campo vazio não aparece no rodapé. O CNPJ também está no JSON-LD (`taxID`).
 
-**Cupom das pousadas** — `CFG.cupom` em `app.js` e o texto em `index.html`.
+**Cupom** — `CFG.cupom` em `app.js`. Sem uso visível no site desde que a
+página de Pousadas (que mostrava o cupom) foi removida em 05/11/2026.
 
 Depois de qualquer alteração, publique de novo (seção abaixo).
 
@@ -148,7 +152,7 @@ Depois de qualquer alteração, publique de novo (seção abaixo).
 
 Até 05/10/2026 o site navegava por `#/` (`/#/passeios?plano=adventure`).
 Agora cada página tem endereço próprio: `/passeios`, `/passeios/adventure`,
-`/passeios/juatinga`, `/reservar`, `/pousadas`, `/pescaria`, `/historia`,
+`/passeios/juatinga`, `/reservar`, `/city-tour-paraty`, `/pescaria`, `/historia`,
 `/contato`, `/cameras`, `/termos-do-passeio`, `/politica-de-privacidade`.
 Links antigos com `#/` continuam funcionando — o `app.js` converte na hora,
 mantendo `?fonte=` do rastreamento.
@@ -287,12 +291,12 @@ site. Só mexa neles de novo se for trocar de banco ou de política de acesso.
 
 ## Pendências antes de divulgar o link
 
-1. **Uma pousada ainda é fictícia.** "Vila Caiçara Trindade" existe só para
-   mostrar o formato do cartão e está marcada com o selo *Exemplo*. Substitua
-   por uma parceira real ou apague o bloco `<article>` em `index.html`
-   (`data-cena="pousada_c"`). A outra pousada de exemplo que existia,
-   "Recanto da Praia Brava", já foi substituída por uma parceira real (Casa
-   de Madeira Trindade — ver seção de parceiros abaixo).
+1. **Pousadas e Voo de Parapente saíram do site em 05/11/2026** (pedido do
+   cliente): removidos o item de menu, a aba/seção de Pousadas e a página
+   `/voo-de-parapente`. As fotos (`pousada-madeira-*`, `pousada-hymbe-*`,
+   `parapente-voo-*`) continuam em `assets/`, sem uso em nenhuma página — ver
+   decisão pendente no relatório da branch `feat/city-tour-paraty-remove-pousadas-parapente`
+   sobre apagar ou manter esses arquivos.
 2. **As câmeras não existem.** A seção está marcada como demonstração. Quando
    houver câmera de verdade, ela precisa de uma URL de transmissão HLS e o
    quadro passa a exibir vídeo real. Enquanto isso, considere esconder a aba.
@@ -332,18 +336,17 @@ site. Só mexa neles de novo se for trocar de banco ou de política de acesso.
 - **Restaurante Hymbé, na praia** (`@hymberestaurantepraia`) — onde o voucher
   de almoço dos roteiros Adventure e Boat é usado. Tem um bloco próprio na
   página de Passeios, logo depois dos três roteiros, com galeria de fotos.
-- **Pousada Hymbé Trindade** — já existia no site; a foto placeholder foi
-  trocada por uma galeria de fotos reais da pousada.
 - **Casa de Madeira Trindade** (`@demadeiratrindade`, WhatsApp
-  `5524987873576`) — pousada parceira nova, na página de Pousadas.
+  `5524987873576`) — era a parceira da página de Pousadas, removida em
+  05/11/2026. As fotos (`pousada-madeira-*`) continuam em `assets/`, sem uso.
 
-O botão "Falar" de cada pousada manda a mensagem pelo WhatsApp *da própria
-pousada*, não pelo da operação — isso é o atributo `data-wa-numero` no
+O botão "Falar" de um parceiro com WhatsApp próprio manda a mensagem para
+esse número, não para o da operação — isso é o atributo `data-wa-numero` no
 `<a>`, que sobrescreve o número padrão (`CFG.whatsapp`) só para aquele link.
-Se adicionar uma pousada nova com WhatsApp próprio, use o mesmo padrão;
+Se adicionar um parceiro novo com WhatsApp próprio, use o mesmo padrão;
 sem `data-wa-numero`, o link cai no WhatsApp da Trindade Adventure.
 
-As galerias de foto (Hymbé, Casa de Madeira, Restaurante Hymbé) usam o
+As galerias de foto (Restaurante Hymbé) usam o
 componente `miniGaleriaHTML`/`ligarMiniGalerias()` em `app.js` — um carrossel
 simples sem biblioteca externa, com setas e paginação por toque. Para trocar
 as fotos de uma galeria, edite o array de `{src, alt}` passado pra
@@ -466,6 +469,11 @@ citarem o mesmo pedido no WhatsApp.
 7. **Observar a CSP:** deixar a Report-Only rodando ~7 dias em produção (logs `[csp]`) antes de trocar para
    "valendo" (Etapa 25 do plano — ainda não feita).
 8. **Decisões de texto ainda abertas** (nada foi escrito sobre elas): unidade do preço, duração, capacidade e
-   incluso da pescaria; número de paradas do Adventure; água inclusa x levar; desconto das pousadas na home;
+   incluso da pescaria; número de paradas do Adventure; água inclusa x levar;
    "Hymbé Vila" x "Hymbé, na praia"; destino da página `/cameras`; dados dos passeios sob consulta; CEP para o JSON-LD; fotos em paisagem
-   (1200×630) para a pré-visualização de `/passeios/boat` e `/pousadas`.
+   (1200×630) para a pré-visualização de `/passeios/boat`.
+9. **City tour Paraty (05/11/2026): sem duração, horários, ponto de encontro, idiomas, capacidade, inclusões,
+   ingressos nem política de sinal/cancelamento definidos ainda.** Hoje é um plano `soWhatsApp`/`horarioCombinado`
+   (como o parapente era): preço fixo (R$ 200/pessoa, unidade a confirmar), sem agenda, reserva só por WhatsApp,
+   sem pagamento online. Preencher esses dados em `app.js` (PLANOS) e em `index.html` (seção `#city-tour-paraty`
+   e card em `/passeios`) quando o Lucas decidir.

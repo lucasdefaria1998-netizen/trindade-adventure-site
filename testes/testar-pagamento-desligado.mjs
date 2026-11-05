@@ -90,7 +90,7 @@ const PEDIDOS = [
   ["trilha Essencial hoje 11h", { plano: "essencial", data: "2026-10-26", hora: 11, pax: 1 }],
   ["trilha Adventure (voucher)", { plano: "adventure", data: AMANHA, hora: 8, pax: 3 }],
   ["barco Boat 8h30", { plano: "boat", data: AMANHA, hora: 8.5, pax: 2 }],
-  ["parapente (só WhatsApp: fora de PLANOS)", { plano: "parapente", data: AMANHA, hora: 9, pax: 1 }],
+  ["city-tour-paraty (só WhatsApp: fora de PLANOS)", { plano: "city-tour-paraty", data: AMANHA, hora: 9, pax: 1 }],
   ["consulta Mamanguá (só WhatsApp)", { plano: "mamangua", data: AMANHA, hora: 9, pax: 2 }],
   ["horário que já passou (hoje 9h)", { plano: "essencial", data: "2026-10-26", hora: 9, pax: 1 }],
   ["sem telefone (422)", { plano: "essencial", data: AMANHA, hora: 9, pax: 1, telefone: "" }]

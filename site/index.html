@@ -69,7 +69,7 @@
       720,
       494
     ],
-    "/assets/parapente-og.jpg": [
+    "/assets/og-city-tour-paraty.jpg": [
       1200,
       630
     ]
@@ -145,11 +145,6 @@
       "titulo": "Reservar passeio em Trindade | Trindade Adventure",
       "descricao": "Escolha o passeio, a data e o horário e envie o pedido de reserva pelo WhatsApp. A vaga é confirmada pela equipe da Trindade Adventure."
     },
-    "/pousadas": {
-      "secao": "pousadas",
-      "titulo": "Hospedagens em Trindade | Pousadas e acomodações",
-      "descricao": "Pousadas parceiras em Trindade, Paraty: Casa de Madeira. Veja fotos, comodidades e o cupom de desconto para quem reserva passeio pelo site."
-    },
     "/pescaria": {
       "secao": "pescaria",
       "titulo": "Pescaria em alto mar em Trindade | Trindade Adventure",
@@ -181,12 +176,12 @@
       "titulo": "Termos do Passeio | Trindade Adventure",
       "descricao": "Como funcionam o pedido de reserva, a confirmação, os horários, o clima, as alterações e os cancelamentos nos passeios da Trindade Adventure."
     },
-    "/voo-de-parapente": {
-      "secao": "parapente",
-      "titulo": "Voo de parapente duplo | Trindade Adventure",
-      "descricao": "Voo duplo de parapente com Alef Magno, da Voar Parapente, saindo da pista de pouso de Trindade. 5 a 15 min no ar, com traslado, fotos e vídeo. R$ 350 por voo.",
-      "imagem": "/assets/parapente-og.jpg",
-      "imagemAlt": "Passageira rindo em voo duplo de parapente sobre uma praia com vila, com o mar verde-azulado ao fundo"
+    "/city-tour-paraty": {
+      "secao": "city-tour-paraty",
+      "titulo": "City tour Paraty | Trindade Adventure",
+      "descricao": "Tour pelos museus e por todo o centro histórico de Paraty. R$ 200 por pessoa. Veja fotos e combine data e horário pelo WhatsApp.",
+      "imagem": "/assets/og-city-tour-paraty.jpg",
+      "imagemAlt": "Panorama do centro histórico de Paraty, com o casario colonial"
     },
     "/creditos-das-fotos": {
       "secao": "creditos",
@@ -224,7 +219,7 @@
      na fonte do sistema, com métricas parecidas. -->
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap"></noscript>
-<link rel="stylesheet" href="/estilo.css?v=20261031-selos">
+<link rel="stylesheet" href="/estilo.css?v=20261105-city-tour">
 <link rel="preload" as="image" href="/assets/capa-mirante-baia-800.webp" imagesrcset="/assets/capa-mirante-baia-480.webp 480w, /assets/capa-mirante-baia-800.webp 800w, /assets/capa-mirante-baia-1200.webp 1200w" imagesizes="(max-width: 720px) 100vw, 1240px" fetchpriority="high">
 
 <!-- Dados estruturados (schema.org) para o Google: quem é a empresa, onde fica
@@ -269,10 +264,10 @@
       "url": "https://trindadeadventury.com.br/passeios/boat",
       "description": "Trilha e passeio de barco por cinco paradas na costa da Trindade, com mergulho de snorkel na piscina natural, água mineral inclusa e almoço no Restaurante Hymbé. Cerca de 8 horas.",
       "price": "400", "priceCurrency": "BRL" },
-    { "@type": "Offer", "name": "Voo de Parapente duplo",
-      "url": "https://trindadeadventury.com.br/voo-de-parapente",
-      "description": "Voo duplo de parapente com o piloto Alef Magno, da Voar Parapente, saindo da pista de pouso de Trindade. De 5 a 15 minutos no ar, com traslado, fotos e vídeo.",
-      "price": "350", "priceCurrency": "BRL" },
+    { "@type": "Offer", "name": "City tour Paraty",
+      "url": "https://trindadeadventury.com.br/city-tour-paraty",
+      "description": "Tour pelos museus e por todo o centro histórico de Paraty.",
+      "price": "200", "priceCurrency": "BRL" },
     { "@type": "Offer", "name": "Fishing Experience — pescaria em alto mar",
       "url": "https://trindadeadventury.com.br/pescaria",
       "description": "Saída de barco de Trindade para pescaria em alto mar, com acompanhamento de um guia experiente. Valor fixo.",
@@ -351,8 +346,6 @@
     <nav class="nav" id="menuPrincipal" aria-label="Navegação principal">
       <a class="so-menu" href="/" data-rota="inicio">Início</a>
       <a href="/passeios" data-rota="passeios">Passeios</a>
-      <a href="/pousadas" data-rota="pousadas">Pousadas</a>
-      <a href="/voo-de-parapente" data-rota="parapente">Parapente</a>
       <a href="/pescaria" data-rota="pescaria">Pescaria</a>
       <a href="/historia" data-rota="historia">História</a>
       <a href="/contato" data-rota="contato">Contato</a>
@@ -415,9 +408,9 @@
        duplicado "Sete passeios" (que viraram texto grande demais no celular).
        Preço, duração e inclusos são cópia dos cartões de /passeios — mude os
        dois juntos se algo mudar.
-       26/10/2026: a pedido do cliente, o parapente saiu da home (capa, cartão,
-       galeria "Voos de verdade") e voltou a aparecer só no menu, como antes da
-       home nova. A página /voo-de-parapente e o cartão em /passeios continuam. -->
+       05/11/2026: pousadas e voo de parapente saíram do site (pedido do
+       cliente). O City tour Paraty entrou como cartão em /passeios, no mesmo
+       padrão que o parapente usava — sem cartão nem capa na home. -->
   <section class="bloco" id="mais-procurados" aria-labelledby="titulo-mais-procurados">
     <header class="cabeca">
       <h2 id="titulo-mais-procurados">Escolha o passeio</h2>
@@ -554,7 +547,6 @@
   </section>
 
   <nav class="bloco links-home" aria-label="Mais sobre Trindade">
-    <a class="link-seta" href="/pousadas">Pousadas<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
     <a class="link-seta" href="/historia#titulo-lugares">Praias e lugares<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
     <a class="link-seta" href="/historia">História de Trindade<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
     <a class="link-seta" href="/pescaria">Pescaria<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
@@ -715,19 +707,19 @@
     </div>
   </div>
 
-  <section class="bloco" aria-labelledby="titulo-parapente-roteiros">
+  <section class="bloco" aria-labelledby="titulo-city-tour-roteiros">
     <header class="cabeca">
-      <h2 id="titulo-parapente-roteiros">Voo de Parapente</h2>
-      <p>Voo duplo com o piloto Alef Magno, da Voar Parapente, parceira da Trindade Adventure.</p>
+      <h2 id="titulo-city-tour-roteiros">City tour Paraty</h2>
+      <p>Tour pelos museus e por todo o centro histórico de Paraty.</p>
     </header>
     <div class="pescaria-grid">
-      <figure class="parapente-capa">
-        <img src="/assets/parapente-voo-01-praia-vila-960.webp" srcset="/assets/parapente-voo-01-praia-vila-480.webp 480w, /assets/parapente-voo-01-praia-vila-960.webp 960w, /assets/parapente-voo-01-praia-vila-1280.webp 1280w" sizes="(max-width: 860px) 92vw, 600px" width="1280" height="720" alt="Passageira rindo em voo duplo de parapente sobre uma praia com vila, com o mar verde-azulado ao fundo" loading="lazy" decoding="async">
+      <figure class="city-tour-capa">
+        <img src="/assets/paraty-centro-historico-praca-960.webp" srcset="/assets/paraty-centro-historico-praca-480.webp 480w, /assets/paraty-centro-historico-praca-960.webp 960w, /assets/paraty-centro-historico-praca-1280.webp 1280w" sizes="(max-width: 860px) 92vw, 600px" width="1280" height="481" alt="Panorama do centro histórico de Paraty, com praça e casario colonial" loading="lazy" decoding="async">
       </figure>
       <div class="pescaria-info">
-        <p>De 5 a 15 minutos no ar, conforme as condições do dia. Traslado, fotos, vídeo e imagens em 360° (GoPro Max) inclusos.</p>
-        <div class="pescaria-preco"><span>Por voo</span><strong>R$ 350</strong></div>
-        <p class="pescaria-dica">Sinal de R$ 50 para agendar; o restante é pago antes da decolagem, por Pix, dinheiro ou cartão. Data, horário e ponto de encontro são combinados pelo WhatsApp.</p>
+        <p>Tour pelos museus e por todo o centro histórico de Paraty.</p>
+        <div class="pescaria-preco"><span>Por pessoa</span><strong>R$ 200</strong></div>
+        <p class="pescaria-dica">Data, horário e ponto de encontro são combinados pela equipe pelo WhatsApp.</p>
         <ul class="selos-passeio">
           <li><svg class="ico" aria-hidden="true"><use href="#i-selo-guia"/></svg><span>Guia local</span></li>
           <li><svg class="ico" aria-hidden="true"><use href="#i-selo-seguranca"/></svg><span>Orientações de segurança</span></li>
@@ -735,8 +727,8 @@
           <li><svg class="ico" aria-hidden="true"><use href="#i-selo-reserva"/></svg><span>Reserva digital confirmada</span></li>
         </ul>
         <div class="tour-acoes">
-          <a class="btn btn-primario btn-largo" href="/reservar?plano=parapente">Reservar voo</a>
-          <a class="btn btn-secundario btn-largo" href="/voo-de-parapente">Ver detalhes</a>
+          <a class="btn btn-primario btn-largo" href="/reservar?plano=city-tour-paraty">Reservar</a>
+          <a class="btn btn-secundario btn-largo" href="/city-tour-paraty">Ver detalhes</a>
         </div>
       </div>
     </div>
@@ -910,10 +902,6 @@
             <span class="err" id="errCriancas" hidden></span>
           </label>
           <div class="field" id="idadesCriancas" hidden></div>
-          <label class="field campo-peso" id="campoPeso" hidden>Peso de cada passageiro (kg) <span class="hint">entre 50 e 120 kg por pessoa</span>
-            <input id="fPeso" name="peso" placeholder="Ex.: 70, 82" maxlength="60">
-            <span class="err" id="errPeso" hidden></span>
-          </label>
         </div>
         <label class="field">Observações <span class="hint">restrição alimentar, criança, mobilidade</span>
           <textarea id="fObs" name="obs" rows="2" placeholder="Opcional" maxlength="500"></textarea>
@@ -1003,35 +991,6 @@
   </div>
 </section>
 
-<!-- ======================= POUSADAS ======================= -->
-<section class="secao" id="pousadas" data-secao="pousadas">
-  <header class="pagina-cabeca">
-    <h1 data-titulo>Pousadas parceiras</h1>
-    <p><b>10% de desconto</b> nas parceiras que já fecharam acordo, para quem reserva passeio pelo site. Apresente o cupom <b class="num">TRINDADE10</b> na hora de fechar a diária.</p>
-  </header>
-
-  <h2 class="sr">Parceiras com acordo</h2>
-  <div class="pousadas">
-    <article class="parceira">
-      <div class="thumb media" id="fotoMadeira"></div>
-      <div class="parceira-corpo">
-        <div class="parceira-tags"><span class="pill">Parceira</span></div>
-        <h3>Casa de Madeira Trindade</h3>
-        <p class="parceira-local">Trindade · Paraty · RJ</p>
-        <p>Casa de madeira com varanda, rede e um quintal verde onde o café da manhã é servido pela manhã. Charme caiçara, perto das trilhas.</p>
-        <ul class="comodidades"><li>Café da manhã</li><li>Quintal</li><li>Rede</li></ul>
-        <div class="parceira-rodape">
-          <div><b>Diária sob consulta</b><span data-canal-contato>Direto com a pousada</span></div>
-          <div class="parceira-acoes">
-            <a class="btn btn-secundario btn-sm" href="https://instagram.com/demadeiratrindade" target="_blank" rel="noopener" aria-label="Instagram da Casa de Madeira">Instagram</a>
-            <a class="btn btn-primario btn-sm" href="https://wa.me/5524987873576" data-wa="Olá! Quero informações sobre a Casa de Madeira Trindade. Vim pelo site Trindade Adventure. Datas: ___ · Pessoas: ___" data-wa-numero="5524987873576" target="_blank" rel="noopener" aria-label="Falar com a Casa de Madeira no WhatsApp"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Falar</a>
-          </div>
-        </div>
-      </div>
-    </article>
-  </div>
-</section>
-
 <!-- ======================= CÂMERAS ======================= -->
 <section class="secao" id="cameras" data-secao="cameras">
   <header class="pagina-cabeca">
@@ -1041,107 +1000,51 @@
   <div class="cams" id="listaCams"></div>
 </section>
 
-<!-- ======================= CONTATO ======================= -->
-<section class="secao" id="parapente" data-secao="parapente" aria-labelledby="titulo-parapente" hidden>
+<!-- ======================= CITY TOUR PARATY ======================= -->
+<section class="secao" id="city-tour-paraty" data-secao="city-tour-paraty" aria-labelledby="titulo-city-tour-paraty" hidden>
   <header class="pagina-cabeca pagina-cabeca-linha">
     <div>
-      <h2 data-titulo id="titulo-parapente">Voo de Parapente</h2>
-      <p>Voo duplo com o piloto Alef Magno, da Voar Parapente, parceira da Trindade Adventure.</p>
+      <h2 data-titulo id="titulo-city-tour-paraty">City tour Paraty</h2>
+      <p>Tour pelos museus e por todo o centro histórico de Paraty.</p>
     </div>
     <a class="link-seta" href="/passeios">Todos os passeios<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
   </header>
 
   <div class="pescaria-grid">
-    <figure class="parapente-capa">
-      <img src="/assets/parapente-voo-01-praia-vila-960.webp" srcset="/assets/parapente-voo-01-praia-vila-480.webp 480w, /assets/parapente-voo-01-praia-vila-960.webp 960w, /assets/parapente-voo-01-praia-vila-1280.webp 1280w" sizes="(max-width: 900px) 92vw, 640px" width="1280" height="720" alt="Passageira rindo em voo duplo de parapente sobre uma praia com vila, com o mar verde-azulado ao fundo" loading="lazy" decoding="async" data-lcp>
+    <figure class="city-tour-capa">
+      <img src="/assets/paraty-centro-historico-praca-960.webp" srcset="/assets/paraty-centro-historico-praca-480.webp 480w, /assets/paraty-centro-historico-praca-960.webp 960w, /assets/paraty-centro-historico-praca-1280.webp 1280w" sizes="(max-width: 900px) 92vw, 640px" width="1280" height="481" alt="Panorama do centro histórico de Paraty, com praça e casario colonial" loading="lazy" decoding="async" data-lcp>
     </figure>
 
     <div class="pescaria-info">
-      <h2>A costa vista de cima.</h2>
-      <p>A decolagem sai da pista de pouso de Trindade. De 5 a 15 minutos no ar, conforme as condições do dia. Traslado, fotos, vídeo e imagens em 360° inclusos.</p>
-      <div class="pescaria-preco"><span>Por voo</span><strong>R$ 350</strong></div>
-      <p class="pescaria-dica">Sinal de R$ 50 para agendar; o restante é pago antes da decolagem, por Pix, dinheiro ou cartão. Data, horário e ponto de encontro são combinados pelo WhatsApp.</p>
+      <p>Tour pelos museus e por todo o centro histórico de Paraty.</p>
+      <div class="pescaria-preco"><span>Por pessoa</span><strong>R$ 200</strong></div>
+      <p class="pescaria-dica">Data, horário e ponto de encontro são combinados pela equipe pelo WhatsApp.</p>
       <ul class="selos-passeio">
         <li><svg class="ico" aria-hidden="true"><use href="#i-selo-guia"/></svg><span>Guia local</span></li>
         <li><svg class="ico" aria-hidden="true"><use href="#i-selo-seguranca"/></svg><span>Orientações de segurança</span></li>
         <li data-pagamento="online"><svg class="ico" aria-hidden="true"><use href="#i-selo-pagamento"/></svg><span>Pagamento protegido</span></li>
         <li><svg class="ico" aria-hidden="true"><use href="#i-selo-reserva"/></svg><span>Reserva digital confirmada</span></li>
       </ul>
-      <a class="btn btn-primario btn-largo" href="https://wa.me/5524992073621" data-wa="Olá! Quero agendar o Voo de Parapente (R$ 350). Data: ___ · Pessoas: ___ · Peso aprox. de cada pessoa: ___ kg" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Agendar voo no WhatsApp</a>
+      <a class="btn btn-primario btn-largo" href="https://wa.me/5524992073621" data-wa="Olá! Quero agendar o City tour Paraty (R$ 200). Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Agendar no WhatsApp</a>
     </div>
   </div>
 
-  <section class="bloco" aria-labelledby="titulo-parapente-como">
+  <section class="bloco" aria-labelledby="titulo-city-tour-fotos">
     <header class="cabeca">
-      <h2 id="titulo-parapente-como">Como funciona</h2>
+      <h2 id="titulo-city-tour-fotos">Fotos do centro histórico</h2>
     </header>
-    <ol class="rota">
-          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-wa"/></svg></span><div><h4>1. Agendamento <span class="pill">WhatsApp</span></h4><p>Sinal de R$ 50 pelo WhatsApp. Data, horário, ponto de encontro e o roteiro do dia são combinados aqui.</p></div></li>
-          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-pin"/></svg></span><div><h4>2. Saída <span class="pill">Traslado</span></h4><p>A decolagem sai da pista de pouso de Trindade. O traslado está incluso.</p></div></li>
-          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-check"/></svg></span><div><h4>3. Preparação <span class="pill">Orientações</span></h4><p>O piloto Alef Magno passa as orientações e ajusta o equipamento.</p></div></li>
-          <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-ondas"/></svg></span><div><h4>4. Voo <span class="pill">5 a 15 min</span></h4><p>Voo duplo: você vai preso ao piloto, que conduz o voo. A duração varia com as condições do tempo no dia. Fotos, vídeo e imagens em 360° são feitos durante o voo com uma GoPro Max.</p></div></li>
-    </ol>
-    <p class="nota">O voo só acontece com condições de tempo favoráveis. Se não der para voar, o voo é remarcado.</p>
-  </section>
-
-  <section class="bloco" aria-labelledby="titulo-parapente-incluso">
-    <header class="cabeca">
-      <h2 id="titulo-parapente-incluso">O que está incluso</h2>
-    </header>
-    <div class="incluso incluso-uma">
-      <div><h3>Incluso</h3><ul class="lista-check">
-        <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Voo duplo com o piloto Alef Magno (Voar Parapente)</li>
-        <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Traslado</li>
-        <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Fotos do voo</li>
-        <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Vídeo do voo</li>
-        <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Imagens em 360° (GoPro Max)</li>
-      </ul></div>
+    <div class="city-tour-galeria">
+      <figure class="h"><img src="/assets/paraty-centro-historico-rua-960.webp" srcset="/assets/paraty-centro-historico-rua-480.webp 480w, /assets/paraty-centro-historico-rua-960.webp 960w, /assets/paraty-centro-historico-rua-1280.webp 1280w" sizes="(max-width: 900px) 92vw, 560px" width="960" height="640" alt="Rua de pedra e casario colonial no centro histórico de Paraty" loading="lazy" decoding="async"></figure>
+      <figure class="h"><img src="/assets/paraty-centro-historico-casario-960.webp" srcset="/assets/paraty-centro-historico-casario-480.webp 480w, /assets/paraty-centro-historico-casario-960.webp 960w, /assets/paraty-centro-historico-casario-1280.webp 1280w" sizes="(max-width: 900px) 92vw, 560px" width="960" height="640" alt="Sobrados coloniais com sacada vermelha e torre de igreja ao fundo, no centro histórico de Paraty" loading="lazy" decoding="async"></figure>
+      <figure class="h"><img src="/assets/paraty-igreja-santa-rita-960.webp" srcset="/assets/paraty-igreja-santa-rita-480.webp 480w, /assets/paraty-igreja-santa-rita-960.webp 960w, /assets/paraty-igreja-santa-rita-1280.webp 1280w" sizes="(max-width: 900px) 92vw, 560px" width="960" height="640" alt="Igreja de Santa Rita de Cássia, no centro histórico de Paraty" loading="lazy" decoding="async"></figure>
+      <figure class="h"><img src="/assets/paraty-centro-historico-noite-960.webp" srcset="/assets/paraty-centro-historico-noite-480.webp 480w, /assets/paraty-centro-historico-noite-960.webp 960w, /assets/paraty-centro-historico-noite-1280.webp 1280w" sizes="(max-width: 900px) 92vw, 560px" width="960" height="720" alt="Rua de pedra iluminada à noite no centro histórico de Paraty" loading="lazy" decoding="async"></figure>
     </div>
+    <p class="nota-rodape">Fotos: Rogério Cassimiro / MTur (domínio público) · Paul R. Burley, Marinelson Almeida, Rejane Sarmento, Pedro Henrique Ponchio (Wikimedia Commons, CC BY / CC BY-SA) — <a class="link-texto" href="/creditos-das-fotos">créditos completos</a>.</p>
   </section>
 
-  <section class="bloco" aria-labelledby="titulo-parapente-seguranca">
-    <header class="cabeca">
-      <h2 id="titulo-parapente-seguranca">Segurança</h2>
-    </header>
-    <ul class="lista-check">
-      <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Voo duplo (tandem): você vai preso ao piloto, e é ele quem conduz o voo.</li>
-      <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Piloto: Alef Magno, da Voar Parapente.</li>
-      <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Orientações do piloto antes da decolagem e uso de capacete.</li>
-      <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Peso do passageiro entre 50 kg e 120 kg; não há idade mínima nem máxima.</li>
-      <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Voo só com condições de tempo favoráveis; se não estiverem, o voo é remarcado.</li>
-    </ul>
-  </section>
-
-  <section class="bloco" aria-labelledby="titulo-parapente-fotos">
-    <header class="cabeca">
-      <h2 id="titulo-parapente-fotos">Fotos de voos</h2>
-    </header>
-    
-    <div class="parapente-galeria">
-      <figure class="h"><img src="/assets/parapente-voo-02-mata-sorriso-960.webp" srcset="/assets/parapente-voo-02-mata-sorriso-480.webp 480w, /assets/parapente-voo-02-mata-sorriso-960.webp 960w, /assets/parapente-voo-02-mata-sorriso-1280.webp 1280w" sizes="(max-width: 900px) 92vw, 560px" width="960" height="540" alt="Passageira sorrindo ao lado do piloto, em voo duplo de parapente sobre a Mata Atlântica, com o mar ao fundo" loading="lazy" decoding="async"></figure>
-      <figure class="v"><img src="/assets/parapente-voo-06-vertical-praia-vila-720.webp" srcset="/assets/parapente-voo-06-vertical-praia-vila-360.webp 360w, /assets/parapente-voo-06-vertical-praia-vila-720.webp 720w" sizes="(max-width: 900px) 46vw, 270px" width="720" height="1280" alt="Passageira rindo em voo duplo de parapente sobre praia e vila, em imagem vertical com a vela azul no alto" loading="lazy" decoding="async"></figure>
-      <figure class="v"><img src="/assets/parapente-voo-07-vertical-costa-720.webp" srcset="/assets/parapente-voo-07-vertical-costa-360.webp 360w, /assets/parapente-voo-07-vertical-costa-720.webp 720w" sizes="(max-width: 900px) 46vw, 270px" width="720" height="1280" alt="Passageiro fazendo sinal de paz em voo duplo de parapente, sobre uma costa de mata e mar, com a vela azul no alto" loading="lazy" decoding="async"></figure>
-      <figure class="h"><img src="/assets/parapente-voo-03-mata-selfie-960.webp" srcset="/assets/parapente-voo-03-mata-selfie-480.webp 480w, /assets/parapente-voo-03-mata-selfie-960.webp 960w" sizes="(max-width: 900px) 92vw, 560px" width="960" height="540" alt="Piloto e passageira em voo duplo de parapente, fazendo selfie sobre a mata, com enseada e morros ao fundo" loading="lazy" decoding="async"></figure>
-      <figure class="h"><img src="/assets/parapente-voo-04-costao-mar-960.webp" srcset="/assets/parapente-voo-04-costao-mar-480.webp 480w, /assets/parapente-voo-04-costao-mar-960.webp 960w, /assets/parapente-voo-04-costao-mar-1280.webp 1280w" sizes="(max-width: 900px) 92vw, 560px" width="960" height="540" alt="Passageiro sorrindo em voo duplo de parapente, com a vela azul ao lado, sobre costão de mata, praia e mar" loading="lazy" decoding="async"></figure>
-      <figure class="h"><img src="/assets/parapente-voo-05-ilhas-vela-960.webp" srcset="/assets/parapente-voo-05-ilhas-vela-480.webp 480w, /assets/parapente-voo-05-ilhas-vela-960.webp 960w, /assets/parapente-voo-05-ilhas-vela-1280.webp 1280w" sizes="(max-width: 900px) 92vw, 560px" width="960" height="540" alt="Passageiro de óculos escuros em voo duplo de parapente, com a vela azul ao lado e ilhas ao fundo" loading="lazy" decoding="async"></figure>
-    </div>
-    <p class="nota-rodape">Fotos: Voar Parapente. Registros de voos de clientes.</p>
-  </section>
-
-  <section class="bloco faq" aria-labelledby="titulo-parapente-faq">
-    <h2 id="titulo-parapente-faq">Perguntas frequentes</h2>
-    <details><summary>Preciso ter experiência?</summary><p>Não. No voo duplo você vai junto com o piloto, que conduz o voo, e recebe as orientações antes da decolagem.</p></details>
-    <details><summary>De onde sai o voo?</summary><p>A decolagem sai da pista de pouso de Trindade. O traslado está incluso, e o ponto de encontro é combinado no agendamento.</p></details>
-    <details><summary>Quanto tempo dura o voo?</summary><p>De 5 a 15 minutos, conforme as condições do tempo no dia.</p></details>
-    <details><summary>Tem idade mínima ou máxima?</summary><p>Não. A regra é o peso do passageiro: mínimo de 50 kg e máximo de 120 kg.</p></details>
-    <details><summary>E se o tempo não ajudar?</summary><p>O voo só acontece com condições favoráveis. Se não der para voar, o voo é remarcado.</p></details>
-    <details><summary>Recebo fotos e vídeo?</summary><p>Sim. Fotos, vídeo e imagens em 360° (GoPro Max) estão inclusos no valor.</p></details>
-    <details><summary>Quanto custa e como pago?</summary><p>R$ 350 por voo. Para agendar, é pago um sinal de R$ 50 pelo WhatsApp. O restante é pago antes da decolagem, por Pix, dinheiro ou cartão.</p></details>
-  </section>
-
-  <div class="caixa parapente-cta">
-    <p><b>R$ 350 por voo</b> · sinal de R$ 50 para agendar</p>
-    <a class="btn btn-primario btn-largo" href="https://wa.me/5524992073621" data-wa="Olá! Quero agendar o Voo de Parapente (R$ 350). Data: ___ · Pessoas: ___ · Peso aprox. de cada pessoa: ___ kg" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Agendar voo no WhatsApp</a>
+  <div class="caixa city-tour-cta">
+    <p><b>R$ 200 por pessoa</b> · data e horário combinados pelo WhatsApp</p>
+    <a class="btn btn-primario btn-largo" href="https://wa.me/5524992073621" data-wa="Olá! Quero agendar o City tour Paraty (R$ 200). Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Agendar no WhatsApp</a>
   </div>
 </section>
 
@@ -1414,7 +1317,7 @@
 <section class="secao" id="creditos" data-secao="creditos" aria-labelledby="titulo-creditos">
   <header class="pagina-cabeca">
     <h1 data-titulo id="titulo-creditos">Créditos das fotos</h1>
-    <p>Autor, licença e origem das fotos de terceiros usadas no site. As demais fotos são da equipe Trindade Adventure, de parceiros ou da Voar Parapente.</p>
+    <p>Autor, licença e origem das fotos de terceiros usadas no site. As demais fotos são da equipe Trindade Adventure ou de parceiros.</p>
   </header>
   <article class="texto-legal">
     <h2>Fotos do Saco do Mamanguá (Wikimedia Commons)</h2>
@@ -1430,8 +1333,23 @@
     </div>
     <p>Modificação feita nas três fotos: só redimensionamento e conversão para WebP (480, 960 e 1600 px), sem corte nem edição de cor. As versões redimensionadas seguem sob a mesma licença, CC BY-SA 3.0, que permite uso comercial desde que se dê o crédito ao autor, se indique a licença e as versões modificadas sejam distribuídas sob a mesma licença.</p>
 
+    <h2>Fotos do centro histórico de Paraty (Wikimedia Commons)</h2>
+    <div class="tabela-wrap">
+      <table class="tabela-creditos">
+        <thead><tr><th>Foto</th><th>Autor</th><th>Licença</th><th>Origem</th></tr></thead>
+        <tbody>
+          <tr><td>Panorama do centro histórico (praça)</td><td>Rogério Cassimiro / MTur</td><td>Domínio público</td><td><a href="https://commons.wikimedia.org/wiki/File:RogerioCassimiro_Centro_Historico_Paraty_RJ_(27276559298).jpg" target="_blank" rel="noopener">Wikimedia Commons</a></td></tr>
+          <tr><td>Rua Dona Geralda</td><td>Paul R. Burley</td><td><a href="https://creativecommons.org/licenses/by-sa/4.0" target="_blank" rel="noopener">CC BY-SA 4.0</a></td><td><a href="https://commons.wikimedia.org/wiki/File:Centro_Hist%C3%B3rico_Paraty_7397.jpg" target="_blank" rel="noopener">Wikimedia Commons</a></td></tr>
+          <tr><td>Casario colonial</td><td>Marinelson Almeida</td><td><a href="https://creativecommons.org/licenses/by/2.0" target="_blank" rel="noopener">CC BY 2.0</a></td><td><a href="https://commons.wikimedia.org/wiki/File:Centro_Hist%C3%B3rico_de_Paraty_-_RJ_(14042116675).jpg" target="_blank" rel="noopener">Wikimedia Commons</a></td></tr>
+          <tr><td>Igreja de Santa Rita</td><td>Rejane Sarmento</td><td><a href="https://creativecommons.org/licenses/by-sa/4.0" target="_blank" rel="noopener">CC BY-SA 4.0</a></td><td><a href="https://commons.wikimedia.org/wiki/File:Igreja_de_Santa_Rita,_no_centro_hist%C3%B3rico_de_Paraty.jpg" target="_blank" rel="noopener">Wikimedia Commons</a></td></tr>
+          <tr><td>Centro histórico à noite</td><td>Pedro Henrique Ponchio</td><td><a href="https://creativecommons.org/licenses/by/2.0" target="_blank" rel="noopener">CC BY 2.0</a></td><td><a href="https://commons.wikimedia.org/wiki/File:Paraty_(4996735551).jpg" target="_blank" rel="noopener">Wikimedia Commons</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Modificação feita nas cinco fotos: só redimensionamento e conversão para WebP (480, 960 e 1280 px), sem corte nem edição de cor. As fotos de Paul R. Burley e Rejane Sarmento são CC BY-SA 4.0: versões editadas (recortadas) permanecem sob a mesma licença.</p>
+
     <h2>Outras fotos do site</h2>
-    <p>Todas as outras fotos são da equipe Trindade Adventure, dos parceiros (Casa de Madeira Trindade, Restaurante Hymbé) ou da Voar Parapente (fotos do voo de parapente, com o crédito também na página <a class="link-texto" href="/voo-de-parapente">Voo de Parapente</a>).</p>
+    <p>Todas as outras fotos são da equipe Trindade Adventure ou de parceiros (Restaurante Hymbé).</p>
   </article>
 </section>
 
@@ -1453,7 +1371,7 @@
         <li><a href="/passeios/essencial">Trindade Essencial</a></li>
         <li><a href="/passeios/adventure">Trindade Adventure</a></li>
         <li><a href="/passeios/boat">Trindade Boat</a></li>
-        <li><a href="/voo-de-parapente">Voo de Parapente</a></li>
+        <li><a href="/city-tour-paraty">City tour Paraty</a></li>
         <li><a href="/pescaria">Pescaria em Alto Mar</a></li>
         <li><a href="/passeios#sob-consulta">Passeios sob consulta</a></li>
       </ul>
@@ -1462,7 +1380,6 @@
       <h2>Trindade</h2>
       <ul>
         <li><a href="/historia">História de Trindade</a></li>
-        <li><a href="/pousadas">Pousadas parceiras</a></li>
         <li><a href="/creditos-das-fotos">Créditos das fotos</a></li>
       </ul>
     </div>
@@ -1492,7 +1409,6 @@
   <a href="/" data-rota="inicio"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5L12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/></svg>Início</a>
   <a href="/passeios" data-rota="passeios"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/></svg>Passeios</a>
   <a href="/reservar" data-rota="reservar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Reservar</a>
-  <a href="/pousadas" data-rota="pousadas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18v-8M3 14h18v4M21 18v-3.5a3 3 0 0 0-3-3h-7V18"/><circle cx="7" cy="11" r="2"/></svg>Pousadas</a>
   <a href="/contato" data-rota="contato"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v12H8l-4 4z"/></svg>Contato</a>
 </nav>
 
@@ -1523,7 +1439,7 @@
 
 <!-- Leaflet é servido pelo próprio site e só carrega quando o mapa se aproxima
      da tela. Se ainda assim faltar, o app.js mostra a lista de pontos. -->
-<script src="/app.js?v=20261031-sem-snorkel" defer></script>
+<script src="/app.js?v=20261105-city-tour" defer></script>
 <script src="/vendor/lenis-1.3.11.min.js" defer></script>
 <script src="/motion.js?v=20261020-s15" defer></script>
 <script src="/pescaria-galeria.js?v=20261005-rotas" defer></script>
