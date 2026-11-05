@@ -418,10 +418,11 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 
 // ---------- 05/11/2026: Pousadas e Voo de Parapente saíram do site; entrou o City tour Paraty ----------
 {
-  const pousadas = await pegar("/pousadas"); await pousadas.arrayBuffer();
-  checar("CITYTOUR /pousadas → 404 (seção removida)", pousadas.status === 404, pousadas.status);
-  const parapente = await pegar("/voo-de-parapente"); await parapente.arrayBuffer();
-  checar("CITYTOUR /voo-de-parapente → 404 (página removida)", parapente.status === 404, parapente.status);
+  for (const [caminho, esperado] of [["/pousadas", "/passeios"], ["/pousadas/", "/passeios"], ["/voo-de-parapente", "/passeios"], ["/voo-de-parapente/", "/passeios"]]) {
+    const r = await pegar(caminho); await r.arrayBuffer();
+    const loc = r.headers.get("location") || "";
+    checar(`CITYTOUR ${caminho} → 301 para ${esperado}`, r.status === 301 && new URL(loc, BASE).pathname + new URL(loc, BASE).search === esperado, `${r.status} ${loc}`);
+  }
 
   const home = await (await pegar("/")).text();
   checar("CITYTOUR menu sem Pousadas nem Parapente", !/data-rota="pousadas"|data-rota="parapente"/.test(home) && !/>Pousadas<\/a>|>Parapente<\/a>/.test(home));
