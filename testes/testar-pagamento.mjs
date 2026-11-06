@@ -157,11 +157,11 @@ const pagar = (ckId, evento = "CHECKOUT_PAID", id = "evt_" + (++seqEv)) => webho
   checar("P1  arredondamento: R$ 75 → R$ 22,50 + R$ 52,50 (centavos, soma fecha no total)", q.agoraCentavos === 2250 && q.saldoCentavos === 5250);
   const q2 = w.calcularCobranca({ totalReais: 0.55, data: AMANHA, hoje: HOJE, escolha: "sinal" });
   checar("P1  arredondamento ao centavo mais próximo (55 centavos → 17 + 38)", q2.agoraCentavos === 17 && q2.saldoCentavos === 38, JSON.stringify(q2));
-  checar("P1  todos os passeios com preço e horário fixos pagam online (Essencial, Adventure, Boat); parapente (sem horário, fora de PLANOS) não", w.planoPagaOnline("essencial") && w.planoPagaOnline("adventure") && w.planoPagaOnline("boat") && !w.planoPagaOnline("parapente") && !w.planoPagaOnline("__proto__"));
+  checar("P1  todos os passeios com preço e horário fixos pagam online (Essencial, Adventure, Boat); City tour Paraty (sem horário, fora de PLANOS) não", w.planoPagaOnline("essencial") && w.planoPagaOnline("adventure") && w.planoPagaOnline("boat") && !w.planoPagaOnline("city-tour-paraty") && !w.planoPagaOnline("__proto__"));
   const adv = w.calcularCobranca({ totalReais: 150 * 2, data: AMANHA, hoje: HOJE, escolha: "sinal" });
   checar("P1  Adventure 2 pessoas: 30% sobre o TOTAL com voucher (R$ 300 → R$ 90 + R$ 210)", adv.agoraCentavos === 9000 && adv.saldoCentavos === 21000, JSON.stringify(adv));
   const para = w.calcularCobranca({ totalReais: 350, data: AMANHA, hoje: HOJE, escolha: "sinal" });
-  checar("P1  regra 30% aplicada a um voo de parapente (R$ 350 → R$ 105 + R$ 245) — cálculo puro; o parapente não tem agenda, segue no WhatsApp", para.agoraCentavos === 10500 && para.saldoCentavos === 24500);
+  checar("P1  regra 30% é só cálculo puro (R$ 350 → R$ 105 + R$ 245); não se aplica ao City tour Paraty, que não tem agenda e segue no WhatsApp", para.agoraCentavos === 10500 && para.saldoCentavos === 24500);
   checar("P1  só Pix online: billingTypes = [PIX] e nenhum cartão no worker nem no app.js", w.PAGAMENTO.formas.join() === "PIX" && !/CREDIT_CARD|DEBIT_CARD/.test(src) && !/CREDIT_CARD|DEBIT_CARD|cart[aã]o de cr[eé]dito/i.test(readFileSync(new URL("../site/app.js", import.meta.url), "utf8")));
   checar("P1  SALDO_ANTECEDENCIA_H: padrão 12; '6' → 6; '0' desliga; inválido → 12", w.saldoAntecedenciaH({}) === 12 && w.saldoAntecedenciaH({ SALDO_ANTECEDENCIA_H: "6" }) === 6 && w.saldoAntecedenciaH({ SALDO_ANTECEDENCIA_H: "0" }) === null && w.saldoAntecedenciaH({ SALDO_ANTECEDENCIA_H: "abc" }) === 12);
   checar("P1  nenhum PENDENTE-LUCAS sobrou no worker", !/PENDENTE-LUCAS/.test(src));

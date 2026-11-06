@@ -4,8 +4,8 @@
     "sha256": "4759b0358431d0b5902fc8de4ef12f4101a176cfe18784df1d897c47a54cc821"
   },
   "app.js": {
-    "v": "20261031-sem-snorkel",
-    "sha256": "b907dc555f8c126874c7073099388ef61436d926d4726a7f4f07d4bbabaa127b"
+    "v": "20261105-city-tour-2",
+    "sha256": "98437cc2d018bbadade172c996d5356614fd7dca5c399f652c067ae2d8d7f750"
   },
   "motion.js": {
     "v": "20261020-s15",
@@ -16,7 +16,7 @@
     "sha256": "fd0e859e0fbfd486f8840402c3eb610a3dbf71504af0469ef34c44c4cca9c183"
   },
   "estilo.css": {
-    "v": "20261031-selos",
-    "sha256": "eaf6e49e1790dfc37c7f7df9510d281e5d784fd8f9c0a6ede9239a8155b9e9cd"
+    "v": "20261105-city-tour",
+    "sha256": "f070bd572619e694c2dff0543d0570656dd9cd45b81db436d5a34bf740edae6a"
   }
 }
