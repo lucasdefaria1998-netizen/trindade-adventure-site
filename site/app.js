@@ -2128,6 +2128,39 @@ function mostrarDadosDaEmpresa() {
   alvo.hidden = !partes.length;
 }
 
+/* ------------------------------ trilho de passeios (home) ------------------------------
+   "Escolha o passeio" rola na horizontal sozinho (scroll-snap nativo); os
+   botões aqui só são um atalho de teclado/mouse por cima disso — por isso
+   ficam escondidos sem JS (CSS: .js .trilho-nav) e nunca travam o toque. */
+function ligarTrilhoPasseios() {
+  $$(".trilho-passeios").forEach(caixa => {
+    const trilho = $(".tours-agenda", caixa);
+    const prev = $("[data-trilho-prev]", caixa);
+    const next = $("[data-trilho-next]", caixa);
+    if (!trilho || !prev || !next) return;
+    // Checagem direta do matchMedia, além do data-motion (que já reflete o
+    // mesmo sinal): a rolagem do clique nos botões vira instantânea com
+    // "reduce", não só mais rápida.
+    const reduzido = matchMedia("(prefers-reduced-motion: reduce)");
+    const comportamento = () => (reduzido.matches || document.documentElement.getAttribute("data-motion") === "paused" ? "auto" : "smooth");
+    const passo = () => {
+      const cartao = $(".tour", trilho);
+      return cartao ? cartao.getBoundingClientRect().width + 20 : trilho.clientWidth * 0.9;
+    };
+    const atualizar = () => {
+      const fimDaRolagem = trilho.scrollWidth - trilho.clientWidth;
+      prev.disabled = trilho.scrollLeft <= 1;
+      next.disabled = fimDaRolagem <= 1 || trilho.scrollLeft >= fimDaRolagem - 1;
+    };
+    prev.addEventListener("click", () => trilho.scrollBy({ left: -passo(), behavior: comportamento() }));
+    next.addEventListener("click", () => trilho.scrollBy({ left: passo(), behavior: comportamento() }));
+    trilho.addEventListener("scroll", () => requestAnimationFrame(atualizar), { passive: true });
+    window.addEventListener("resize", atualizar);
+    window.addEventListener("trindade:route", () => setTimeout(atualizar, 60));
+    atualizar();
+  });
+}
+
 function iniciar() {
   // Link antigo (#/passeios?plano=boat) vira o endereço novo antes de tudo.
   migrarEnderecoAntigo();
@@ -2151,6 +2184,7 @@ function iniciar() {
   }
 
   ligarMiniGalerias();
+  ligarTrilhoPasseios();
 
   // Se a detecção automática já sabe que veio do Instagram ou do Google,
   // deixa pré-marcado no formulário — a pessoa só confirma, não escolhe do zero.

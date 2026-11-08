@@ -4,8 +4,8 @@
     "sha256": "4759b0358431d0b5902fc8de4ef12f4101a176cfe18784df1d897c47a54cc821"
   },
   "app.js": {
-    "v": "20261105-city-tour-2",
-    "sha256": "98437cc2d018bbadade172c996d5356614fd7dca5c399f652c067ae2d8d7f750"
+    "v": "20261107-trilho2",
+    "sha256": "1d786175a18f1a91665e777cd76e418c91349db9d8a0cb901f46764f264c6564"
   },
   "motion.js": {
     "v": "20261020-s15",
@@ -16,7 +16,7 @@
     "sha256": "fd0e859e0fbfd486f8840402c3eb610a3dbf71504af0469ef34c44c4cca9c183"
   },
   "estilo.css": {
-    "v": "20261105-city-tour",
-    "sha256": "f070bd572619e694c2dff0543d0570656dd9cd45b81db436d5a34bf740edae6a"
+    "v": "20261107-tabbar5",
+    "sha256": "5b62f3a6233fb918f538d5264f5e5edd2585920c950fe1b9159e26a3c4a87291"
   }
 }
