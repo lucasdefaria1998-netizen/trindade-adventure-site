@@ -54,11 +54,12 @@ const CFG = {
    semCorteRetorno (opcional): a lista fixa de "horarios" não passa pela regra
    do horário-limite de retorno (ver horariosDoPlano) — horários decididos
    pela operação, não calculados pela duração. Mesmo campo do _worker.js.
-   soWhatsApp / horarioCombinado (parapente): sem agenda nem vaga
+   soWhatsApp / horarioCombinado (City tour Paraty): sem agenda nem vaga
    compartilhada com os passeios — a reserva não chama a API, só abre o
    WhatsApp. Ver o passo "Horário" em pintarHorarios() e o envio em
-   ligarReserva(). Não existe um campo "pede peso" à parte: hoje só o
-   parapente tem soWhatsApp, e é esse mesmo flag que mostra o campo de peso. */
+   ligarReserva(). dur/duracaoMin ficam de fora: sem eles não há cálculo de
+   horário-limite de retorno nem exibição de duração — PENDENTE (Lucas)
+   definir duração, horários e ponto de encontro do City tour. */
 const PLANOS = [
   { id:"essencial", nome:"Trindade Essencial", preco:80,  voucher:0,  dur:"≈ 3h", duracaoMin:180, horarios:null,
     resumo:"Trilha guiada pela Mata Atlântica até a piscina natural do Cachadaço, com água mineral." },
@@ -69,12 +70,14 @@ const PLANOS = [
   // comentário do _worker.js, que é quem vale de verdade.
   { id:"boat",      nome:"Trindade Boat",      preco:400, voucher:60, dur:"≈ 8h", duracaoMin:480, horarios:[8.5, 11], semCorteRetorno:true,
     resumo:"Barco por cinco paradas na costa da Trindade, snorkel na piscina natural e almoço." },
-  // Voo de Parapente: não tem horário nem vaga compartilhada com os passeios (a decolagem depende do
-  // tempo e é combinada pelo WhatsApp) — por isso fica fora de PLANOS no _worker.js. Aqui ele entra só
-  // para aparecer como opção selecionável no passo 1 do /reservar; o envio não passa pela API.
-  { id:"parapente", nome:"Voo de Parapente", preco:350, voucher:0, dur:"5–15 min", duracaoMin:15, horarios:null,
-    soWhatsApp:true, horarioCombinado:true, sinalFixo:50, unidade:"por voo", unidadePessoas:"voos",
-    resumo:"Voo duplo com o piloto Alef Magno, da Voar Parapente. Traslado, fotos, vídeo e imagens em 360° inclusos." }
+  // City tour Paraty: sem duração, horário nem ponto de encontro definidos ainda (PENDENTE Lucas) —
+  // por isso fica fora de PLANOS no _worker.js, como os demais passeios sob consulta. Aqui ele entra só
+  // para aparecer como opção selecionável no passo 1 do /reservar; o envio não passa pela API, vai
+  // direto para o WhatsApp. sinalFixo não é definido (PENDENTE Lucas): sem ele, o site não cobra
+  // sinal nenhum e o pedido mostra "combinado pelo WhatsApp".
+  { id:"city-tour-paraty", nome:"City tour Paraty", preco:200, voucher:0,
+    soWhatsApp:true, horarioCombinado:true,
+    resumo:"Tour pelos museus e por todo o centro histórico de Paraty." }
 ];
 
 const planoPor = id => PLANOS.find(p => p.id === id) || PLANOS[1];
@@ -92,7 +95,7 @@ const SELOS_POR_PLANO = {
   essencial: ["guia", "seguranca", "reserva"],
   adventure: ["guia", "seguranca", "reserva"],
   boat: ["guia", "seguranca", "reserva"],
-  parapente: ["guia", "seguranca", "reserva"]
+  "city-tour-paraty": ["guia", "seguranca", "reserva"]
 };
 const TERMO_VERSAO_ATUAL = "v0-provisorio";
 const pagamentoOnlineNoHtml = () => document.documentElement.dataset.pagamentoOnline === "1";
@@ -365,7 +368,11 @@ const normalizarCaminho = c => (c.length > 1 ? c.replace(/\/+$/, "") : c) || "/"
 
 // Endereços que mudaram de lugar (o servidor responde 301; aqui vale para a navegação sem recarregar
 // e para links antigos com "#/"). Mesma tabela do _worker.js (REDIRECIONAMENTOS).
-const REDIRECIONAMENTOS = { "/passeios/fishing": "/pescaria" };
+const REDIRECIONAMENTOS = {
+  "/passeios/fishing": "/pescaria",
+  "/voo-de-parapente": "/passeios",
+  "/pousadas": "/passeios",
+};
 const ehPaginaDoSite = c => {
   const n = normalizarCaminho(c);
   return Object.prototype.hasOwnProperty.call(SITE.paginas, n) || Object.prototype.hasOwnProperty.call(REDIRECIONAMENTOS, n);
@@ -891,7 +898,7 @@ const reserva = {
   plano: "adventure",
   data: hojeISO(),
   hora: null,
-  pax: 2,          // total de pessoas (pagantes + crianças); no parapente, número de voos
+  pax: 2,          // total de pessoas (pagantes + crianças)
   adultos: 2,      // pagantes, 13 anos ou mais
   criancas: 0,     // até 12 anos, não pagam
   idades: [],
@@ -902,13 +909,11 @@ const reserva = {
 };
 
 function grupoDaReserva() {
-  const p = planoPor(reserva.plano);
-  if (p.horarioCombinado) return { pagantes: reserva.pax, criancas: 0, idades: [], pessoas: reserva.pax, voos: true };
   const max = Math.min(CFG.limitePaxPedido, CFG.capacidade);
   const pagantes = Math.min(max, Math.max(1, reserva.adultos || 1));
   const criancas = Math.min(Math.max(0, max - pagantes), Math.max(0, reserva.criancas || 0));
   const idades = (reserva.idades || []).slice(0, criancas);
-  return { pagantes, criancas, idades, pessoas: pagantes + criancas, voos: false };
+  return { pagantes, criancas, idades, pessoas: pagantes + criancas };
 }
 
 // Última leitura real de vagas vinda do backend, para a data em foco. Fica
@@ -927,7 +932,7 @@ function desenharPlanos() {
     return `<button type="button" class="plano-opcao" data-plano="${p.id}" aria-pressed="${sel}">
       <span class="plano-nome">${p.nome}</span>
       <span class="plano-preco"><b>${BRL(p.preco)}</b> <span>${p.unidade || "por pessoa"}</span></span>
-      <span class="plano-info">${infoHorario} · ${p.dur}</span>
+      <span class="plano-info">${infoHorario}${p.dur ? " · " + p.dur : ""}</span>
       ${p.voucher ? `<span class="plano-info">Inclui voucher de ${BRL(p.voucher)} no almoço</span>` : ""}
     </button>`;
   }).join("");
@@ -952,7 +957,7 @@ function desenharDatas() {
    rede) e manda buscar o número real de vagas em paralelo. */
 function desenharHorarios() {
   pintarHorarios();
-  // O parapente não tem vaga por horário (é combinado pelo WhatsApp, conforme o tempo): não há por
+  // Um plano horarioCombinado não tem vaga por horário (é combinado pelo WhatsApp): não há por
   // que consultar /api/disponibilidade para ele.
   if (!planoPor(reserva.plano).horarioCombinado) atualizarDisponibilidade();
 }
@@ -1084,15 +1089,11 @@ function desenharPax() {
   reserva.criancas = g.criancas;
   reserva.pax = g.pessoas;
   if (sel) {
-    const unidade = g.voos ? (n => n === 1 ? "voo" : "voos") : (n => n === 1 ? "pagante" : "pagantes");
     sel.innerHTML = Array.from({ length: max }, (_, i) => i + 1)
-      .map(n => `<option value="${n}">${n} ${unidade(n)}</option>`).join("");
-    sel.value = String(g.voos ? reserva.pax : g.pagantes);
+      .map(n => `<option value="${n}">${n} ${n === 1 ? "pagante" : "pagantes"}</option>`).join("");
+    sel.value = String(g.pagantes);
   }
-  const campoCriancas = $("#campoCriancas");
-  if (campoCriancas) campoCriancas.hidden = g.voos;
   if (cri) {
-    cri.hidden = g.voos;
     const resto = Math.max(0, max - g.pagantes);
     cri.innerHTML = Array.from({ length: resto + 1 }, (_, i) => i)
       .map(n => `<option value="${n}">${n} ${n === 1 ? "criança" : "crianças"}</option>`).join("");
@@ -1105,7 +1106,7 @@ function desenharIdades() {
   const box = $("#idadesCriancas");
   if (!box) return;
   const g = grupoDaReserva();
-  const mostrar = !g.voos && g.criancas > 0;
+  const mostrar = g.criancas > 0;
   box.hidden = !mostrar;
   if (!mostrar) { box.innerHTML = ""; box.dataset.n = "0"; return; }
   if (box.dataset.n === String(g.criancas) && box.querySelector("input")) return;
@@ -1141,8 +1142,13 @@ function desenharResumo() {
   // Sinal e garantia, bem perto do botão de envio (ver resumo-garantia no HTML).
   const rsSinal = $("#rsSinal"), rsGarantia = $("#rsGarantia"), bfTotal = $("#bfTotal"), resumoNota = $("#resumoNota");
   if (p.horarioCombinado) {
-    if (rsSinal) rsSinal.textContent = BRL(p.sinalFixo) + " por voo";
-    if (rsGarantia) rsGarantia.textContent = `Sinal de ${BRL(p.sinalFixo)} por voo para agendar · se o tempo não permitir, o voo é remarcado.`;
+    if (p.sinalFixo != null) {
+      if (rsSinal) rsSinal.textContent = BRL(p.sinalFixo) + " " + (p.unidade || "por pessoa");
+      if (rsGarantia) rsGarantia.textContent = `Sinal de ${BRL(p.sinalFixo)} ${p.unidade || "por pessoa"} para agendar.`;
+    } else {
+      if (rsSinal) rsSinal.textContent = "combinado pelo WhatsApp";
+      if (rsGarantia) rsGarantia.textContent = "Sinal e condições de pagamento combinados pela equipe no WhatsApp.";
+    }
     if (resumoNota) resumoNota.textContent = "A reserva é confirmada pela equipe no WhatsApp.";
   } else {
     const sinal = Math.round(total * 0.3);
@@ -1158,8 +1164,8 @@ function desenharResumo() {
 
 /* O primeiro horário livre da data escolhida já vem selecionado, em qualquer passeio com agenda —
    a pessoa só precisa trocar se quiser outro. Só vale depois de saber as vagas da data (ou de a API
-   não responder); horário que já saiu, bloqueado ou esgotado é pulado. O parapente (horarioCombinado)
-   nunca pré-seleciona: não tem grade. */
+   não responder); horário que já saiu, bloqueado ou esgotado é pulado. Um plano horarioCombinado
+   (sem agenda) nunca pré-seleciona: não tem grade. */
 function preSelecionarPrimeiroHorario() {
   if (reserva.hora !== null) return false;
   const p = planoPor(reserva.plano);
@@ -1180,15 +1186,10 @@ function preSelecionarPrimeiroHorario() {
 }
 
 function desenharReserva() {
-  // Trocar de plano pode invalidar o horário escolhido (o Boat só tem encontro às 8h30 e 11h; o
-  // parapente não tem grade nenhuma).
+  // Trocar de plano pode invalidar o horário escolhido (o Boat só tem encontro às 8h30 e 11h; um
+  // plano horarioCombinado não tem grade nenhuma).
   const p = planoPor(reserva.plano);
   if (reserva.hora !== null && (p.horarioCombinado || !horariosDoPlano(p).includes(reserva.hora))) reserva.hora = null;
-
-  const campoPeso = $("#campoPeso");
-  if (campoPeso) campoPeso.hidden = !p.soWhatsApp;
-  const rotuloPax = $("#rotuloPax");
-  if (rotuloPax) rotuloPax.textContent = p.unidadePessoas === "voos" ? "Quantidade de voos" : "Pessoas";
 
   desenharPlanos(); desenharDatas(); desenharHorarios(); desenharPax(); desenharResumo();
 }
@@ -1225,10 +1226,6 @@ function validar() {
   falha("#fInstagram", "#fInstagram", "#errInstagram", insta && !/^[A-Za-z0-9._]{1,30}$/.test(insta) ? "Use só letras, números, ponto e sublinhado." : "");
 
   const p = planoPor(reserva.plano);
-  if (p.soWhatsApp) {
-    const peso = $("#fPeso") ? $("#fPeso").value.trim() : "";
-    falha("#fPeso", "#fPeso", "#errPeso", peso.length < 2 ? "Informe o peso de cada passageiro." : "");
-  }
 
   const agora = agoraEmTrindade();
   const semData = reserva.data < agora.data;
@@ -1238,8 +1235,8 @@ function validar() {
   if (semData && !primeiro) primeiro = erroData;
 
   // O horário pode ter sido escolhido há um tempo e já ter passado, ou não
-  // valer para o passeio (duração além do horário-limite de retorno). O
-  // parapente (horarioCombinado) não tem horário nenhum para validar.
+  // valer para o passeio (duração além do horário-limite de retorno). Um
+  // plano horarioCombinado não tem horário nenhum para validar.
   const erroHora = $("#errHora");
   if (p.horarioCombinado) {
     erroHora.textContent = ""; erroHora.hidden = true;
@@ -1256,14 +1253,12 @@ function validar() {
     if (horaPassou || horaInvalida) { reserva.hora = null; pintarHorarios(); desenharResumo(); }
   }
 
-  if (!p.horarioCombinado) {
-    const g = grupoDaReserva();
-    const idadesOk = g.criancas === 0 || (reserva.idades.length === g.criancas && reserva.idades.every(n => Number.isInteger(n) && n >= 0 && n <= 12));
-    const msgCrianca = g.pessoas > Math.min(CFG.limitePaxPedido, CFG.capacidade)
-      ? "No máximo 15 pessoas por reserva, crianças incluídas."
-      : !idadesOk ? "Informe a idade de cada criança (até 12 anos). Quem tem 13 ou mais conta como pagante." : "";
-    falha("#fCriancas", "#fCriancas", "#errCriancas", msgCrianca);
-  }
+  const g = grupoDaReserva();
+  const idadesOk = g.criancas === 0 || (reserva.idades.length === g.criancas && reserva.idades.every(n => Number.isInteger(n) && n >= 0 && n <= 12));
+  const msgCrianca = g.pessoas > Math.min(CFG.limitePaxPedido, CFG.capacidade)
+    ? "No máximo 15 pessoas por reserva, crianças incluídas."
+    : !idadesOk ? "Informe a idade de cada criança (até 12 anos). Quem tem 13 ou mais conta como pagante." : "";
+  falha("#fCriancas", "#fCriancas", "#errCriancas", msgCrianca);
 
   const semAceite = !($("#fAceiteTermos") && $("#fAceiteTermos").checked);
   const erroAceite = $("#errAceite");
@@ -1301,25 +1296,21 @@ function mensagemWhatsApp(dados) {
     `Passeio: ${p.nome}`,
     `Data: ${dataBR(reserva.data)} (${diaSemana(reserva.data)})`
   ];
-  if (p.horarioCombinado) {
-    linhas.push(
-      "Horário: combinado pelo WhatsApp, conforme as condições do tempo",
-      `Voos: ${reserva.pax}`
-    );
-    if (dados.peso) linhas.push(`Peso aproximado de cada passageiro: ${dados.peso} kg`);
-  } else {
-    linhas.push(
-      `Horário: ${horaLabel(reserva.hora)} — saída ${saidaLabel(reserva.hora)}`,
-      g.criancas
-        ? `Pessoas: ${g.pessoas} (${g.pagantes} pagam, ${g.criancas} ${g.criancas === 1 ? "criança" : "crianças"} até 12 anos não pagam: ${g.idades.join(", ")} anos)`
-        : `Pessoas: ${g.pessoas}`
-    );
-  }
+  linhas.push(
+    p.horarioCombinado ? "Horário: combinado pelo WhatsApp" : `Horário: ${horaLabel(reserva.hora)} — saída ${saidaLabel(reserva.hora)}`,
+    g.criancas
+      ? `Pessoas: ${g.pessoas} (${g.pagantes} pagam, ${g.criancas} ${g.criancas === 1 ? "criança" : "crianças"} até 12 anos não pagam: ${g.idades.join(", ")} anos)`
+      : `Pessoas: ${g.pessoas}`
+  );
   linhas.push(`Total: ${BRL(total)}` + (voucher ? ` (inclui ${BRL(voucher)} de voucher no almoço)` : ""));
-  linhas.push(p.horarioCombinado
-    ? `Sinal para agendar: ${BRL(p.sinalFixo)} por voo`
-    : `Sinal para confirmar (30%): ${BRL(Math.round(total * 0.3))} via Pix`);
-  if (!p.horarioCombinado) linhas.push("O restante (70%) é pago no dia do passeio.");
+  if (p.horarioCombinado) {
+    linhas.push(p.sinalFixo != null
+      ? `Sinal para agendar: ${BRL(p.sinalFixo)} ${p.unidade || "por pessoa"}`
+      : "Pagamento combinado pela equipe no WhatsApp.");
+  } else {
+    linhas.push(`Sinal para confirmar (30%): ${BRL(Math.round(total * 0.3))} via Pix`);
+    linhas.push("O restante (70%) é pago no dia do passeio.");
+  }
   linhas.push(
     "",
     `Nome: ${dados.nome}`,
@@ -1494,18 +1485,16 @@ function mostrarConfirmacao(dados) {
         ${p.horarioCombinado ? `
         <div class="linha"><span>Data preferida</span><b class="num">${esc(dataBR(reserva.data))}</b></div>
         <div class="linha"><span>Horário</span><b>combinado pelo WhatsApp</b></div>
-        <div class="linha"><span>Voos</span><b class="num">${inteiroSeguro(reserva.pax)}</b></div>
-        ${dados.peso ? `<div class="linha"><span>Peso informado</span><b class="num">${esc(dados.peso)} kg</b></div>` : ""}
         ` : `
         <div class="linha"><span>Data e horário</span><b class="num">${esc(dataBR(reserva.data))} · ${esc(horaLabel(reserva.hora))}</b></div>
         <div class="linha"><span>Saída efetiva</span><b class="num">${esc(saidaLabel(reserva.hora))}</b></div>
-        <div class="linha"><span>Pessoas</span><b class="num">${g.criancas ? esc(g.pagantes + " pagam + " + g.criancas + (g.criancas === 1 ? " criança" : " crianças")) : inteiroSeguro(g.pessoas)}</b></div>
         `}
+        <div class="linha"><span>Pessoas</span><b class="num">${g.criancas ? esc(g.pagantes + " pagam + " + g.criancas + (g.criancas === 1 ? " criança" : " crianças")) : inteiroSeguro(g.pessoas)}</b></div>
         <div class="linha"><span>Total</span><b class="num">${esc(BRL(total))}</b></div>
         ${voucher ? `<div class="linha linha-ouro"><span>Voucher almoço</span><b class="num">incluso · ${esc(BRL(voucher))}</b></div>` : ""}
       </div>
       <p class="nota">${p.horarioCombinado
-        ? `Data, horário e ponto de encontro do voo são combinados pelo WhatsApp, conforme as condições do tempo.`
+        ? `Data, horário e ponto de encontro são combinados pela equipe pelo WhatsApp.`
         : `Ponto de encontro: ${esc(CFG.pontoEncontro)}. Chegue 15 minutos antes, com protetor solar, água e calçado fechado.`}</p>
       <a class="btn btn-primario btn-largo" id="btnAbrirWA" href="${esc(hrefSeguro)}" target="_blank" rel="noopener">
         Reabrir o WhatsApp com o pedido
@@ -1623,8 +1612,7 @@ function ligarReserva() {
 
   $("#fPax").addEventListener("change", ev => {
     const n = Number(ev.target.value) || 1;
-    if (planoPor(reserva.plano).horarioCombinado) reserva.pax = n;
-    else reserva.adultos = n;
+    reserva.adultos = n;
     const g = grupoDaReserva();
     reserva.pax = g.pessoas;
     const box = $("#idadesCriancas");
@@ -1675,8 +1663,7 @@ function ligarReserva() {
       nome: $("#fNome").value.trim(),
       tel: $("#fTel").value.trim(),
       email: $("#fEmail").value.trim(),
-      obs: $("#fObs").value.trim(),
-      peso: $("#fPeso") ? $("#fPeso").value.trim() : ""
+      obs: $("#fObs").value.trim()
     };
     reserva.comoConheceu = $("#fComoConheceu") ? $("#fComoConheceu").value : "";
     reserva.instagramCliente = $("#fInstagram") ? $("#fInstagram").value.trim().replace(/^@+/, "") : "";
@@ -1688,8 +1675,8 @@ function ligarReserva() {
     const abaWA = window.open("", "_blank");
 
     const planoAtual = planoPor(reserva.plano);
-    // Parapente (soWhatsApp): sem horário nem vaga para confirmar com o servidor — não faz sentido
-    // chamar o Turnstile nem /api/reservas. Vai direto para o WhatsApp, com o mesmo esquema de aba.
+    // Plano soWhatsApp (hoje: City tour Paraty): sem horário nem vaga para confirmar com o servidor —
+    // não faz sentido chamar o Turnstile nem /api/reservas. Vai direto para o WhatsApp, com o mesmo esquema de aba.
     if (planoAtual.soWhatsApp) {
       const dados = Object.assign({ codigo: codigoReserva() }, dadosForm);
       dados.waHref = linkWA(mensagemWhatsApp(dados));
@@ -2047,7 +2034,7 @@ function cenaCamera(tipo) {
    relativa e recorte (a classe .media do site já dá isso) — por isso o HTML
    daqui não traz wrapper próprio, só as imagens e os controles.
    ========================================================================== */
-const FOTOS_RESPONSIVAS = {"/assets/costa-trindade.jpg":{"src":"/assets/costa-trindade-720.webp","srcset":"/assets/costa-trindade-480.webp 480w, /assets/costa-trindade-720.webp 720w","width":720,"height":896},"/assets/og-v2.jpg":{"src":"/assets/og-v2-1200.webp","srcset":"/assets/og-v2-480.webp 480w, /assets/og-v2-800.webp 800w, /assets/og-v2-1200.webp 1200w","width":1200,"height":630},"/assets/piscina-v2.jpg":{"src":"/assets/piscina-v2-1155.webp","srcset":"/assets/piscina-v2-480.webp 480w, /assets/piscina-v2-800.webp 800w, /assets/piscina-v2-1155.webp 1155w","width":1155,"height":768},"/assets/pousada-madeira-1.jpg":{"src":"/assets/pousada-madeira-1-720.webp","srcset":"/assets/pousada-madeira-1-480.webp 480w, /assets/pousada-madeira-1-720.webp 720w","width":720,"height":704},"/assets/pousada-madeira-2.jpg":{"src":"/assets/pousada-madeira-2-720.webp","srcset":"/assets/pousada-madeira-2-480.webp 480w, /assets/pousada-madeira-2-720.webp 720w","width":720,"height":880},"/assets/pousada-madeira-3.jpg":{"src":"/assets/pousada-madeira-3-720.webp","srcset":"/assets/pousada-madeira-3-480.webp 480w, /assets/pousada-madeira-3-720.webp 720w","width":720,"height":529},"/assets/pousada-madeira-4.jpg":{"src":"/assets/pousada-madeira-4-720.webp","srcset":"/assets/pousada-madeira-4-480.webp 480w, /assets/pousada-madeira-4-720.webp 720w","width":720,"height":918},"/assets/praia-v2.jpg":{"src":"/assets/praia-v2-712.webp","srcset":"/assets/praia-v2-480.webp 480w, /assets/praia-v2-712.webp 712w","width":712,"height":473},"/assets/restaurante-hymbe-1.jpg":{"src":"/assets/restaurante-hymbe-1-720.webp","srcset":"/assets/restaurante-hymbe-1-480.webp 480w, /assets/restaurante-hymbe-1-720.webp 720w","width":720,"height":1192},"/assets/restaurante-hymbe-2.jpg":{"src":"/assets/restaurante-hymbe-2-720.webp","srcset":"/assets/restaurante-hymbe-2-480.webp 480w, /assets/restaurante-hymbe-2-720.webp 720w","width":720,"height":440},"/assets/restaurante-hymbe-3.jpg":{"src":"/assets/restaurante-hymbe-3-720.webp","srcset":"/assets/restaurante-hymbe-3-480.webp 480w, /assets/restaurante-hymbe-3-720.webp 720w","width":720,"height":968},"/assets/restaurante-hymbe-4.jpg":{"src":"/assets/restaurante-hymbe-4-720.webp","srcset":"/assets/restaurante-hymbe-4-480.webp 480w, /assets/restaurante-hymbe-4-720.webp 720w","width":720,"height":512},"/assets/restaurante-hymbe-5.jpg":{"src":"/assets/restaurante-hymbe-5-720.webp","srcset":"/assets/restaurante-hymbe-5-480.webp 480w, /assets/restaurante-hymbe-5-720.webp 720w","width":720,"height":472},"/assets/trilha-v2.jpg":{"src":"/assets/trilha-v2-1024.webp","srcset":"/assets/trilha-v2-480.webp 480w, /assets/trilha-v2-800.webp 800w, /assets/trilha-v2-1024.webp 1024w","width":1024,"height":768},"/assets/vista-trindade-1.jpg":{"src":"/assets/vista-trindade-1-720.webp","srcset":"/assets/vista-trindade-1-480.webp 480w, /assets/vista-trindade-1-720.webp 720w","width":720,"height":1301},"/assets/vista-trindade-2.jpg":{"src":"/assets/vista-trindade-2-720.webp","srcset":"/assets/vista-trindade-2-480.webp 480w, /assets/vista-trindade-2-720.webp 720w","width":720,"height":1072},"/assets/vista-trindade-3.jpg":{"src":"/assets/vista-trindade-3-720.webp","srcset":"/assets/vista-trindade-3-480.webp 480w, /assets/vista-trindade-3-720.webp 720w","width":720,"height":1253},"/assets/vista-trindade-4.jpg":{"src":"/assets/vista-trindade-4-720.webp","srcset":"/assets/vista-trindade-4-480.webp 480w, /assets/vista-trindade-4-720.webp 720w","width":720,"height":1256}};
+const FOTOS_RESPONSIVAS = {"/assets/costa-trindade.jpg":{"src":"/assets/costa-trindade-720.webp","srcset":"/assets/costa-trindade-480.webp 480w, /assets/costa-trindade-720.webp 720w","width":720,"height":896},"/assets/og-v2.jpg":{"src":"/assets/og-v2-1200.webp","srcset":"/assets/og-v2-480.webp 480w, /assets/og-v2-800.webp 800w, /assets/og-v2-1200.webp 1200w","width":1200,"height":630},"/assets/piscina-v2.jpg":{"src":"/assets/piscina-v2-1155.webp","srcset":"/assets/piscina-v2-480.webp 480w, /assets/piscina-v2-800.webp 800w, /assets/piscina-v2-1155.webp 1155w","width":1155,"height":768},"/assets/praia-v2.jpg":{"src":"/assets/praia-v2-712.webp","srcset":"/assets/praia-v2-480.webp 480w, /assets/praia-v2-712.webp 712w","width":712,"height":473},"/assets/restaurante-hymbe-1.jpg":{"src":"/assets/restaurante-hymbe-1-720.webp","srcset":"/assets/restaurante-hymbe-1-480.webp 480w, /assets/restaurante-hymbe-1-720.webp 720w","width":720,"height":1192},"/assets/restaurante-hymbe-2.jpg":{"src":"/assets/restaurante-hymbe-2-720.webp","srcset":"/assets/restaurante-hymbe-2-480.webp 480w, /assets/restaurante-hymbe-2-720.webp 720w","width":720,"height":440},"/assets/restaurante-hymbe-3.jpg":{"src":"/assets/restaurante-hymbe-3-720.webp","srcset":"/assets/restaurante-hymbe-3-480.webp 480w, /assets/restaurante-hymbe-3-720.webp 720w","width":720,"height":968},"/assets/restaurante-hymbe-4.jpg":{"src":"/assets/restaurante-hymbe-4-720.webp","srcset":"/assets/restaurante-hymbe-4-480.webp 480w, /assets/restaurante-hymbe-4-720.webp 720w","width":720,"height":512},"/assets/restaurante-hymbe-5.jpg":{"src":"/assets/restaurante-hymbe-5-720.webp","srcset":"/assets/restaurante-hymbe-5-480.webp 480w, /assets/restaurante-hymbe-5-720.webp 720w","width":720,"height":472},"/assets/trilha-v2.jpg":{"src":"/assets/trilha-v2-1024.webp","srcset":"/assets/trilha-v2-480.webp 480w, /assets/trilha-v2-800.webp 800w, /assets/trilha-v2-1024.webp 1024w","width":1024,"height":768},"/assets/vista-trindade-1.jpg":{"src":"/assets/vista-trindade-1-720.webp","srcset":"/assets/vista-trindade-1-480.webp 480w, /assets/vista-trindade-1-720.webp 720w","width":720,"height":1301},"/assets/vista-trindade-2.jpg":{"src":"/assets/vista-trindade-2-720.webp","srcset":"/assets/vista-trindade-2-480.webp 480w, /assets/vista-trindade-2-720.webp 720w","width":720,"height":1072},"/assets/vista-trindade-3.jpg":{"src":"/assets/vista-trindade-3-720.webp","srcset":"/assets/vista-trindade-3-480.webp 480w, /assets/vista-trindade-3-720.webp 720w","width":720,"height":1253},"/assets/vista-trindade-4.jpg":{"src":"/assets/vista-trindade-4-720.webp","srcset":"/assets/vista-trindade-4-480.webp 480w, /assets/vista-trindade-4-720.webp 720w","width":720,"height":1256}};
 function miniGaleriaHTML(fotos) {
   if (!fotos || !fotos.length) return "";
   const imgs = fotos.map((f, i) =>
@@ -2141,16 +2128,36 @@ function mostrarDadosDaEmpresa() {
   alvo.hidden = !partes.length;
 }
 
-/* Pousadas: "Direto com a pousada" só pode aparecer quando o botão de fato
-   fala com a pousada (link com data-wa-numero, o WhatsApp dela). Sem isso, o
-   link cai no WhatsApp da Trindade Adventure e o texto precisa dizer isso. */
-function ajustarCanaisDeContato(raiz) {
-  $$("[data-canal-contato]", raiz || document).forEach(rotulo => {
-    const cartao = rotulo.closest(".parceira");
-    const link = cartao && cartao.querySelector("a[data-wa]");
-    if (!link) return;
-    const direto = !!link.dataset.waNumero && link.dataset.waNumero !== CFG.whatsapp;
-    rotulo.textContent = direto ? "Direto com a pousada" : "Atendimento pela Trindade Adventure";
+/* ------------------------------ trilho de passeios (home) ------------------------------
+   "Escolha o passeio" rola na horizontal sozinho (scroll-snap nativo); os
+   botões aqui só são um atalho de teclado/mouse por cima disso — por isso
+   ficam escondidos sem JS (CSS: .js .trilho-nav) e nunca travam o toque. */
+function ligarTrilhoPasseios() {
+  $$(".trilho-passeios").forEach(caixa => {
+    const trilho = $(".tours-agenda", caixa);
+    const prev = $("[data-trilho-prev]", caixa);
+    const next = $("[data-trilho-next]", caixa);
+    if (!trilho || !prev || !next) return;
+    // Checagem direta do matchMedia, além do data-motion (que já reflete o
+    // mesmo sinal): a rolagem do clique nos botões vira instantânea com
+    // "reduce", não só mais rápida.
+    const reduzido = matchMedia("(prefers-reduced-motion: reduce)");
+    const comportamento = () => (reduzido.matches || document.documentElement.getAttribute("data-motion") === "paused" ? "auto" : "smooth");
+    const passo = () => {
+      const cartao = $(".tour", trilho);
+      return cartao ? cartao.getBoundingClientRect().width + 20 : trilho.clientWidth * 0.9;
+    };
+    const atualizar = () => {
+      const fimDaRolagem = trilho.scrollWidth - trilho.clientWidth;
+      prev.disabled = trilho.scrollLeft <= 1;
+      next.disabled = fimDaRolagem <= 1 || trilho.scrollLeft >= fimDaRolagem - 1;
+    };
+    prev.addEventListener("click", () => trilho.scrollBy({ left: -passo(), behavior: comportamento() }));
+    next.addEventListener("click", () => trilho.scrollBy({ left: passo(), behavior: comportamento() }));
+    trilho.addEventListener("scroll", () => requestAnimationFrame(atualizar), { passive: true });
+    window.addEventListener("resize", atualizar);
+    window.addEventListener("trindade:route", () => setTimeout(atualizar, 60));
+    atualizar();
   });
 }
 
@@ -2159,23 +2166,12 @@ function iniciar() {
   migrarEnderecoAntigo();
   ligarMenu();
   ligarLinksWhatsApp();
-  ajustarCanaisDeContato();
   mostrarDadosDaEmpresa();
   pintarFaixasDeHorarios();
   $("#ano").textContent = String(new Date().getFullYear());
 
   // Fotos reais dos parceiros que já enviaram — o resto (ainda sem foto)
   // continua com o espaço reservado ilustrado.
-  const fotoMadeira = $("#fotoMadeira");
-  if (fotoMadeira) {
-    fotoMadeira.innerHTML = miniGaleriaHTML([
-      { src: "/assets/pousada-madeira-1.jpg", alt: "Casa de Madeira Trindade — varanda com rede e quintal" },
-      { src: "/assets/pousada-madeira-2.jpg", alt: "Café da manhã servido na varanda da Casa de Madeira, com vista para o jardim" },
-      { src: "/assets/pousada-madeira-4.jpg", alt: "Varanda da Casa de Madeira com rede e vista para o jardim" },
-      { src: "/assets/pousada-madeira-3.jpg", alt: "Casa de Madeira Trindade iluminada à noite" }
-    ]);
-  }
-
   const fotoRestauranteHymbe = $("#fotoRestauranteHymbe");
   if (fotoRestauranteHymbe) {
     fotoRestauranteHymbe.innerHTML = miniGaleriaHTML([
@@ -2188,6 +2184,7 @@ function iniciar() {
   }
 
   ligarMiniGalerias();
+  ligarTrilhoPasseios();
 
   // Se a detecção automática já sabe que veio do Instagram ou do Google,
   // deixa pré-marcado no formulário — a pessoa só confirma, não escolhe do zero.

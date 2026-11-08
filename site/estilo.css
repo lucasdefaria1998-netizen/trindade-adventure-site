@@ -196,7 +196,13 @@ html:not(.js) #climaBar{display:none}
   :root{--tabbar-h:65px}
   body{padding-bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom))}
   html{scroll-padding-bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 12px)}
-  .tabbar{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;bottom:0;left:0;right:0;z-index:30;
+  /* 07/11/2026 (correção): tabbar nasceu com 5 abas (Início/Passeios/Reservar/
+     Pousadas/Contato — ver 9b7c731). A remoção pública de Pousadas (c17312a)
+     apagou o <a>, deixando só 4, mas o grid continuava reservando 5 colunas —
+     a 5ª ficava vazia e as 4 abas reais ficavam espremidas à esquerda, com um
+     vão morto à direita. Trocado para repeat(4,1fr), igual ao número real de
+     links no HTML (confirmado por grep antes de editar). */
+  .tabbar{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;bottom:0;left:0;right:0;z-index:30;
     background:var(--bg);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
   /* Texto inativo em --ink-2 (era --muted, 3,96:1 sobre o vidro da barra): >= 4,5:1 nos dois temas. */
   .tabbar a{display:flex;flex-direction:column;align-items:center;gap:3px;min-height:52px;justify-content:center;border-radius:14px;font-size:12px;font-weight:500;color:var(--ink-2);text-decoration:none}
@@ -218,15 +224,30 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 .pagina-cabeca-linha{display:flex;justify-content:space-between;align-items:flex-end;gap:16px 32px;flex-wrap:wrap;max-width:none}
 
 /* ---------- abertura ---------- */
-.hero{position:relative;isolation:isolate;display:flex;align-items:flex-end;min-height:clamp(540px,74svh,680px);
+.hero{position:relative;isolation:isolate;display:flex;align-items:flex-end;min-height:clamp(560px,76svh,720px);
   padding:clamp(24px,5vw,64px);border-radius:28px;overflow:hidden;background:#07332c;color:#fff}
 .hero-foto{position:absolute;inset:0;z-index:-2}
 .hero-foto img{width:100%;height:100%;object-fit:cover;object-position:center 82%}
+/* 07/11/2026: overlay mais concentrado atrás do título (pedido do Lucas,
+   comparando com a referência "Visit Indonesia") — o topo da foto continua
+   claro, mas a faixa onde o texto fica ganhou bem mais contraste. */
 .hero::after{content:"";position:absolute;inset:0;z-index:-1;
-  background:linear-gradient(90deg,rgb(3 28 22 / .9) 0%,rgb(3 28 22 / .6) 42%,rgb(3 28 22 / .08) 78%),linear-gradient(0deg,rgb(3 28 22 / .55),transparent 55%)}
-.hero-texto{max-width:640px}
-.hero-titulo{font-size:clamp(42px,6.2vw,82px);font-weight:500;letter-spacing:-.045em;line-height:1.02}
-.hero-titulo .hero-linha{display:block;overflow:hidden;padding-bottom:.08em;margin-bottom:-.08em}
+  background:linear-gradient(90deg,rgb(3 28 22 / .92) 0%,rgb(3 28 22 / .64) 42%,rgb(3 28 22 / .1) 80%),linear-gradient(0deg,rgb(3 28 22 / .88) 0%,rgb(3 28 22 / .5) 34%,transparent 64%)}
+.hero-texto{max-width:660px}
+.hero-titulo{font-size:clamp(44px,7vw,94px);font-weight:700;letter-spacing:-.05em;line-height:1.05}
+/* 07/11/2026 (correção): overflow:hidden existia só para a wrapper poder
+   esconder o <span> enquanto ele deslizava de baixo (ver "subir" mais
+   abaixo). Essa wrapper assume 1 linha por .hero-linha, mas "saindo de
+   Trindade." estoura a largura do hero-texto e quebra em 2 linhas dentro
+   do mesmo span — com overflow:hidden e um line-height apertado (.98),
+   parte da 2ª linha ("Trindade") ficava cortada mesmo fora de qualquer
+   animação, inclusive com fonte de fallback (métricas diferentes da
+   Archivo) antes da fonte carregar. Trocado para overflow:visible (nunca
+   recorta, não depende de a quebra ficar em 1 ou 2 linhas) e line-height
+   1.05 (folga quando o texto quebra, sem as duas linhas do bloco colarem
+   uma na outra). padding-bottom/margin-bottom removidos: existiam para
+   compensar descendentes cortados pela wrapper que não existe mais. */
+.hero-titulo .hero-linha{display:block}
 .hero-titulo .hero-linha>span{display:block}
 .hero-titulo em{font-style:normal;color:var(--lima)}
 .hero-lede{margin-top:20px;max-width:46ch;font-size:clamp(16px,1.35vw,18px);line-height:1.65;color:rgb(255 255 255 / .88)}
@@ -240,7 +261,7 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
   /* capa vertical (mirante): no celular a foto ocupa só a parte de cima, recortada no mar e na praia, e some no verde do fundo */
   .hero-foto img{height:46%;object-position:center 88%;-webkit-mask-image:linear-gradient(#000 72%,transparent);mask-image:linear-gradient(#000 72%,transparent)}
   .hero::after{background:linear-gradient(0deg,rgb(3 28 22 / .95) 0%,rgb(3 28 22 / .82) 52%,rgb(3 28 22 / .15) 100%)}
-  .hero-titulo{font-size:clamp(38px,11vw,52px)}
+  .hero-titulo{font-size:clamp(38px,11vw,58px)}
   .hero-lede{margin-top:14px;font-size:15.5px}
   .hero-acoes{margin-top:22px}
   .hero-acoes .btn{flex:1 1 auto}
@@ -250,8 +271,31 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 
 /* ---------- catálogo de passeios ---------- */
 .tours{display:grid;gap:20px}
-.tours-agenda{grid-template-columns:repeat(3,minmax(0,1fr))}
 .tours-consulta{grid-template-columns:repeat(4,minmax(0,1fr))}
+
+/* Trilho horizontal (07/11/2026): "Escolha o passeio" virou faixa fotográfica
+   com scroll nativo em vez de grade de 3 colunas — pedido de redesign do
+   Lucas. Mantém os mesmos .tour/.tour-media/.tour-corpo/.tour-acoes de
+   sempre; só o contêiner e a largura de cada cartão mudam. */
+.trilho-passeios{position:relative;display:flex;align-items:center;gap:8px}
+.tours-agenda{display:flex;grid-template-columns:none;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-inline:contain;
+  scroll-snap-type:x proximity;scroll-padding-inline:var(--gutter);scrollbar-width:thin;
+  margin:0 calc(-1 * var(--gutter));padding:14px var(--gutter) 20px;gap:20px;min-width:0}
+.tours-agenda .tour{flex:0 0 min(78vw,300px);scroll-snap-align:start;position:relative;
+  box-shadow:0 14px 32px -24px rgb(6 42 22 / .35)}
+/* Cartão mais vertical/fotográfico (antes 4/3, como na referência de
+   destinos): a foto ganha presença, preço/inclusos/CTA continuam visíveis
+   embaixo — nunca só no hover. */
+.tours-agenda .tour-media{aspect-ratio:3/4}
+@media(min-width:601px){.tours-agenda .tour{flex-basis:min(42vw,320px)}}
+@media(min-width:1000px){.tours-agenda .tour{flex-basis:320px}}
+.trilho-nav{display:none;flex:0 0 auto;width:44px;height:44px;border-radius:50%;place-items:center;border:1px solid var(--line-2);
+  background:var(--surface);color:var(--ink);cursor:pointer;z-index:1;transition:transform .2s,box-shadow .2s,opacity .2s}
+.trilho-nav .ico{width:18px;height:18px}
+.trilho-prev .ico{transform:scaleX(-1)}
+.trilho-nav:disabled{opacity:.35;cursor:default}
+.js .trilho-nav{display:grid}
+@media(max-width:640px){.trilho-nav{display:none!important}}
 .tours-consulta-cabeca{display:flex;align-items:baseline;gap:6px 14px;flex-wrap:wrap;margin:48px 0 18px;padding-top:28px;border-top:1px solid var(--line)}
 .tours-consulta-cabeca h3{font-size:20px;letter-spacing:-.02em}
 .tours-consulta-cabeca p{color:var(--muted);font-size:15px}
@@ -290,7 +334,7 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 .cta-final-acoes{display:flex;flex-wrap:wrap;gap:10px}
 .cta-final-acoes .btn{width:auto}
 
-/* Links para as páginas próprias (Pousadas, Praias e lugares, História, Pescaria…), no lugar das
+/* Links para as páginas próprias (Praias e lugares, História, Pescaria…), no lugar das
    seções longas que a home nova não repete mais. */
 .links-home{display:flex;flex-wrap:wrap;gap:10px 24px}
 
@@ -311,16 +355,26 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
   html[data-motion="running"] .tour:hover{transform:translateY(-4px);box-shadow:var(--sombra)}
   html[data-motion="running"] .tour:hover .tour-media img{transform:scale(1.04)}
 }
-@media(max-width:1100px){.tours-consulta{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:900px){
-  .tours-agenda{grid-template-columns:minmax(0,1fr)}
-  .tours-agenda .tour{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr)}
-  .tours-agenda .tour-media{aspect-ratio:auto;min-height:260px}
-  .tours-agenda .tour-media img{position:absolute;inset:0}
+/* Trilho: o cartão inteiro cresce um pouco no hover/foco, em vez de subir —
+   evita que o vizinho pareça cortado numa faixa que rola na horizontal. */
+@media(hover:hover) and (pointer:fine){
+  html[data-motion="running"] .tours-agenda .tour{transition:transform .35s var(--ease),box-shadow .35s var(--ease)}
+  html[data-motion="running"] .tours-agenda .tour:hover,
+  html[data-motion="running"] .tours-agenda .tour:focus-within{transform:scale(1.035);box-shadow:var(--sombra);z-index:2}
+  html[data-motion="running"] .tours-agenda .tour:hover .tour-media img,
+  html[data-motion="running"] .tours-agenda .tour:focus-within .tour-media img{transform:none}
 }
+.tours-agenda .tour:focus-within{z-index:2}
+/* Reforço direto (além do data-motion/transition-duration globais já
+   existentes mais abaixo no arquivo): aqui a escala do cartão e a rolagem
+   suave do trilho são removidas de propósito, não só aceleradas — pedido
+   explícito de revisão, para não depender só de zerar a duração. */
+@media(prefers-reduced-motion:reduce){
+  .tours-agenda .tour,.tours-agenda .tour:hover,.tours-agenda .tour:focus-within{transform:none!important}
+  .tours-agenda{scroll-behavior:auto!important}
+}
+@media(max-width:1100px){.tours-consulta{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){
-  .tours-agenda .tour{display:flex}
-  .tours-agenda .tour-media{aspect-ratio:4/3;min-height:0}
   .tours-consulta{grid-template-columns:minmax(0,1fr)}
   .tour-corpo{padding:20px}
   .tour-compacto .tour-media{aspect-ratio:2/1}
@@ -378,25 +432,6 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
   .lugares-fotos{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;margin:0 calc(-1 * var(--gutter)) 12px;padding:0 var(--gutter) 8px;scroll-padding-inline:var(--gutter)}
   .lugares-fotos img{flex:0 0 72%;aspect-ratio:4/5;scroll-snap-align:start}
 }
-
-/* ---------- pousadas ---------- */
-.pousadas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
-.parceira{display:flex;flex-direction:column;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden}
-.parceira .thumb{aspect-ratio:16/10}
-.parceira-corpo{display:flex;flex-direction:column;gap:10px;flex:1;padding:22px 24px 24px}
-.parceira-tags{display:flex;gap:6px;flex-wrap:wrap}
-.parceira h3{font-size:21px}
-.parceira-local{font-size:14px;color:var(--muted)}
-.parceira-corpo>p:not(.parceira-local){font-size:15px;color:var(--ink-2)}
-.comodidades{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0}
-.comodidades li{padding:3px 10px;border-radius:999px;background:var(--surface-2);font-size:13px;color:var(--ink-2)}
-.parceira-rodape{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:auto;padding-top:16px;border-top:1px solid var(--line)}
-.parceira-rodape b{font-size:16px}
-.parceira-rodape span{display:block;font-size:13.5px;color:var(--muted)}
-.parceira-acoes{display:flex;gap:8px}
-@media(max-width:800px){.pousadas{grid-template-columns:minmax(0,1fr)}}
-/* 26/10/2026: com uma parceira só, o card fica centralizado no desktop (no mobile nada muda) */
-@media(min-width:801px){.pousadas:has(> .parceira:only-child){grid-template-columns:minmax(0,520px);justify-content:center}}
 
 /* mini-galeria de fotos dos parceiros */
 .media{position:relative;overflow:hidden;background:var(--surface-2)}
@@ -820,15 +855,26 @@ html.menu-aberto{overflow:hidden}
 [data-revelar]{transition:opacity .7s var(--ease),transform .8s var(--ease);transition-delay:var(--atraso,0ms)}
 html[data-motion="running"] .revelar{opacity:0;transform:translateY(18px)}
 
-@keyframes subir{from{transform:translateY(105%)}to{transform:none}}
+/* 07/11/2026 (correção 2): título, descrição e ações do hero deixaram de
+   ter animação de entrada. Pedido explícito: esses três elementos têm que
+   estar plenamente visíveis — sem clipping, sem opacity:0 — desde o
+   PRIMEIRO quadro, não só "depois de assentar". O "subir" (slide por
+   .hero-linha, usava translateY percentual) e o "surgir" aplicado a
+   .hero-lede/.hero-acoes (fade por opacity) eram a única fonte de estado
+   inicial invisível/recortado para esses elementos; sem eles, a regra
+   base (sem animation, sem opacity/transform declarados) é o único
+   estado que existe — visível no 1º quadro em qualquer condição (JS
+   ligado, pausado, reduced-motion ou sem JS), sem precisar checar
+   data-motion. @keyframes subir removido por ficar sem nenhum outro
+   consumidor (único uso era aqui). O resto do site (.hero-foto, .secao,
+   menu, galeria) mantém as mesmas animações de sempre — nada mudou nelas. */
 @keyframes surgir{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 @keyframes assentar{from{transform:scale(1.06)}to{transform:none}}
 @keyframes chegar{from{opacity:.4;transform:translateY(8px)}to{opacity:1;transform:none}}
 @keyframes descer{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
-html[data-motion="running"] .hero-titulo .hero-linha>span{animation:subir .95s var(--ease) both}
-html[data-motion="running"] .hero-titulo .hero-linha+.hero-linha>span{animation-delay:.08s}
-html[data-motion="running"] .hero-lede{animation:surgir .8s var(--ease) .18s both}
-html[data-motion="running"] .hero-acoes{animation:surgir .8s var(--ease) .26s both}
+/* .hero-fatos não existe mais no HTML desta página — regra mantida sem
+   alteração (fora do escopo autorizado desta correção, que é só título/
+   lede/ações) só não some do arquivo por não ter sido pedido remover. */
 html[data-motion="running"] .hero-fatos{animation:surgir .8s var(--ease) .34s both}
 html[data-motion="running"] .hero-foto img{animation:assentar 1.6s var(--ease) both}
 html[data-motion="running"] .secao:not([hidden]){animation:chegar .45s var(--ease)}
@@ -899,7 +945,7 @@ html[data-motion="paused"] *,html[data-motion="paused"] *::before,html[data-moti
   .menu-fundo{-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
 
   /* cartões e caixas */
-  .caixa,.tour,.parceira,.consulta,.restaurante,.roteiro-resumo,.roteiro-dia,.passo,.resumo,.cam,.mapa,
+  .caixa,.tour,.consulta,.restaurante,.roteiro-resumo,.roteiro-dia,.passo,.resumo,.cam,.mapa,
   .fishing-gallery,.peixe-card,.historia-capa,.historia-galeria figure{
     background:var(--vidro);border-color:var(--vidro-borda);box-shadow:var(--vidro-brilho),var(--vidro-sombra);
     -webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur)}
@@ -917,11 +963,12 @@ html[data-motion="paused"] *,html[data-motion="paused"] *::before,html[data-moti
   .parada figcaption,.consulta-fotos figcaption,.mg-cont,.fg-counter,.fg-expand,.fg-arrow{
     background:rgb(6 30 20 / .5);border:1px solid var(--vidro-claro-borda);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
   .mg-nav{background:rgb(251 249 243 / .7);border:1px solid rgb(255 255 255 / .7);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+  .trilho-nav{background:var(--vidro-forte);border-color:var(--vidro-borda);box-shadow:var(--vidro-brilho);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur)}
 
   /* abertura: os números viram uma placa de vidro sobre a foto */
   .hero-fatos{padding:18px 22px;border:1px solid var(--vidro-claro-borda);border-radius:var(--r);background:var(--vidro-claro);
     box-shadow:inset 0 1px 0 rgb(255 255 255 / .18);-webkit-backdrop-filter:blur(14px) saturate(140%);backdrop-filter:blur(14px) saturate(140%)}
-  .btn-contorno-claro{background:var(--vidro-claro);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+  .btn-contorno-claro{background:var(--vidro-claro);box-shadow:inset 0 1px 0 rgb(255 255 255 / .3);-webkit-backdrop-filter:blur(14px) saturate(150%);backdrop-filter:blur(14px) saturate(150%)}
   @media(max-width:720px){.hero-fatos{padding:16px 18px}}
 
   .torrada{background:rgb(18 37 26 / .82);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur)}
@@ -951,6 +998,8 @@ html[data-motion="paused"] *,html[data-motion="paused"] *::before,html[data-moti
   .mg-nav:hover,.fg-arrow:hover{box-shadow:0 6px 18px -6px rgb(0 0 0 / .45)}
   html[data-motion="running"] .mg-nav:hover{transform:translateY(-50%) scale(1.06)}
   html[data-motion="running"] .fg-arrow:hover{transform:scale(1.06)}
+  .trilho-nav:hover:not(:disabled){border-color:var(--accent);box-shadow:0 6px 18px -8px rgb(6 42 22 / .4)}
+  html[data-motion="running"] .trilho-nav:hover:not(:disabled){transform:scale(1.06)}
 
   .plano-opcao:hover,.data-btn:hover,.hslot:hover:not(:disabled){box-shadow:var(--vidro-brilho),0 8px 20px -14px rgb(6 42 22 / .5)}
   html[data-motion="running"] .data-btn:hover,html[data-motion="running"] .hslot:hover:not(:disabled){transform:translateY(-2px)}
@@ -961,17 +1010,15 @@ html[data-motion="paused"] *,html[data-motion="paused"] *::before,html[data-moti
 :root[data-theme="dark"] .btn-claro:hover{box-shadow:0 10px 26px -14px rgb(213 239 173 / .5)}
 
 
-/* Voo de parapente (produção 20261021) */
-.parapente-capa{min-width:0;margin:0;border-radius:var(--r-lg);overflow:hidden;background:var(--surface-2)}
-.parapente-capa img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
-.incluso.incluso-uma{grid-template-columns:minmax(0,1fr)}
-.parapente-galeria{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.parapente-galeria figure{position:relative;margin:0;overflow:hidden;border-radius:var(--r);background:var(--surface-2)}
-.parapente-galeria .h{grid-column:span 2;aspect-ratio:16/9}
-.parapente-galeria .v{grid-row:span 2}
-.parapente-galeria img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-.parapente-cta{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;margin-top:var(--espaco-bloco)}
-.parapente-cta p{font-size:17px;color:var(--ink-2)}
-.parapente-cta .btn{width:auto}
-@media(max-width:900px){.parapente-galeria{grid-template-columns:repeat(2,minmax(0,1fr))}.parapente-galeria .v{grid-row:auto;aspect-ratio:9/16}}
+/* City tour Paraty (produção 05/11/2026, antes "Voo de parapente") */
+.city-tour-capa{min-width:0;margin:0;border-radius:var(--r-lg);overflow:hidden;background:var(--surface-2)}
+.city-tour-capa img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover}
+.city-tour-galeria{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.city-tour-galeria figure{position:relative;margin:0;overflow:hidden;border-radius:var(--r);background:var(--surface-2)}
+.city-tour-galeria .h{grid-column:span 2;aspect-ratio:16/9}
+.city-tour-galeria img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.city-tour-cta{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;margin-top:var(--espaco-bloco)}
+.city-tour-cta p{font-size:17px;color:var(--ink-2)}
+.city-tour-cta .btn{width:auto}
+@media(max-width:900px){.city-tour-galeria{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
