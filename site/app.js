@@ -2212,6 +2212,34 @@ function ligarGaleriasCards() {
   });
 }
 
+// Fileira de cartões da home (fase C, 09/11/2026): no desktop os cartões ficam numa fileira com
+// rolagem horizontal e um indicador fino embaixo. O indicador só aparece quando a fileira passa
+// da largura da tela; no celular os cartões ficam empilhados (o swipe é só das fotos).
+function ligarFileiraPasseios() {
+  $$("[data-fileira]").forEach(fileira => {
+    if (fileira.dataset.fileiraLigada) return;
+    const ind = fileira.parentElement && $(".fileira-indicador", fileira.parentElement);
+    const barra = ind && $("span", ind);
+    if (!ind || !barra) return;
+    fileira.dataset.fileiraLigada = "1";
+    let agendado = 0;
+    const desenhar = () => {
+      agendado = 0;
+      const total = fileira.scrollWidth, visivel = fileira.clientWidth;
+      const rola = total - visivel > 2 && getComputedStyle(fileira).overflowX !== "visible";
+      ind.classList.toggle("ativo", rola);
+      if (!rola) return;
+      const fr = visivel / total;
+      barra.style.width = (fr * 100).toFixed(2) + "%";
+      barra.style.transform = "translateX(" + ((fileira.scrollLeft / (total - visivel)) * (1 / fr - 1) * 100).toFixed(2) + "%)";
+    };
+    const pedir = () => { if (!agendado) agendado = requestAnimationFrame(desenhar); };
+    fileira.addEventListener("scroll", pedir, { passive: true });
+    addEventListener("resize", pedir, { passive: true });
+    pedir();
+  });
+}
+
 function iniciar() {
   // Link antigo (#/passeios?plano=boat) vira o endereço novo antes de tudo.
   migrarEnderecoAntigo();
@@ -2237,7 +2265,8 @@ function iniciar() {
   ligarMiniGalerias();
   ligarTrilhoPasseios();
   ligarGaleriasCards();
-  window.addEventListener("trindade:route", () => setTimeout(ligarGaleriasCards, 60));
+  ligarFileiraPasseios();
+  window.addEventListener("trindade:route", () => setTimeout(() => { ligarGaleriasCards(); ligarFileiraPasseios(); }, 60));
 
   // Se a detecção automática já sabe que veio do Instagram ou do Google,
   // deixa pré-marcado no formulário — a pessoa só confirma, não escolhe do zero.

@@ -6,8 +6,7 @@
 <title>Trindade Adventure | Experiências em Trindade, Paraty</title>
 <meta name="description" content="Descubra passeios, trilhas, praias e hospedagens em Trindade, Paraty — RJ. Veja roteiros, preços e horários e reserve sua experiência com a Trindade Adventure.">
 <link rel="canonical" href="https://trindadeadventury.com.br/">
-<meta name="theme-color" content="#F5F1E8" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#14211B" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#0F1613">
 <!-- Sitekey PÚBLICA do Turnstile (desafio anti-robô da reserva). O valor abaixo é a chave de teste da Cloudflare;
      em produção o _worker.js troca pelo env.TURNSTILE_SITEKEY do projeto. -->
 <meta name="turnstile-sitekey" content="1x00000000000000000000AA">
@@ -219,8 +218,10 @@
      na fonte do sistema, com métricas parecidas. -->
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap"></noscript>
-<link rel="stylesheet" href="/estilo.css?v=20261109-galeria3">
-<link rel="preload" as="image" href="/assets/capa-mirante-baia-800.webp" imagesrcset="/assets/capa-mirante-baia-480.webp 480w, /assets/capa-mirante-baia-800.webp 800w, /assets/capa-mirante-baia-1200.webp 1200w" imagesizes="(max-width: 720px) 100vw, 1240px" fetchpriority="high">
+<link rel="stylesheet" href="/estilo.css?v=20261109-cine4">
+<link rel="preload" as="image" href="/assets/hero-piscina-natural-retrato-480.webp" imagesrcset="/assets/hero-piscina-natural-retrato-480.webp 480w, /assets/hero-piscina-natural-retrato-560.webp 560w" imagesizes="100vw" media="(max-width: 640px)" fetchpriority="high">
+<link rel="preload" as="image" href="/assets/hero-piscina-natural-960.webp" imagesrcset="/assets/hero-piscina-natural-640.webp 640w, /assets/hero-piscina-natural-960.webp 960w, /assets/hero-piscina-natural-1155.webp 1155w" imagesizes="100vw" media="(min-width: 641px)" fetchpriority="high">
+<link rel="preload" as="font" type="font/woff2" href="/assets/fontes/oswald-600-latin-pt.woff2" crossorigin>
 
 <!-- Dados estruturados (schema.org) para o Google: quem é a empresa, onde fica
      o ponto de encontro e o preço de cada roteiro com agenda. Só entra aqui o
@@ -389,18 +390,26 @@
 
 <!-- ======================= INÍCIO ======================= -->
 <section class="secao" id="inicio" data-secao="inicio">
+  <!-- 09/11/2026 (fase C): abertura em tela cheia pedida pelo Lucas (referência "Discover Japan").
+       Foto enviada por ele; o lugar não foi confirmado, então o alt não cita nome. -->
   <div class="hero">
-    <figure class="hero-foto">
-      <img src="/assets/capa-mirante-baia-800.webp" srcset="/assets/capa-mirante-baia-480.webp 480w, /assets/capa-mirante-baia-800.webp 800w, /assets/capa-mirante-baia-1200.webp 1200w" sizes="(max-width: 720px) 100vw, 1240px" width="1200" height="1600" alt="Vista da baía de Trindade a partir de um mirante, com o mar, a praia e os morros cobertos de mata, sob uma folha seca de palmeira" fetchpriority="high" decoding="async">
-    </figure>
+    <picture class="hero-foto">
+      <source media="(max-width: 640px)" srcset="/assets/hero-piscina-natural-retrato-480.webp 480w, /assets/hero-piscina-natural-retrato-560.webp 560w" sizes="100vw" width="560" height="768">
+      <img src="/assets/hero-piscina-natural-960.webp" srcset="/assets/hero-piscina-natural-640.webp 640w, /assets/hero-piscina-natural-960.webp 960w, /assets/hero-piscina-natural-1155.webp 1155w" sizes="100vw" width="1155" height="768" alt="Piscina natural de água verde e calma entre grandes pedras, com mata na margem e céu claro" fetchpriority="high" decoding="async">
+    </picture>
     <div class="hero-texto">
-      <h1 data-titulo class="hero-titulo" aria-label="Passeios saindo de Trindade, de hora em hora, a partir de R$ 80."><span class="hero-linha" aria-hidden="true"><span>Passeios</span></span><span class="hero-linha" aria-hidden="true"><span>saindo de <em>Trindade.</em></span></span></h1>
+      <h1 data-titulo class="hero-titulo"><span class="hero-pre">Passeios saindo de</span> <span class="hero-grande">Trindade<span class="sr">,</span></span> <span class="hero-grande">Paraty</span></h1>
       <p class="hero-lede">Trilha até a Piscina Natural do Cachadaço e passeio de barco pela costa — de hora em hora, a partir de R$ 80. Encontro na Praia do Meio.</p>
       <div class="hero-acoes">
         <a class="btn btn-claro" href="/reservar">Reservar meu passeio</a>
         <a class="btn btn-contorno-claro" href="https://wa.me/5524992073621" data-wa="Olá! Vim pelo site da Trindade Adventure e quero informações sobre os passeios. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Tirar dúvida no WhatsApp</a>
       </div>
     </div>
+    <ul class="hero-colunas">
+      <li><p class="hero-coluna-titulo">Quem leva você</p><p>Guias locais — quem realmente conhece e ama esse lugar.</p><a class="link-seta" href="/historia">Ver mais<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a></li>
+      <li><p class="hero-coluna-titulo">Como funciona</p><p>Escolha o passeio e o horário no site.</p><a class="link-seta" href="/reservar">Ver mais<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a></li>
+      <li><p class="hero-coluna-titulo">Ponto de encontro</p><p>Praia do Meio — placa das trilhas.</p><a class="link-seta" href="https://www.google.com/maps/search/?api=1&amp;query=-23.35356,-44.72641" target="_blank" rel="noopener">Ver mais<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a></li>
+    </ul>
   </div>
 
   <!-- ======================= CARTÕES (home nova) =======================
@@ -416,11 +425,11 @@
        no estilo.css e ligarGaleriasCards() no app.js). Os selos saem de
        dentro de cada cartão e viram uma linha única abaixo da grade. -->
   <section class="bloco" id="mais-procurados" aria-labelledby="titulo-mais-procurados">
-    <header class="cabeca">
+    <header class="cabeca cabeca-centro">
+      <p class="cabeca-sobre">Preço, duração e o que está incluso — sem letra miúda.</p>
       <h2 id="titulo-mais-procurados">Escolha o passeio</h2>
-      <p>Preço, duração e o que está incluso — sem letra miúda.</p>
     </header>
-    <div class="grade-passeios">
+    <div class="grade-passeios" data-fileira>
       <article class="card-passeio" id="card-essencial">
         <div class="galeria" data-galeria>
           <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos do Trindade Essencial">
@@ -539,6 +548,7 @@
         </div>
       </article>
     </div>
+    <div class="fileira-indicador" aria-hidden="true"><span></span></div>
     <ul class="selos-passeio">
       <li><svg class="ico" aria-hidden="true"><use href="#i-selo-guia"/></svg><span>Guia local</span></li>
       <li><svg class="ico" aria-hidden="true"><use href="#i-selo-seguranca"/></svg><span>Orientações de segurança</span></li>
@@ -583,6 +593,27 @@
       <h2 id="titulo-quem-guia">Quem leva você</h2>
       <p>Guias locais — quem realmente conhece e ama esse lugar.</p>
     </header>
+  </section>
+
+  <!-- 09/11/2026 (fase C): fundo com o centro histórico de Paraty à noite (Wikimedia, créditos visíveis). -->
+  <section class="bloco noite-paraty" aria-labelledby="titulo-noite-paraty">
+    <img class="noite-fundo" src="/assets/paraty-noite-rua-casario-960.webp" srcset="/assets/paraty-noite-rua-casario-480.webp 480w, /assets/paraty-noite-rua-casario-960.webp 960w, /assets/paraty-noite-rua-casario-1280.webp 1280w" sizes="100vw" width="1280" height="859" alt="Centro histórico de Paraty à noite: rua de pedra com o casario colonial iluminado" loading="lazy" decoding="async">
+    <div class="noite-conteudo">
+      <div class="noite-texto">
+        <h2 id="titulo-noite-paraty">City tour Paraty</h2>
+        <p>Tour pelos museus e por todo o centro histórico de Paraty.</p>
+        <p class="noite-preco"><b>R$ 200</b> por pessoa · data e horário combinados pelo WhatsApp</p>
+        <div class="noite-acoes">
+          <a class="btn btn-claro" href="/reservar?plano=city-tour-paraty">Reservar</a>
+          <a class="btn btn-contorno-claro" href="https://wa.me/5524992073621" data-wa="Olá! Quero agendar o City tour Paraty (R$ 200). Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Agendar no WhatsApp</a>
+        </div>
+      </div>
+      <div class="noite-miniaturas">
+        <a href="/city-tour-paraty"><img src="/assets/paraty-noite-igreja-matriz-480.webp" srcset="/assets/paraty-noite-igreja-matriz-480.webp 480w, /assets/paraty-noite-igreja-matriz-960.webp 960w" sizes="(max-width: 640px) 44vw, 260px" width="960" height="644" alt="Centro histórico de Paraty à noite: a Igreja Matriz iluminada, refletida na água" loading="lazy" decoding="async"></a>
+        <a href="/city-tour-paraty"><img src="/assets/paraty-noite-igreja-santa-rita-480.webp" srcset="/assets/paraty-noite-igreja-santa-rita-480.webp 480w, /assets/paraty-noite-igreja-santa-rita-960.webp 960w" sizes="(max-width: 640px) 44vw, 260px" width="960" height="693" alt="Centro histórico de Paraty à noite: fachada iluminada da Igreja de Santa Rita" loading="lazy" decoding="async"></a>
+      </div>
+    </div>
+    <p class="noite-credito">Fotos: Leandro Neumann Ciuffo (Wikimedia Commons, CC BY 2.0) — <a href="/creditos-das-fotos">créditos completos</a>.</p>
   </section>
 
   <section class="bloco" aria-labelledby="titulo-cta-final">
@@ -1673,7 +1704,7 @@
 
 <!-- Leaflet é servido pelo próprio site e só carrega quando o mapa se aproxima
      da tela. Se ainda assim faltar, o app.js mostra a lista de pontos. -->
-<script src="/app.js?v=20261109-galeria1" defer></script>
+<script src="/app.js?v=20261109-cine1" defer></script>
 <script src="/motion.js?v=20261020-s15" defer></script>
 <script src="/pescaria-galeria.js?v=20261005-rotas" defer></script>
 </body>
