@@ -71,3 +71,8 @@ Fonte: Wikimedia Commons (páginas verificadas via API em 05/11/2026). Todas as 
 ## Onde o crédito aparece no site
 - Legenda discreta (`.nota-rodape`) na página `/city-tour-paraty`, abaixo da galeria de fotos.
 - Lista completa, com autor/licença/link de cada foto, na página pública `/creditos-das-fotos`.
+
+## Pacote 09/11/2026 — centro histórico à noite (pedido do Lucas)
+Ver a tabela "Fotos do centro histórico de Paraty à noite" em `CREDITOS-FOTOS.md` (raiz). Três fotos de Leandro Neumann
+Ciuffo, CC BY 2.0 (sem share-alike): `paraty-noite-rua-casario`, `paraty-noite-igreja-matriz`, `paraty-noite-igreja-santa-rita`.
+Crédito recomendado: "Foto: Leandro Neumann Ciuffo / Wikimedia Commons, CC BY 2.0". Adaptação: só redimensionamento e WebP 480/960/1280.

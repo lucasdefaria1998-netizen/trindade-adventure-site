@@ -2034,7 +2034,7 @@ function cenaCamera(tipo) {
    relativa e recorte (a classe .media do site já dá isso) — por isso o HTML
    daqui não traz wrapper próprio, só as imagens e os controles.
    ========================================================================== */
-const FOTOS_RESPONSIVAS = {"/assets/costa-trindade.jpg":{"src":"/assets/costa-trindade-720.webp","srcset":"/assets/costa-trindade-480.webp 480w, /assets/costa-trindade-720.webp 720w","width":720,"height":896},"/assets/og-v2.jpg":{"src":"/assets/og-v2-1200.webp","srcset":"/assets/og-v2-480.webp 480w, /assets/og-v2-800.webp 800w, /assets/og-v2-1200.webp 1200w","width":1200,"height":630},"/assets/piscina-v2.jpg":{"src":"/assets/piscina-v2-1155.webp","srcset":"/assets/piscina-v2-480.webp 480w, /assets/piscina-v2-800.webp 800w, /assets/piscina-v2-1155.webp 1155w","width":1155,"height":768},"/assets/praia-v2.jpg":{"src":"/assets/praia-v2-712.webp","srcset":"/assets/praia-v2-480.webp 480w, /assets/praia-v2-712.webp 712w","width":712,"height":473},"/assets/restaurante-hymbe-1.jpg":{"src":"/assets/restaurante-hymbe-1-720.webp","srcset":"/assets/restaurante-hymbe-1-480.webp 480w, /assets/restaurante-hymbe-1-720.webp 720w","width":720,"height":1192},"/assets/restaurante-hymbe-2.jpg":{"src":"/assets/restaurante-hymbe-2-720.webp","srcset":"/assets/restaurante-hymbe-2-480.webp 480w, /assets/restaurante-hymbe-2-720.webp 720w","width":720,"height":440},"/assets/restaurante-hymbe-3.jpg":{"src":"/assets/restaurante-hymbe-3-720.webp","srcset":"/assets/restaurante-hymbe-3-480.webp 480w, /assets/restaurante-hymbe-3-720.webp 720w","width":720,"height":968},"/assets/restaurante-hymbe-4.jpg":{"src":"/assets/restaurante-hymbe-4-720.webp","srcset":"/assets/restaurante-hymbe-4-480.webp 480w, /assets/restaurante-hymbe-4-720.webp 720w","width":720,"height":512},"/assets/restaurante-hymbe-5.jpg":{"src":"/assets/restaurante-hymbe-5-720.webp","srcset":"/assets/restaurante-hymbe-5-480.webp 480w, /assets/restaurante-hymbe-5-720.webp 720w","width":720,"height":472},"/assets/trilha-v2.jpg":{"src":"/assets/trilha-v2-1024.webp","srcset":"/assets/trilha-v2-480.webp 480w, /assets/trilha-v2-800.webp 800w, /assets/trilha-v2-1024.webp 1024w","width":1024,"height":768},"/assets/vista-trindade-1.jpg":{"src":"/assets/vista-trindade-1-720.webp","srcset":"/assets/vista-trindade-1-480.webp 480w, /assets/vista-trindade-1-720.webp 720w","width":720,"height":1301},"/assets/vista-trindade-2.jpg":{"src":"/assets/vista-trindade-2-720.webp","srcset":"/assets/vista-trindade-2-480.webp 480w, /assets/vista-trindade-2-720.webp 720w","width":720,"height":1072},"/assets/vista-trindade-3.jpg":{"src":"/assets/vista-trindade-3-720.webp","srcset":"/assets/vista-trindade-3-480.webp 480w, /assets/vista-trindade-3-720.webp 720w","width":720,"height":1253},"/assets/vista-trindade-4.jpg":{"src":"/assets/vista-trindade-4-720.webp","srcset":"/assets/vista-trindade-4-480.webp 480w, /assets/vista-trindade-4-720.webp 720w","width":720,"height":1256}};
+const FOTOS_RESPONSIVAS = {"/assets/costa-trindade.jpg":{"src":"/assets/costa-trindade-720.webp","srcset":"/assets/costa-trindade-480.webp 480w, /assets/costa-trindade-720.webp 720w","width":720,"height":896},"/assets/og-v2.jpg":{"src":"/assets/og-v2-1200.webp","srcset":"/assets/og-v2-480.webp 480w, /assets/og-v2-800.webp 800w, /assets/og-v2-1200.webp 1200w","width":1200,"height":630},"/assets/piscina-v2.jpg":{"src":"/assets/piscina-v2-1155.webp","srcset":"/assets/piscina-v2-480.webp 480w, /assets/piscina-v2-800.webp 800w, /assets/piscina-v2-1155.webp 1155w","width":1155,"height":768},"/assets/praia-v2.jpg":{"src":"/assets/praia-v2-712.webp","srcset":"/assets/praia-v2-480.webp 480w, /assets/praia-v2-712.webp 712w","width":712,"height":473},"/assets/restaurante-hymbe-1-recorte.jpg":{"src":"/assets/restaurante-hymbe-1-recorte-720.webp","srcset":"/assets/restaurante-hymbe-1-recorte-480.webp 480w, /assets/restaurante-hymbe-1-recorte-720.webp 720w","width":720,"height":955},"/assets/restaurante-hymbe-2-recorte.jpg":{"src":"/assets/restaurante-hymbe-2-recorte-600.webp","srcset":"/assets/restaurante-hymbe-2-recorte-480.webp 480w, /assets/restaurante-hymbe-2-recorte-600.webp 600w","width":600,"height":440},"/assets/restaurante-hymbe-3-recorte.jpg":{"src":"/assets/restaurante-hymbe-3-recorte-720.webp","srcset":"/assets/restaurante-hymbe-3-recorte-480.webp 480w, /assets/restaurante-hymbe-3-recorte-720.webp 720w","width":720,"height":893},"/assets/restaurante-hymbe-4-recorte.jpg":{"src":"/assets/restaurante-hymbe-4-recorte-625.webp","srcset":"/assets/restaurante-hymbe-4-recorte-480.webp 480w, /assets/restaurante-hymbe-4-recorte-625.webp 625w","width":625,"height":512},"/assets/restaurante-hymbe-5-recorte.jpg":{"src":"/assets/restaurante-hymbe-5-recorte-605.webp","srcset":"/assets/restaurante-hymbe-5-recorte-480.webp 480w, /assets/restaurante-hymbe-5-recorte-605.webp 605w","width":605,"height":472},"/assets/trilha-v2.jpg":{"src":"/assets/trilha-v2-1024.webp","srcset":"/assets/trilha-v2-480.webp 480w, /assets/trilha-v2-800.webp 800w, /assets/trilha-v2-1024.webp 1024w","width":1024,"height":768},"/assets/vista-trindade-1.jpg":{"src":"/assets/vista-trindade-1-720.webp","srcset":"/assets/vista-trindade-1-480.webp 480w, /assets/vista-trindade-1-720.webp 720w","width":720,"height":1301},"/assets/vista-trindade-2.jpg":{"src":"/assets/vista-trindade-2-720.webp","srcset":"/assets/vista-trindade-2-480.webp 480w, /assets/vista-trindade-2-720.webp 720w","width":720,"height":1072},"/assets/vista-trindade-3.jpg":{"src":"/assets/vista-trindade-3-720.webp","srcset":"/assets/vista-trindade-3-480.webp 480w, /assets/vista-trindade-3-720.webp 720w","width":720,"height":1253},"/assets/vista-trindade-4.jpg":{"src":"/assets/vista-trindade-4-720.webp","srcset":"/assets/vista-trindade-4-480.webp 480w, /assets/vista-trindade-4-720.webp 720w","width":720,"height":1256}};
 function miniGaleriaHTML(fotos) {
   if (!fotos || !fotos.length) return "";
   const imgs = fotos.map((f, i) =>
@@ -2161,6 +2161,85 @@ function ligarTrilhoPasseios() {
   });
 }
 
+/* ------------------------------ galeria dos cartões de passeio ------------------------------
+   Cada .card-passeio/.galeria tem seu próprio trilho de fotos, independente do
+   resto da página: scroll-snap nativo (funciona sem JS), setas 44×44 no
+   desktop (só aparecem no hover/foco; no toque ficam sempre visíveis pela
+   regra `html:not(.js) .galeria-seta` do estilo.css — como há JS, essa regra
+   não entra, e as setas seguem o hover/focus-within do CSS), bolinhas +
+   contador "1 / N" abaixo da foto e teclado ←/→ com o trilho focado. Sem
+   autoplay, sem loop, sem clone. Cartão com 1 foto só não tem setas nem
+   indicador no HTML — nada para ligar aqui. */
+function ligarGaleriasCards() {
+  $$("[data-galeria]").forEach(gal => {
+    if (gal.dataset.galeriaLigada) return;
+    const trilho = $(".galeria-trilho", gal);
+    const slides = trilho ? $$(".galeria-slide", trilho) : [];
+    const ant = $("[data-galeria-ant]", gal);
+    const prox = $("[data-galeria-prox]", gal);
+    if (!trilho || !ant || !prox || slides.length < 2) return;
+    gal.dataset.galeriaLigada = "1";
+
+    const ind = gal.nextElementSibling;
+    const indicador = ind && ind.classList.contains("galeria-indicador") ? ind : null;
+    const pontos = indicador ? $$(".galeria-pontos i", indicador) : [];
+    const atualEl = indicador ? $("[data-galeria-atual]", indicador) : null;
+    const reduzido = () => matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      document.documentElement.getAttribute("data-motion") === "paused";
+    let atual = 0;
+
+    const marcar = i => {
+      atual = i;
+      pontos.forEach((p, k) => p.classList.toggle("ativo", k === i));
+      if (atualEl) atualEl.textContent = String(i + 1);
+      ant.disabled = i === 0;
+      prox.disabled = i === slides.length - 1;
+    };
+    const ir = i => trilho.scrollTo({ left: slides[i].offsetLeft, behavior: reduzido() ? "auto" : "smooth" });
+
+    const io = new IntersectionObserver(entradas => entradas.forEach(e => {
+      if (e.isIntersecting) marcar(slides.indexOf(e.target));
+    }), { root: trilho, threshold: 0.6 });
+    slides.forEach(s => io.observe(s));
+
+    ant.addEventListener("click", () => atual > 0 && ir(atual - 1));
+    prox.addEventListener("click", () => atual < slides.length - 1 && ir(atual + 1));
+    trilho.addEventListener("keydown", e => {
+      if (e.key === "ArrowRight") { e.preventDefault(); prox.click(); }
+      if (e.key === "ArrowLeft") { e.preventDefault(); ant.click(); }
+    });
+    marcar(0);
+  });
+}
+
+// Fileira de cartões da home (fase C, 09/11/2026): no desktop os cartões ficam numa fileira com
+// rolagem horizontal e um indicador fino embaixo. O indicador só aparece quando a fileira passa
+// da largura da tela; no celular os cartões ficam empilhados (o swipe é só das fotos).
+function ligarFileiraPasseios() {
+  $$("[data-fileira]").forEach(fileira => {
+    if (fileira.dataset.fileiraLigada) return;
+    const ind = fileira.parentElement && $(".fileira-indicador", fileira.parentElement);
+    const barra = ind && $("span", ind);
+    if (!ind || !barra) return;
+    fileira.dataset.fileiraLigada = "1";
+    let agendado = 0;
+    const desenhar = () => {
+      agendado = 0;
+      const total = fileira.scrollWidth, visivel = fileira.clientWidth;
+      const rola = total - visivel > 2 && getComputedStyle(fileira).overflowX !== "visible";
+      ind.classList.toggle("ativo", rola);
+      if (!rola) return;
+      const fr = visivel / total;
+      barra.style.width = (fr * 100).toFixed(2) + "%";
+      barra.style.transform = "translateX(" + ((fileira.scrollLeft / (total - visivel)) * (1 / fr - 1) * 100).toFixed(2) + "%)";
+    };
+    const pedir = () => { if (!agendado) agendado = requestAnimationFrame(desenhar); };
+    fileira.addEventListener("scroll", pedir, { passive: true });
+    addEventListener("resize", pedir, { passive: true });
+    pedir();
+  });
+}
+
 function iniciar() {
   // Link antigo (#/passeios?plano=boat) vira o endereço novo antes de tudo.
   migrarEnderecoAntigo();
@@ -2175,16 +2254,19 @@ function iniciar() {
   const fotoRestauranteHymbe = $("#fotoRestauranteHymbe");
   if (fotoRestauranteHymbe) {
     fotoRestauranteHymbe.innerHTML = miniGaleriaHTML([
-      { src: "/assets/restaurante-hymbe-2.jpg", alt: "Espreguiçadeiras do restaurante Hymbé na areia da praia" },
-      { src: "/assets/restaurante-hymbe-5.jpg", alt: "Deck do restaurante Hymbé ao entardecer" },
-      { src: "/assets/restaurante-hymbe-4.jpg", alt: "Placa de boas-vindas do restaurante Hymbé" },
-      { src: "/assets/restaurante-hymbe-1.jpg", alt: "Guarda-sóis do restaurante Hymbé na praia" },
-      { src: "/assets/restaurante-hymbe-3.jpg", alt: "Vista aérea da praia em frente ao restaurante Hymbé" }
+      { src: "/assets/restaurante-hymbe-2-recorte.jpg", alt: "Espreguiçadeiras do restaurante Hymbé na areia da praia" },
+      { src: "/assets/restaurante-hymbe-5-recorte.jpg", alt: "Deck do restaurante Hymbé ao entardecer" },
+      { src: "/assets/restaurante-hymbe-4-recorte.jpg", alt: "Placa de boas-vindas do restaurante Hymbé" },
+      { src: "/assets/restaurante-hymbe-1-recorte.jpg", alt: "Guarda-sóis do restaurante Hymbé na praia" },
+      { src: "/assets/restaurante-hymbe-3-recorte.jpg", alt: "Vista aérea da praia em frente ao restaurante Hymbé" }
     ]);
   }
 
   ligarMiniGalerias();
   ligarTrilhoPasseios();
+  ligarGaleriasCards();
+  ligarFileiraPasseios();
+  window.addEventListener("trindade:route", () => setTimeout(() => { ligarGaleriasCards(); ligarFileiraPasseios(); }, 60));
 
   // Se a detecção automática já sabe que veio do Instagram ou do Google,
   // deixa pré-marcado no formulário — a pessoa só confirma, não escolhe do zero.

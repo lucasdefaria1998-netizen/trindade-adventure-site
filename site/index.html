@@ -6,8 +6,7 @@
 <title>Trindade Adventure | Experiências em Trindade, Paraty</title>
 <meta name="description" content="Descubra passeios, trilhas, praias e hospedagens em Trindade, Paraty — RJ. Veja roteiros, preços e horários e reserve sua experiência com a Trindade Adventure.">
 <link rel="canonical" href="https://trindadeadventury.com.br/">
-<meta name="theme-color" content="#0d6b38" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#08150e" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#0F1613">
 <!-- Sitekey PÚBLICA do Turnstile (desafio anti-robô da reserva). O valor abaixo é a chave de teste da Cloudflare;
      em produção o _worker.js troca pelo env.TURNSTILE_SITEKEY do projeto. -->
 <meta name="turnstile-sitekey" content="1x00000000000000000000AA">
@@ -219,8 +218,10 @@
      na fonte do sistema, com métricas parecidas. -->
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap"></noscript>
-<link rel="stylesheet" href="/estilo.css?v=20261107-tabbar5">
-<link rel="preload" as="image" href="/assets/capa-mirante-baia-800.webp" imagesrcset="/assets/capa-mirante-baia-480.webp 480w, /assets/capa-mirante-baia-800.webp 800w, /assets/capa-mirante-baia-1200.webp 1200w" imagesizes="(max-width: 720px) 100vw, 1240px" fetchpriority="high">
+<link rel="stylesheet" href="/estilo.css?v=20261109-cine4">
+<link rel="preload" as="image" href="/assets/hero-piscina-natural-retrato-480.webp" imagesrcset="/assets/hero-piscina-natural-retrato-480.webp 480w, /assets/hero-piscina-natural-retrato-560.webp 560w" imagesizes="100vw" media="(max-width: 640px)" fetchpriority="high">
+<link rel="preload" as="image" href="/assets/hero-piscina-natural-960.webp" imagesrcset="/assets/hero-piscina-natural-640.webp 640w, /assets/hero-piscina-natural-960.webp 960w, /assets/hero-piscina-natural-1155.webp 1155w" imagesizes="100vw" media="(min-width: 641px)" fetchpriority="high">
+<link rel="preload" as="font" type="font/woff2" href="/assets/fontes/oswald-600-latin-pt.woff2" crossorigin>
 
 <!-- Dados estruturados (schema.org) para o Google: quem é a empresa, onde fica
      o ponto de encontro e o preço de cada roteiro com agenda. Só entra aqui o
@@ -389,18 +390,26 @@
 
 <!-- ======================= INÍCIO ======================= -->
 <section class="secao" id="inicio" data-secao="inicio">
+  <!-- 09/11/2026 (fase C): abertura em tela cheia pedida pelo Lucas (referência "Discover Japan").
+       Foto enviada por ele; o lugar não foi confirmado, então o alt não cita nome. -->
   <div class="hero">
-    <figure class="hero-foto">
-      <img src="/assets/capa-mirante-baia-800.webp" srcset="/assets/capa-mirante-baia-480.webp 480w, /assets/capa-mirante-baia-800.webp 800w, /assets/capa-mirante-baia-1200.webp 1200w" sizes="(max-width: 720px) 100vw, 1240px" width="1200" height="1600" alt="Vista da baía de Trindade a partir de um mirante, com o mar, a praia e os morros cobertos de mata, sob uma folha seca de palmeira" fetchpriority="high" decoding="async">
-    </figure>
+    <picture class="hero-foto">
+      <source media="(max-width: 640px)" srcset="/assets/hero-piscina-natural-retrato-480.webp 480w, /assets/hero-piscina-natural-retrato-560.webp 560w" sizes="100vw" width="560" height="768">
+      <img src="/assets/hero-piscina-natural-960.webp" srcset="/assets/hero-piscina-natural-640.webp 640w, /assets/hero-piscina-natural-960.webp 960w, /assets/hero-piscina-natural-1155.webp 1155w" sizes="100vw" width="1155" height="768" alt="Piscina natural de água verde e calma entre grandes pedras, com mata na margem e céu claro" fetchpriority="high" decoding="async">
+    </picture>
     <div class="hero-texto">
-      <h1 data-titulo class="hero-titulo" aria-label="Passeios saindo de Trindade, de hora em hora, a partir de R$ 80."><span class="hero-linha" aria-hidden="true"><span>Passeios</span></span><span class="hero-linha" aria-hidden="true"><span>saindo de <em>Trindade.</em></span></span></h1>
+      <h1 data-titulo class="hero-titulo"><span class="hero-pre">Passeios saindo de</span> <span class="hero-grande">Trindade<span class="sr">,</span></span> <span class="hero-grande">Paraty</span></h1>
       <p class="hero-lede">Trilha até a Piscina Natural do Cachadaço e passeio de barco pela costa — de hora em hora, a partir de R$ 80. Encontro na Praia do Meio.</p>
       <div class="hero-acoes">
         <a class="btn btn-claro" href="/reservar">Reservar meu passeio</a>
         <a class="btn btn-contorno-claro" href="https://wa.me/5524992073621" data-wa="Olá! Vim pelo site da Trindade Adventure e quero informações sobre os passeios. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Tirar dúvida no WhatsApp</a>
       </div>
     </div>
+    <ul class="hero-colunas">
+      <li><p class="hero-coluna-titulo">Quem leva você</p><p>Guias locais — quem realmente conhece e ama esse lugar.</p><a class="link-seta" href="/historia">Ver mais<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a></li>
+      <li><p class="hero-coluna-titulo">Como funciona</p><p>Escolha o passeio e o horário no site.</p><a class="link-seta" href="/reservar">Ver mais<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a></li>
+      <li><p class="hero-coluna-titulo">Ponto de encontro</p><p>Praia do Meio — placa das trilhas.</p><a class="link-seta" href="https://www.google.com/maps/search/?api=1&amp;query=-23.35356,-44.72641" target="_blank" rel="noopener">Ver mais<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a></li>
+    </ul>
   </div>
 
   <!-- ======================= CARTÕES (home nova) =======================
@@ -410,92 +419,142 @@
        dois juntos se algo mudar.
        05/11/2026: pousadas e voo de parapente saíram do site (pedido do
        cliente). O City tour Paraty entrou como cartão em /passeios, no mesmo
-       padrão que o parapente usava — sem cartão nem capa na home. -->
+       padrão que o parapente usava — sem cartão nem capa na home.
+       09/11/2026: trilho horizontal trocado por grade com destaque (direção
+       do Silvio) e cada cartão ganhou uma galeria de fotos (ver galeria-*
+       no estilo.css e ligarGaleriasCards() no app.js). Os selos saem de
+       dentro de cada cartão e viram uma linha única abaixo da grade. -->
   <section class="bloco" id="mais-procurados" aria-labelledby="titulo-mais-procurados">
-    <header class="cabeca">
+    <header class="cabeca cabeca-centro">
+      <p class="cabeca-sobre">Preço, duração e o que está incluso — sem letra miúda.</p>
       <h2 id="titulo-mais-procurados">Escolha o passeio</h2>
-      <p>Preço, duração e o que está incluso — sem letra miúda.</p>
     </header>
-    <div class="trilho-passeios">
-      <button type="button" class="trilho-nav trilho-prev" data-trilho-prev aria-label="Ver passeio anterior" aria-controls="trilho-mais-procurados" disabled><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
-      <div class="tours tours-agenda" id="trilho-mais-procurados">
-      <article class="tour" data-revelar>
-        <div class="tour-media"><img src="/assets/foto-piscina-cachadaco-recorte-495.webp" srcset="/assets/foto-piscina-cachadaco-recorte-495.webp 495w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 300px" width="495" height="484" alt="Piscina Natural do Cachadaço, em Trindade: água verde e transparente entre pedras" loading="lazy" decoding="async"></div>
-        <div class="tour-corpo">
+    <div class="grade-passeios" data-fileira>
+      <article class="card-passeio" id="card-essencial">
+        <div class="galeria" data-galeria>
+          <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos do Trindade Essencial">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 3">
+              <img src="/assets/foto-piscina-cachadaco-recorte-495.webp" srcset="/assets/foto-piscina-cachadaco-recorte-495.webp 495w" sizes="(max-width:640px) calc(100vw - 32px), (max-width:1023px) 100vw, 339px" width="495" height="484" alt="Piscina Natural do Cachadaço, em Trindade: água verde e transparente entre pedras" loading="lazy" decoding="async">
+            </figure>
+            <!-- FOTO PROVISÓRIA (teste) -->
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 3">
+              <img src="/assets/provisoria-lucas-08-480.webp" srcset="/assets/provisoria-lucas-08-480.webp 480w, /assets/provisoria-lucas-08-499.webp 499w" sizes="(max-width:640px) calc(100vw - 32px), (max-width:1023px) 100vw, 339px" width="499" height="614" alt="Piscina natural de água clara entre as pedras, com o mar ao fundo" loading="lazy" decoding="async">
+            </figure>
+            <!-- FOTO PROVISÓRIA (teste) -->
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 3">
+              <img src="/assets/provisoria-lucas-06-480.webp" srcset="/assets/provisoria-lucas-06-480.webp 480w, /assets/provisoria-lucas-06-495.webp 495w" sizes="(max-width:640px) calc(100vw - 32px), (max-width:1023px) 100vw, 339px" width="495" height="619" alt="Pessoas em uma piscina natural de água transparente entre pedras avermelhadas" loading="lazy" decoding="async">
+            </figure>
+          </div>
+          <button type="button" class="galeria-seta galeria-ant" data-galeria-ant aria-label="Foto anterior" disabled><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+          <button type="button" class="galeria-seta galeria-prox" data-galeria-prox aria-label="Próxima foto"><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+        </div>
+        <div class="galeria-indicador" aria-hidden="true">
+          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i></span>
+          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 3</span>
+        </div>
+        <div class="card-corpo">
           <h3>Trindade Essencial</h3>
-          <p class="tour-preco"><b>R$ 80</b><span>por pessoa</span></p>
-          <p class="tour-meta"><svg class="ico" aria-hidden="true"><use href="#i-relogio"/></svg>≈ 3h</p>
-          <ul class="lista-check tour-inclusos">
-            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Guia local</li>
-            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Trilha até a Piscina Natural do Cachadaço</li>
-            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Água mineral durante o passeio</li>
+          <p class="card-preco"><b>R$ 80</b><span>por pessoa</span><span class="card-duracao">≈ 3h</span></p>
+          <ul class="lista-check card-inclusos">
+            <li>Guia local</li>
+            <li>Trilha até a Piscina Natural do Cachadaço</li>
+            <li>Água mineral durante o passeio</li>
           </ul>
-          <p class="tour-garantia">Cancelamento gratuito até 12 h antes da saída</p>
-          <ul class="selos-passeio">
-            <li><svg class="ico" aria-hidden="true"><use href="#i-selo-guia"/></svg><span>Guia local</span></li>
-            <li><svg class="ico" aria-hidden="true"><use href="#i-selo-seguranca"/></svg><span>Orientações de segurança</span></li>
-            <li data-pagamento="online"><svg class="ico" aria-hidden="true"><use href="#i-selo-pagamento"/></svg><span>Pagamento protegido</span></li>
-            <li><svg class="ico" aria-hidden="true"><use href="#i-selo-reserva"/></svg><span>Reserva digital confirmada</span></li>
-          </ul>
-          <div class="tour-acoes">
+          <p class="card-garantia">Cancelamento gratuito até 12 h antes da saída</p>
+          <div class="card-acoes">
             <a class="btn btn-primario" href="/reservar?plano=essencial">Reservar</a>
-            <a class="btn btn-secundario" href="https://wa.me/5524992073621" data-wa="Olá! Quero reservar o Trindade Essencial. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>WhatsApp</a>
+            <a class="btn btn-wa" href="https://wa.me/5524992073621" data-wa="Olá! Quero reservar o Trindade Essencial. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>WhatsApp</a>
           </div>
         </div>
       </article>
 
-      <article class="tour tour-destaque" data-revelar>
-        <div class="tour-media"><img src="/assets/lugar-praia-meio-480.webp" srcset="/assets/lugar-praia-meio-480.webp 480w, /assets/lugar-praia-meio-960.webp 960w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 300px" width="960" height="636" alt="Praia do Meio, em Trindade, com a ponta de pedras e o morro coberto de mata" loading="lazy" decoding="async"><span class="tag">Mais completo</span></div>
-        <div class="tour-corpo">
+      <article class="card-passeio card-destaque" id="card-adventure">
+        <div class="galeria" data-galeria>
+          <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos do Trindade Adventure">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 4">
+              <img src="/assets/lugar-praia-meio-sem-texto-480.webp" srcset="/assets/lugar-praia-meio-sem-texto-480.webp 480w, /assets/lugar-praia-meio-sem-texto-960.webp 960w" sizes="(max-width:640px) calc(100vw - 32px), (max-width:1023px) 100vw, 474px" width="960" height="636" alt="Praia do Meio, em Trindade, com a ponta de pedras e o morro coberto de mata" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 4">
+              <img src="/assets/restaurante-hymbe-3-recorte-480.webp" srcset="/assets/restaurante-hymbe-3-recorte-480.webp 480w, /assets/restaurante-hymbe-3-recorte-720.webp 720w" sizes="(max-width:640px) calc(100vw - 32px), (max-width:1023px) 100vw, 474px" width="720" height="893" alt="Vista aérea da praia em frente ao restaurante Hymbé" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 4">
+              <img src="/assets/restaurante-hymbe-5-recorte-480.webp" srcset="/assets/restaurante-hymbe-5-recorte-480.webp 480w, /assets/restaurante-hymbe-5-recorte-605.webp 605w" sizes="(max-width:640px) calc(100vw - 32px), (max-width:1023px) 100vw, 474px" width="605" height="472" alt="Deck do restaurante Hymbé ao entardecer" loading="lazy" decoding="async">
+            </figure>
+            <!-- FOTO PROVISÓRIA (teste) -->
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="4 de 4">
+              <img src="/assets/provisoria-lucas-12-480.webp" srcset="/assets/provisoria-lucas-12-480.webp 480w, /assets/provisoria-lucas-12-960.webp 960w" sizes="(max-width:640px) calc(100vw - 32px), (max-width:1023px) 100vw, 474px" width="960" height="552" alt="Praia de areia dourada com grandes pedras arredondadas e mar azul" loading="lazy" decoding="async">
+            </figure>
+          </div>
+          <button type="button" class="galeria-seta galeria-ant" data-galeria-ant aria-label="Foto anterior" disabled><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+          <button type="button" class="galeria-seta galeria-prox" data-galeria-prox aria-label="Próxima foto"><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+        </div>
+        <div class="galeria-indicador" aria-hidden="true">
+          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i><i></i></span>
+          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 4</span>
+        </div>
+        <div class="card-corpo">
+          <p class="card-chamada">Mais completo</p>
           <h3>Trindade Adventure</h3>
-          <p class="tour-preco"><b>R$ 150</b><span>por pessoa</span></p>
-          <p class="tour-meta"><svg class="ico" aria-hidden="true"><use href="#i-relogio"/></svg>≈ 6h</p>
-          <ul class="lista-check tour-inclusos">
-            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Mergulho de snorkel na piscina natural</li>
-            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Cachoeira da Pedra que Engole</li>
-            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Voucher de R$ 60 no almoço</li>
+          <p class="card-preco"><b>R$ 150</b><span>por pessoa</span><span class="card-duracao">≈ 6h</span></p>
+          <ul class="lista-check card-inclusos">
+            <li>Mergulho de snorkel na piscina natural</li>
+            <li>Cachoeira da Pedra que Engole</li>
+            <li>Voucher de R$ 60 no almoço</li>
           </ul>
-          <p class="tour-garantia">Cancelamento gratuito até 12 h antes da saída</p>
-          <ul class="selos-passeio">
-            <li><svg class="ico" aria-hidden="true"><use href="#i-selo-guia"/></svg><span>Guia local</span></li>
-            <li><svg class="ico" aria-hidden="true"><use href="#i-selo-seguranca"/></svg><span>Orientações de segurança</span></li>
-            <li data-pagamento="online"><svg class="ico" aria-hidden="true"><use href="#i-selo-pagamento"/></svg><span>Pagamento protegido</span></li>
-            <li><svg class="ico" aria-hidden="true"><use href="#i-selo-reserva"/></svg><span>Reserva digital confirmada</span></li>
-          </ul>
-          <div class="tour-acoes">
+          <p class="card-garantia">Cancelamento gratuito até 12 h antes da saída</p>
+          <div class="card-acoes">
             <a class="btn btn-primario" href="/reservar?plano=adventure">Reservar</a>
-            <a class="btn btn-secundario" href="https://wa.me/5524992073621" data-wa="Olá! Quero reservar o Trindade Adventure. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>WhatsApp</a>
+            <a class="btn btn-wa" href="https://wa.me/5524992073621" data-wa="Olá! Quero reservar o Trindade Adventure. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>WhatsApp</a>
           </div>
         </div>
       </article>
 
-      <article class="tour" data-revelar>
-        <div class="tour-media"><img src="/assets/foto-praia-galhetas-recorte-480.webp" srcset="/assets/foto-praia-galhetas-recorte-480.webp 480w, /assets/foto-praia-galhetas-recorte-720.webp 720w" sizes="(max-width: 720px) 92vw, (max-width: 1100px) 46vw, 300px" width="720" height="494" alt="Praia das Galhetas, em Trindade: água transparente sobre a areia dourada, com uma grande pedra na beira" loading="lazy" decoding="async"></div>
-        <div class="tour-corpo">
+      <article class="card-passeio" id="card-boat">
+        <div class="galeria" data-galeria>
+          <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos do Trindade Boat">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 4">
+              <img src="/assets/foto-praia-galhetas-recorte-480.webp" srcset="/assets/foto-praia-galhetas-recorte-480.webp 480w, /assets/foto-praia-galhetas-recorte-720.webp 720w" sizes="(max-width:640px) calc(100vw - 32px), (max-width:1023px) 100vw, 339px" width="720" height="494" alt="Praia das Galhetas, em Trindade: água transparente sobre a areia dourada, com uma grande pedra na beira" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 4">
+              <img src="/assets/foto-piscina-galhetas-recorte-410.webp" srcset="/assets/foto-piscina-galhetas-recorte-410.webp 410w" sizes="(max-width:640px) calc(100vw - 32px), (max-width:1023px) 100vw, 339px" width="410" height="231" alt="Piscina natural das Galhetas, em Trindade: pessoas nadando na água transparente entre pedras de granito" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 4">
+              <img src="/assets/restaurante-hymbe-1-recorte-480.webp" srcset="/assets/restaurante-hymbe-1-recorte-480.webp 480w, /assets/restaurante-hymbe-1-recorte-720.webp 720w" sizes="(max-width:640px) calc(100vw - 32px), (max-width:1023px) 100vw, 339px" width="720" height="955" alt="Guarda-sóis do restaurante Hymbé na praia" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="4 de 4">
+              <img src="/assets/restaurante-hymbe-2-recorte-480.webp" srcset="/assets/restaurante-hymbe-2-recorte-480.webp 480w, /assets/restaurante-hymbe-2-recorte-600.webp 600w" sizes="(max-width:640px) calc(100vw - 32px), (max-width:1023px) 100vw, 339px" width="600" height="440" alt="Espreguiçadeiras do restaurante Hymbé na areia da praia" loading="lazy" decoding="async">
+            </figure>
+          </div>
+          <button type="button" class="galeria-seta galeria-ant" data-galeria-ant aria-label="Foto anterior" disabled><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+          <button type="button" class="galeria-seta galeria-prox" data-galeria-prox aria-label="Próxima foto"><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+        </div>
+        <div class="galeria-indicador" aria-hidden="true">
+          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i><i></i></span>
+          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 4</span>
+        </div>
+        <div class="card-corpo">
           <h3>Trindade Boat</h3>
-          <p class="tour-preco"><b>R$ 400</b><span>por pessoa</span></p>
-          <p class="tour-meta"><svg class="ico" aria-hidden="true"><use href="#i-relogio"/></svg>≈ 8h</p>
-          <ul class="lista-check tour-inclusos">
-            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Barco — 5 paradas na costa</li>
-            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Mergulho de snorkel na piscina natural</li>
-            <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Voucher de R$ 60 no almoço</li>
+          <p class="card-preco"><b>R$ 400</b><span>por pessoa</span><span class="card-duracao">≈ 8h</span></p>
+          <ul class="lista-check card-inclusos">
+            <li>Barco — 5 paradas na costa</li>
+            <li>Mergulho de snorkel na piscina natural</li>
+            <li>Voucher de R$ 60 no almoço</li>
           </ul>
-          <p class="tour-garantia">Cancelamento gratuito até 12 h antes da saída</p>
-          <ul class="selos-passeio">
-            <li><svg class="ico" aria-hidden="true"><use href="#i-selo-guia"/></svg><span>Guia local</span></li>
-            <li><svg class="ico" aria-hidden="true"><use href="#i-selo-seguranca"/></svg><span>Orientações de segurança</span></li>
-            <li data-pagamento="online"><svg class="ico" aria-hidden="true"><use href="#i-selo-pagamento"/></svg><span>Pagamento protegido</span></li>
-            <li><svg class="ico" aria-hidden="true"><use href="#i-selo-reserva"/></svg><span>Reserva digital confirmada</span></li>
-          </ul>
-          <div class="tour-acoes">
+          <p class="card-garantia">Cancelamento gratuito até 12 h antes da saída</p>
+          <div class="card-acoes">
             <a class="btn btn-primario" href="/reservar?plano=boat">Reservar</a>
-            <a class="btn btn-secundario" href="https://wa.me/5524992073621" data-wa="Olá! Quero reservar o Trindade Boat. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>WhatsApp</a>
+            <a class="btn btn-wa" href="https://wa.me/5524992073621" data-wa="Olá! Quero reservar o Trindade Boat. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>WhatsApp</a>
           </div>
         </div>
       </article>
-      </div>
-      <button type="button" class="trilho-nav trilho-next" data-trilho-next aria-label="Ver próximo passeio" aria-controls="trilho-mais-procurados"><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
     </div>
+    <div class="fileira-indicador" aria-hidden="true"><span></span></div>
+    <ul class="selos-passeio">
+      <li><svg class="ico" aria-hidden="true"><use href="#i-selo-guia"/></svg><span>Guia local</span></li>
+      <li><svg class="ico" aria-hidden="true"><use href="#i-selo-seguranca"/></svg><span>Orientações de segurança</span></li>
+      <li data-pagamento="online"><svg class="ico" aria-hidden="true"><use href="#i-selo-pagamento"/></svg><span>Pagamento protegido</span></li>
+      <li><svg class="ico" aria-hidden="true"><use href="#i-selo-reserva"/></svg><span>Reserva digital confirmada</span></li>
+    </ul>
   </section>
 
   <section class="bloco" aria-labelledby="titulo-sob-consulta-home">
@@ -513,7 +572,7 @@
     <header class="cabeca">
       <h2 id="titulo-como-funciona">Como funciona</h2>
     </header>
-    <ol class="rota" data-revelar>
+    <ol class="rota">
       <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-relogio"/></svg></span><div><h3>1. Escolha</h3><p>Escolha o passeio e o horário no site.</p></div></li>
       <li data-pagamento="whatsapp"><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-wa"/></svg></span><div><h3>2. Envie o pedido</h3><p>O pedido vai direto para o WhatsApp da equipe.</p></div></li><template data-pagamento="online"><li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-wa"/></svg></span><div><h3>2. Pague por Pix</h3><p>Sinal de 30% (crianças até 12 anos não pagam) ou o valor total, pelo site. O restante é no dia do passeio. Para o mesmo dia, só o valor total.</p></div></li></template>
       <li data-pagamento="whatsapp"><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-check"/></svg></span><div><h3>3. Confirmação</h3><p>A equipe confirma a vaga e pede o sinal de 30% via Pix.</p></div></li><template data-pagamento="online"><li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-check"/></svg></span><div><h3>3. Confirmação</h3><p>O código da reserva sai logo depois do pagamento.</p></div></li></template>
@@ -534,6 +593,27 @@
       <h2 id="titulo-quem-guia">Quem leva você</h2>
       <p>Guias locais — quem realmente conhece e ama esse lugar.</p>
     </header>
+  </section>
+
+  <!-- 09/11/2026 (fase C): fundo com o centro histórico de Paraty à noite (Wikimedia, créditos visíveis). -->
+  <section class="bloco noite-paraty" aria-labelledby="titulo-noite-paraty">
+    <img class="noite-fundo" src="/assets/paraty-noite-rua-casario-960.webp" srcset="/assets/paraty-noite-rua-casario-480.webp 480w, /assets/paraty-noite-rua-casario-960.webp 960w, /assets/paraty-noite-rua-casario-1280.webp 1280w" sizes="100vw" width="1280" height="859" alt="Centro histórico de Paraty à noite: rua de pedra com o casario colonial iluminado" loading="lazy" decoding="async">
+    <div class="noite-conteudo">
+      <div class="noite-texto">
+        <h2 id="titulo-noite-paraty">City tour Paraty</h2>
+        <p>Tour pelos museus e por todo o centro histórico de Paraty.</p>
+        <p class="noite-preco"><b>R$ 200</b> por pessoa · data e horário combinados pelo WhatsApp</p>
+        <div class="noite-acoes">
+          <a class="btn btn-claro" href="/reservar?plano=city-tour-paraty">Reservar</a>
+          <a class="btn btn-contorno-claro" href="https://wa.me/5524992073621" data-wa="Olá! Quero agendar o City tour Paraty (R$ 200). Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Agendar no WhatsApp</a>
+        </div>
+      </div>
+      <div class="noite-miniaturas">
+        <a href="/city-tour-paraty"><img src="/assets/paraty-noite-igreja-matriz-480.webp" srcset="/assets/paraty-noite-igreja-matriz-480.webp 480w, /assets/paraty-noite-igreja-matriz-960.webp 960w" sizes="(max-width: 640px) 44vw, 260px" width="960" height="644" alt="Centro histórico de Paraty à noite: a Igreja Matriz iluminada, refletida na água" loading="lazy" decoding="async"></a>
+        <a href="/city-tour-paraty"><img src="/assets/paraty-noite-igreja-santa-rita-480.webp" srcset="/assets/paraty-noite-igreja-santa-rita-480.webp 480w, /assets/paraty-noite-igreja-santa-rita-960.webp 960w" sizes="(max-width: 640px) 44vw, 260px" width="960" height="693" alt="Centro histórico de Paraty à noite: fachada iluminada da Igreja de Santa Rita" loading="lazy" decoding="async"></a>
+      </div>
+    </div>
+    <p class="noite-credito">Fotos: Leandro Neumann Ciuffo (Wikimedia Commons, CC BY 2.0) — <a href="/creditos-das-fotos">créditos completos</a>.</p>
   </section>
 
   <section class="bloco" aria-labelledby="titulo-cta-final">
@@ -574,7 +654,27 @@
   <div class="painel-roteiro" id="roteiro-essencial" role="tabpanel" aria-labelledby="aba-essencial" tabindex="0">
     <div class="roteiro">
       <div class="roteiro-resumo">
-        <div class="roteiro-foto"><img src="/assets/foto-piscina-cachadaco-recorte-495.webp" srcset="/assets/foto-piscina-cachadaco-recorte-495.webp 495w" sizes="(max-width: 860px) 92vw, 600px" width="495" height="484" alt="Piscina Natural do Cachadaço, em Trindade: água verde e transparente entre pedras" loading="lazy" decoding="async"></div>
+        <div class="galeria" data-galeria>
+          <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos do Trindade Essencial">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 3">
+              <img src="/assets/foto-piscina-cachadaco-recorte-495.webp" srcset="/assets/foto-piscina-cachadaco-recorte-495.webp 495w" sizes="(max-width: 860px) 92vw, 600px" width="495" height="484" alt="Piscina Natural do Cachadaço, em Trindade: água verde e transparente entre pedras" loading="lazy" decoding="async">
+            </figure>
+            <!-- FOTO PROVISÓRIA (teste) -->
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 3">
+              <img src="/assets/provisoria-lucas-08-480.webp" srcset="/assets/provisoria-lucas-08-480.webp 480w, /assets/provisoria-lucas-08-499.webp 499w" sizes="(max-width: 860px) 92vw, 600px" width="499" height="614" alt="Piscina natural de água clara entre as pedras, com o mar ao fundo" loading="lazy" decoding="async">
+            </figure>
+            <!-- FOTO PROVISÓRIA (teste) -->
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 3">
+              <img src="/assets/provisoria-lucas-06-480.webp" srcset="/assets/provisoria-lucas-06-480.webp 480w, /assets/provisoria-lucas-06-495.webp 495w" sizes="(max-width: 860px) 92vw, 600px" width="495" height="619" alt="Pessoas em uma piscina natural de água transparente entre pedras avermelhadas" loading="lazy" decoding="async">
+            </figure>
+          </div>
+          <button type="button" class="galeria-seta galeria-ant" data-galeria-ant aria-label="Foto anterior" disabled><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+          <button type="button" class="galeria-seta galeria-prox" data-galeria-prox aria-label="Próxima foto"><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+        </div>
+        <div class="galeria-indicador" aria-hidden="true">
+          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i></span>
+          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 3</span>
+        </div>
         <div class="roteiro-info">
           <div class="roteiro-titulo"><h2 data-titulo-foco>Trindade Essencial</h2><p class="tour-preco"><b>R$ 80</b><span>por pessoa</span></p></div>
           <p class="roteiro-meta">≈ 3h · saídas <span data-faixa-horarios="essencial" data-formato="hhmm">de 08:00 às 15:00</span></p>
@@ -618,7 +718,29 @@
   <div class="painel-roteiro" id="roteiro-adventure" role="tabpanel" aria-labelledby="aba-adventure" tabindex="0" hidden>
     <div class="roteiro">
       <div class="roteiro-resumo">
-        <div class="roteiro-foto"><img src="/assets/lugar-praia-meio-480.webp" srcset="/assets/lugar-praia-meio-480.webp 480w, /assets/lugar-praia-meio-960.webp 960w" sizes="(max-width: 860px) 92vw, 600px" width="960" height="636" alt="Praia do Meio, em Trindade, com a ponta de pedras e o morro coberto de mata" loading="lazy" decoding="async"></div>
+        <div class="galeria" data-galeria>
+          <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos do Trindade Adventure">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 4">
+              <img src="/assets/lugar-praia-meio-sem-texto-480.webp" srcset="/assets/lugar-praia-meio-sem-texto-480.webp 480w, /assets/lugar-praia-meio-sem-texto-960.webp 960w" sizes="(max-width: 860px) 92vw, 600px" width="960" height="636" alt="Praia do Meio, em Trindade, com a ponta de pedras e o morro coberto de mata" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 4">
+              <img src="/assets/restaurante-hymbe-3-recorte-480.webp" srcset="/assets/restaurante-hymbe-3-recorte-480.webp 480w, /assets/restaurante-hymbe-3-recorte-720.webp 720w" sizes="(max-width: 860px) 92vw, 600px" width="720" height="893" alt="Vista aérea da praia em frente ao restaurante Hymbé" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 4">
+              <img src="/assets/restaurante-hymbe-5-recorte-480.webp" srcset="/assets/restaurante-hymbe-5-recorte-480.webp 480w, /assets/restaurante-hymbe-5-recorte-605.webp 605w" sizes="(max-width: 860px) 92vw, 600px" width="605" height="472" alt="Deck do restaurante Hymbé ao entardecer" loading="lazy" decoding="async">
+            </figure>
+            <!-- FOTO PROVISÓRIA (teste) -->
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="4 de 4">
+              <img src="/assets/provisoria-lucas-12-480.webp" srcset="/assets/provisoria-lucas-12-480.webp 480w, /assets/provisoria-lucas-12-960.webp 960w" sizes="(max-width: 860px) 92vw, 600px" width="960" height="552" alt="Praia de areia dourada com grandes pedras arredondadas e mar azul" loading="lazy" decoding="async">
+            </figure>
+          </div>
+          <button type="button" class="galeria-seta galeria-ant" data-galeria-ant aria-label="Foto anterior" disabled><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+          <button type="button" class="galeria-seta galeria-prox" data-galeria-prox aria-label="Próxima foto"><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+        </div>
+        <div class="galeria-indicador" aria-hidden="true">
+          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i><i></i></span>
+          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 4</span>
+        </div>
         <div class="roteiro-info">
           <div class="roteiro-titulo"><h2 data-titulo-foco>Trindade Adventure</h2><p class="tour-preco"><b>R$ 150</b><span>por pessoa</span></p></div>
           <p class="roteiro-meta">≈ 6h · saídas <span data-faixa-horarios="adventure" data-formato="hhmm">de 08:00 às 12:00</span></p>
@@ -665,7 +787,28 @@
   <div class="painel-roteiro" id="roteiro-boat" role="tabpanel" aria-labelledby="aba-boat" tabindex="0" hidden>
     <div class="roteiro">
       <div class="roteiro-resumo">
-        <div class="roteiro-foto"><img src="/assets/foto-piscina-galhetas-recorte-410.webp" srcset="/assets/foto-piscina-galhetas-recorte-410.webp 410w" sizes="(max-width: 860px) 92vw, 600px" width="410" height="231" alt="Piscina natural das Galhetas, em Trindade: pessoas nadando na água transparente entre pedras de granito" loading="lazy" decoding="async"></div>
+        <div class="galeria" data-galeria>
+          <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos do Trindade Boat">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 4">
+              <img src="/assets/foto-piscina-galhetas-recorte-410.webp" srcset="/assets/foto-piscina-galhetas-recorte-410.webp 410w" sizes="(max-width: 860px) 92vw, 600px" width="410" height="231" alt="Piscina natural das Galhetas, em Trindade: pessoas nadando na água transparente entre pedras de granito" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 4">
+              <img src="/assets/foto-praia-galhetas-recorte-480.webp" srcset="/assets/foto-praia-galhetas-recorte-480.webp 480w, /assets/foto-praia-galhetas-recorte-720.webp 720w" sizes="(max-width: 860px) 92vw, 600px" width="720" height="494" alt="Praia das Galhetas, em Trindade: água transparente sobre a areia dourada, com uma grande pedra na beira" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 4">
+              <img src="/assets/restaurante-hymbe-1-recorte-480.webp" srcset="/assets/restaurante-hymbe-1-recorte-480.webp 480w, /assets/restaurante-hymbe-1-recorte-720.webp 720w" sizes="(max-width: 860px) 92vw, 600px" width="720" height="955" alt="Guarda-sóis do restaurante Hymbé na praia" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="4 de 4">
+              <img src="/assets/restaurante-hymbe-2-recorte-480.webp" srcset="/assets/restaurante-hymbe-2-recorte-480.webp 480w, /assets/restaurante-hymbe-2-recorte-600.webp 600w" sizes="(max-width: 860px) 92vw, 600px" width="600" height="440" alt="Espreguiçadeiras do restaurante Hymbé na areia da praia" loading="lazy" decoding="async">
+            </figure>
+          </div>
+          <button type="button" class="galeria-seta galeria-ant" data-galeria-ant aria-label="Foto anterior" disabled><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+          <button type="button" class="galeria-seta galeria-prox" data-galeria-prox aria-label="Próxima foto"><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+        </div>
+        <div class="galeria-indicador" aria-hidden="true">
+          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i><i></i></span>
+          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 4</span>
+        </div>
         <div class="roteiro-info">
           <div class="roteiro-titulo"><h2 data-titulo-foco>Trindade Boat</h2><p class="tour-preco"><b>R$ 400</b><span>por pessoa</span></p></div>
           <p class="roteiro-meta">≈ 8h · encontro às 8h30 ou às 11h (saída 20 min depois)</p>
@@ -717,9 +860,33 @@
       <p>Tour pelos museus e por todo o centro histórico de Paraty.</p>
     </header>
     <div class="pescaria-grid">
-      <figure class="city-tour-capa">
-        <img src="/assets/paraty-centro-historico-praca-960.webp" srcset="/assets/paraty-centro-historico-praca-480.webp 480w, /assets/paraty-centro-historico-praca-960.webp 960w, /assets/paraty-centro-historico-praca-1280.webp 1280w" sizes="(max-width: 860px) 92vw, 600px" width="1280" height="481" alt="Panorama do centro histórico de Paraty, com praça e casario colonial" loading="lazy" decoding="async">
-      </figure>
+      <div class="city-tour-galeria-col">
+        <div class="galeria" data-galeria>
+          <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos do City tour Paraty">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 5">
+              <img src="/assets/paraty-centro-historico-praca-960.webp" srcset="/assets/paraty-centro-historico-praca-480.webp 480w, /assets/paraty-centro-historico-praca-960.webp 960w, /assets/paraty-centro-historico-praca-1280.webp 1280w" sizes="(max-width: 860px) 92vw, 600px" width="1280" height="481" alt="Panorama do centro histórico de Paraty, com praça e casario colonial" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 5">
+              <img src="/assets/paraty-igreja-santa-rita-960.webp" srcset="/assets/paraty-igreja-santa-rita-480.webp 480w, /assets/paraty-igreja-santa-rita-960.webp 960w, /assets/paraty-igreja-santa-rita-1280.webp 1280w" sizes="(max-width: 860px) 92vw, 600px" width="960" height="640" alt="Igreja de Santa Rita de Cássia, no centro histórico de Paraty" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 5">
+              <img src="/assets/paraty-centro-historico-casario-960.webp" srcset="/assets/paraty-centro-historico-casario-480.webp 480w, /assets/paraty-centro-historico-casario-960.webp 960w, /assets/paraty-centro-historico-casario-1280.webp 1280w" sizes="(max-width: 860px) 92vw, 600px" width="960" height="640" alt="Sobrados coloniais com sacada vermelha e torre de igreja ao fundo, no centro histórico de Paraty" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="4 de 5">
+              <img src="/assets/paraty-noite-rua-casario-480.webp" srcset="/assets/paraty-noite-rua-casario-480.webp 480w, /assets/paraty-noite-rua-casario-960.webp 960w, /assets/paraty-noite-rua-casario-1280.webp 1280w" sizes="(max-width: 860px) 92vw, 600px" width="1280" height="859" alt="Centro histórico de Paraty à noite: rua de pedra com o casario colonial iluminado" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="5 de 5">
+              <img src="/assets/paraty-noite-igreja-matriz-480.webp" srcset="/assets/paraty-noite-igreja-matriz-480.webp 480w, /assets/paraty-noite-igreja-matriz-960.webp 960w, /assets/paraty-noite-igreja-matriz-1280.webp 1280w" sizes="(max-width: 860px) 92vw, 600px" width="1280" height="859" alt="Centro histórico de Paraty à noite: a Igreja Matriz iluminada, refletida na água" loading="lazy" decoding="async">
+            </figure>
+          </div>
+          <button type="button" class="galeria-seta galeria-ant" data-galeria-ant aria-label="Foto anterior" disabled><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+          <button type="button" class="galeria-seta galeria-prox" data-galeria-prox aria-label="Próxima foto"><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+        </div>
+        <div class="galeria-indicador" aria-hidden="true">
+          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i><i></i><i></i></span>
+          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 5</span>
+        </div>
+      </div>
       <div class="pescaria-info">
         <p>Tour pelos museus e por todo o centro histórico de Paraty.</p>
         <div class="pescaria-preco"><span>Por pessoa</span><strong>R$ 200</strong></div>
@@ -744,11 +911,30 @@
       <p>Sem agenda aberta no site: data, detalhes e valores são combinados com a equipe pelo WhatsApp.</p>
     </header>
     <div class="consultas">
-      <article class="consulta" id="consulta-mamangua" data-revelar>
-        <div class="consulta-fotos">
-          <figure><img src="/assets/mamangua-igreja-paraty-mirim-480.webp" srcset="/assets/mamangua-igreja-paraty-mirim-480.webp 480w" sizes="(max-width: 860px) 31vw, 180px" width="480" height="480" alt="Igreja Nossa Senhora da Conceição, na Praia de Paraty-Mirim, vista da água" loading="lazy" decoding="async"></figure>
-          <figure><img src="/assets/mamangua-praia-cruzeiro-recorte-210.webp" srcset="/assets/mamangua-praia-cruzeiro-recorte-210.webp 210w" sizes="(max-width: 860px) 31vw, 180px" width="210" height="210" alt="Praia do Cruzeiro, no Saco do Mamanguá: canoas na areia, embaixo dos coqueiros" loading="lazy" decoding="async"></figure>
-          <figure><img src="/assets/mamangua-pao-de-acucar-lucas-480.webp" srcset="/assets/mamangua-pao-de-acucar-lucas-480.webp 480w" sizes="(max-width: 860px) 31vw, 180px" width="480" height="480" alt="Pico do Pão de Açúcar, no Saco do Mamanguá, com pessoas no topo e a água do saco ao fundo" loading="lazy" decoding="async"></figure>
+      <article class="consulta" id="consulta-mamangua">
+        <div class="galeria galeria-32" data-galeria>
+          <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos do Mamanguá Adventure">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 4">
+              <img src="/assets/mamangua-igreja-paraty-mirim-recorte-248.webp" srcset="/assets/mamangua-igreja-paraty-mirim-recorte-248.webp 248w" sizes="(max-width: 860px) 92vw, 560px" width="248" height="372" alt="Igreja Nossa Senhora da Conceição, na Praia de Paraty-Mirim, vista da água" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 4">
+              <img src="/assets/mamangua-praia-cruzeiro-recorte-210.webp" srcset="/assets/mamangua-praia-cruzeiro-recorte-210.webp 210w" sizes="(max-width: 860px) 92vw, 560px" width="210" height="210" alt="Praia do Cruzeiro, no Saco do Mamanguá: canoas na areia, embaixo dos coqueiros" loading="lazy" decoding="async">
+            </figure>
+            <!-- FOTO PROVISÓRIA (teste) -->
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 4">
+              <img src="/assets/provisoria-lucas-16-480.webp" srcset="/assets/provisoria-lucas-16-480.webp 480w, /assets/provisoria-lucas-16-588.webp 588w" sizes="(max-width: 860px) 92vw, 560px" width="588" height="330" alt="Enseada de água verde-azulada cercada de mata, com barcos ancorados" loading="lazy" decoding="async">
+            </figure>
+            <!-- FOTO PROVISÓRIA (teste) -->
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="4 de 4">
+              <img src="/assets/provisoria-lucas-18-480.webp" srcset="/assets/provisoria-lucas-18-480.webp 480w, /assets/provisoria-lucas-18-720.webp 720w" sizes="(max-width: 860px) 92vw, 560px" width="720" height="875" alt="Lancha com passageiros no mar, com um morro pontudo ao fundo" loading="lazy" decoding="async">
+            </figure>
+          </div>
+          <button type="button" class="galeria-seta galeria-ant" data-galeria-ant aria-label="Foto anterior" disabled><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+          <button type="button" class="galeria-seta galeria-prox" data-galeria-prox aria-label="Próxima foto"><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+        </div>
+        <div class="galeria-indicador" aria-hidden="true">
+          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i><i></i></span>
+          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 4</span>
         </div>
         <div class="consulta-topo"><div><h3 data-titulo-foco>Mamanguá Adventure</h3><p class="consulta-sub">Pico do Pão de Açúcar · van, barco e trilha</p></div><p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p></div>
         <p>Uma experiência completa saindo de Trindade para conhecer um dos cenários mais impressionantes de Paraty.</p>
@@ -761,7 +947,29 @@
         <a class="btn btn-primario" href="https://wa.me/5524992073621" data-wa="Olá! Quero informações sobre o passeio Mamanguá Adventure. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar no WhatsApp</a>
       </article>
 
-      <article class="consulta" id="consulta-fishing" data-revelar>
+      <article class="consulta" id="consulta-fishing">
+        <div class="galeria galeria-32" data-galeria>
+          <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos do Fishing Experience">
+            <!-- FOTO PROVISÓRIA (teste) -->
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 3">
+              <img src="/assets/foto-pesca-peixe-480.webp" srcset="/assets/foto-pesca-peixe-480.webp 480w, /assets/foto-pesca-peixe-560.webp 560w" sizes="(max-width: 860px) 92vw, 560px" width="560" height="1000" alt="Peixe vermelho segurado sobre o mar" loading="lazy" decoding="async">
+            </figure>
+            <!-- FOTO PROVISÓRIA (teste) -->
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 3">
+              <img src="/assets/foto-pesca-tainha-480.webp" srcset="/assets/foto-pesca-tainha-480.webp 480w, /assets/foto-pesca-tainha-576.webp 576w" sizes="(max-width: 860px) 92vw, 560px" width="576" height="570" alt="Rede de pesca da tainha no mar, com a vila de Trindade ao fundo" loading="lazy" decoding="async">
+            </figure>
+            <!-- FOTO PROVISÓRIA (teste) -->
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 3">
+              <img src="/assets/foto-pesca-redes-480.webp" srcset="/assets/foto-pesca-redes-480.webp 480w, /assets/foto-pesca-redes-560.webp 560w" sizes="(max-width: 860px) 92vw, 560px" width="560" height="900" alt="Pescadores recolhendo a rede de um barco" loading="lazy" decoding="async">
+            </figure>
+          </div>
+          <button type="button" class="galeria-seta galeria-ant" data-galeria-ant aria-label="Foto anterior" disabled><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+          <button type="button" class="galeria-seta galeria-prox" data-galeria-prox aria-label="Próxima foto"><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+        </div>
+        <div class="galeria-indicador" aria-hidden="true">
+          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i></span>
+          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 3</span>
+        </div>
         <div class="consulta-topo"><div><h3>Fishing Experience</h3><p class="consulta-sub">Pescaria em alto mar · pesca embarcada</p></div><p class="tour-preco"><b>R$ 500</b><span>valor fixo</span></p></div>
         <p>Saída de barco de Trindade para uma experiência de pescaria em alto mar, com acompanhamento de um guia experiente.</p>
         <ul class="lista-check">
@@ -772,8 +980,34 @@
         <div class="consulta-acoes"><a class="btn btn-primario" href="https://wa.me/5524992073621" data-wa="Olá! Quero informações sobre o passeio Fishing Experience. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar no WhatsApp</a><a class="btn btn-secundario" href="/pescaria">Página da pescaria</a></div>
       </article>
 
-      <article class="consulta" id="consulta-saco-bravo" data-revelar>
-        <div class="consulta-foto"><img src="/assets/foto-cachoeira-saco-bravo-720.webp" srcset="/assets/foto-cachoeira-saco-bravo-480.webp 480w, /assets/foto-cachoeira-saco-bravo-720.webp 720w" sizes="(max-width: 860px) 92vw, 560px" width="720" height="360" alt="Cachoeira do Saco Bravo caindo sobre as pedras em um poço junto ao mar" loading="lazy" decoding="async"></div>
+      <article class="consulta" id="consulta-saco-bravo">
+        <div class="galeria galeria-32" data-galeria>
+          <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos do Saco Bravo Adventure">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 5">
+              <img src="/assets/saco-bravo-cachoeira-lucas-480.webp" srcset="/assets/saco-bravo-cachoeira-lucas-480.webp 480w, /assets/saco-bravo-cachoeira-lucas-564.webp 564w" sizes="(max-width: 860px) 92vw, 560px" width="564" height="697" alt="Cachoeira caindo entre as pedras em um poço junto ao mar" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 5">
+              <img src="/assets/lugar-ponta-negra-aerea-recorte-480.webp" srcset="/assets/lugar-ponta-negra-aerea-recorte-480.webp 480w, /assets/lugar-ponta-negra-aerea-recorte-720.webp 720w" sizes="(max-width: 860px) 92vw, 560px" width="720" height="365" alt="Vista aérea da Praia da Ponta Negra, com casas na encosta e o mar azul" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 5">
+              <img src="/assets/lugar-praia-ponta-negra-recorte-480.webp" srcset="/assets/lugar-praia-ponta-negra-recorte-480.webp 480w, /assets/lugar-praia-ponta-negra-recorte-720.webp 720w" sizes="(max-width: 860px) 92vw, 560px" width="720" height="267" alt="Praia da Ponta Negra: areia, palmeiras e casas na beira da praia" loading="lazy" decoding="async">
+            </figure>
+            <!-- FOTO PROVISÓRIA (teste) -->
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="4 de 5">
+              <img src="/assets/provisoria-lucas-05-480.webp" srcset="/assets/provisoria-lucas-05-480.webp 480w, /assets/provisoria-lucas-05-495.webp 495w" sizes="(max-width: 860px) 92vw, 560px" width="495" height="619" alt="Pequena cachoeira descendo pela pedra até a água" loading="lazy" decoding="async">
+            </figure>
+            <!-- FOTO PROVISÓRIA (teste) -->
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="5 de 5">
+              <img src="/assets/provisoria-lucas-10-480.webp" srcset="/assets/provisoria-lucas-10-480.webp 480w, /assets/provisoria-lucas-10-800.webp 800w" sizes="(max-width: 860px) 92vw, 560px" width="800" height="640" alt="Cachoeira entre pedras encontrando as ondas do mar" loading="lazy" decoding="async">
+            </figure>
+          </div>
+          <button type="button" class="galeria-seta galeria-ant" data-galeria-ant aria-label="Foto anterior" disabled><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+          <button type="button" class="galeria-seta galeria-prox" data-galeria-prox aria-label="Próxima foto"><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+        </div>
+        <div class="galeria-indicador" aria-hidden="true">
+          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i><i></i><i></i></span>
+          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 5</span>
+        </div>
         <div class="consulta-topo"><div><h3 data-titulo-foco>Saco Bravo Adventure</h3><p class="consulta-sub">Natureza, aventura e paisagens incríveis</p></div><p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p></div>
         <p>Saída de barco de Trindade, passagem pela Praia do Sono, chegada em Ponta Negra e trilha até a Cachoeira do Saco Bravo.</p>
         <ul class="lista-check">
@@ -784,11 +1018,32 @@
         <a class="btn btn-primario" href="https://wa.me/5524992073621" data-wa="Olá! Quero informações sobre o passeio Saco Bravo Adventure. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar no WhatsApp</a>
       </article>
 
-      <article class="consulta" id="consulta-juatinga" data-revelar>
-        <div class="consulta-fotos">
-          <figure><img src="/assets/juatinga-praia-brava-aerea-348.webp" width="348" height="348" alt="Vista aérea da Praia Brava, com a faixa de areia entre a mata e o mar" loading="lazy" decoding="async"><figcaption>Praia Brava</figcaption></figure>
-          <figure><img src="/assets/juatinga-piscina-galheta-aerea-357.webp" width="357" height="357" alt="Vista aérea da piscina natural da Galheta, entre as pedras do costão" loading="lazy" decoding="async"><figcaption>Galheta</figcaption></figure>
-          <figure><img src="/assets/juatinga-praia-antigos-324.webp" width="324" height="324" alt="Praia dos Antigos: faixa de areia com uma grande pedra e a mata ao fundo" loading="lazy" decoding="async"><figcaption>Praia dos Antigos</figcaption></figure>
+      <article class="consulta" id="consulta-juatinga">
+        <div class="galeria galeria-32" data-galeria>
+          <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos da Costa da Juatinga">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 5">
+              <img src="/assets/juatinga-praia-brava-aerea-348.webp" sizes="(max-width: 860px) 92vw, 560px" width="348" height="348" alt="Vista aérea da Praia Brava, com a faixa de areia entre a mata e o mar" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 5">
+              <img src="/assets/juatinga-piscina-galheta-aerea-357.webp" sizes="(max-width: 860px) 92vw, 560px" width="357" height="357" alt="Vista aérea da piscina natural da Galheta, entre as pedras do costão" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 5">
+              <img src="/assets/juatinga-praia-antigos-324.webp" sizes="(max-width: 860px) 92vw, 560px" width="324" height="324" alt="Praia dos Antigos: faixa de areia com uma grande pedra e a mata ao fundo" loading="lazy" decoding="async">
+            </figure>
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="4 de 5">
+              <img src="/assets/lugar-antigos-aerea-recorte-480.webp" srcset="/assets/lugar-antigos-aerea-recorte-480.webp 480w, /assets/lugar-antigos-aerea-recorte-668.webp 668w" sizes="(max-width: 860px) 92vw, 560px" width="668" height="345" alt="Vista aérea da Praia dos Antigos: faixa de areia, mata e mar verde-azulado" loading="lazy" decoding="async">
+            </figure>
+            <!-- FOTO PROVISÓRIA (teste) -->
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="5 de 5">
+              <img src="/assets/provisoria-lucas-11-480.webp" srcset="/assets/provisoria-lucas-11-480.webp 480w, /assets/provisoria-lucas-11-960.webp 960w" sizes="(max-width: 860px) 92vw, 560px" width="960" height="638" alt="Praia com pedras arredondadas na areia, mar e montanhas ao fundo" loading="lazy" decoding="async">
+            </figure>
+          </div>
+          <button type="button" class="galeria-seta galeria-ant" data-galeria-ant aria-label="Foto anterior" disabled><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+          <button type="button" class="galeria-seta galeria-prox" data-galeria-prox aria-label="Próxima foto"><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
+        </div>
+        <div class="galeria-indicador" aria-hidden="true">
+          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i><i></i><i></i></span>
+          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 5</span>
         </div>
         <div class="consulta-topo"><div><h3 data-titulo-foco>Costa da Juatinga</h3><p class="consulta-sub">As praias mais incríveis de Paraty em um só dia</p></div><p class="tour-preco tour-preco-consulta"><b>Valor a confirmar</b></p></div>
         <p>Passagem pela Praia Brava, parada na Galheta, mergulho na piscina natural, Praia dos Antigos e almoço na Praia do Sono.</p>
@@ -804,7 +1059,7 @@
   </section>
 
   <section class="bloco" aria-labelledby="titulo-hymbe">
-    <div class="restaurante" data-revelar>
+    <div class="restaurante">
       <div class="thumb media" id="fotoRestauranteHymbe"></div>
       <div class="restaurante-texto">
         <h2 id="titulo-hymbe">Restaurante Hymbé, na praia</h2>
@@ -1042,8 +1297,11 @@
       <figure class="h"><img src="/assets/paraty-centro-historico-casario-960.webp" srcset="/assets/paraty-centro-historico-casario-480.webp 480w, /assets/paraty-centro-historico-casario-960.webp 960w, /assets/paraty-centro-historico-casario-1280.webp 1280w" sizes="(max-width: 900px) 92vw, 560px" width="960" height="640" alt="Sobrados coloniais com sacada vermelha e torre de igreja ao fundo, no centro histórico de Paraty" loading="lazy" decoding="async"></figure>
       <figure class="h"><img src="/assets/paraty-igreja-santa-rita-960.webp" srcset="/assets/paraty-igreja-santa-rita-480.webp 480w, /assets/paraty-igreja-santa-rita-960.webp 960w, /assets/paraty-igreja-santa-rita-1280.webp 1280w" sizes="(max-width: 900px) 92vw, 560px" width="960" height="640" alt="Igreja de Santa Rita de Cássia, no centro histórico de Paraty" loading="lazy" decoding="async"></figure>
       <figure class="h"><img src="/assets/paraty-centro-historico-noite-960.webp" srcset="/assets/paraty-centro-historico-noite-480.webp 480w, /assets/paraty-centro-historico-noite-960.webp 960w, /assets/paraty-centro-historico-noite-1280.webp 1280w" sizes="(max-width: 900px) 92vw, 560px" width="960" height="720" alt="Rua de pedra iluminada à noite no centro histórico de Paraty" loading="lazy" decoding="async"></figure>
+      <figure class="h"><img src="/assets/paraty-noite-rua-casario-960.webp" srcset="/assets/paraty-noite-rua-casario-480.webp 480w, /assets/paraty-noite-rua-casario-960.webp 960w, /assets/paraty-noite-rua-casario-1280.webp 1280w" sizes="(max-width: 900px) 92vw, 560px" width="1280" height="859" alt="Centro histórico de Paraty à noite: rua de pedra com o casario colonial iluminado" loading="lazy" decoding="async"></figure>
+      <figure class="h"><img src="/assets/paraty-noite-igreja-matriz-960.webp" srcset="/assets/paraty-noite-igreja-matriz-480.webp 480w, /assets/paraty-noite-igreja-matriz-960.webp 960w, /assets/paraty-noite-igreja-matriz-1280.webp 1280w" sizes="(max-width: 900px) 92vw, 560px" width="1280" height="859" alt="Centro histórico de Paraty à noite: a Igreja Matriz iluminada, refletida na água" loading="lazy" decoding="async"></figure>
+      <figure class="h"><img src="/assets/paraty-noite-igreja-santa-rita-960.webp" srcset="/assets/paraty-noite-igreja-santa-rita-480.webp 480w, /assets/paraty-noite-igreja-santa-rita-960.webp 960w, /assets/paraty-noite-igreja-santa-rita-1280.webp 1280w" sizes="(max-width: 900px) 92vw, 560px" width="1280" height="924" alt="Centro histórico de Paraty à noite: fachada iluminada da Igreja de Santa Rita" loading="lazy" decoding="async"></figure>
     </div>
-    <p class="nota-rodape">Fotos: Rogério Cassimiro / MTur (domínio público) · Paul R. Burley, Marinelson Almeida, Rejane Sarmento, Pedro Henrique Ponchio (Wikimedia Commons, CC BY / CC BY-SA) — <a class="link-texto" href="/creditos-das-fotos">créditos completos</a>.</p>
+    <p class="nota-rodape">Fotos: Rogério Cassimiro / MTur (domínio público) · Paul R. Burley, Marinelson Almeida, Rejane Sarmento, Pedro Henrique Ponchio, Leandro Neumann Ciuffo (Wikimedia Commons, CC BY / CC BY-SA) — <a class="link-texto" href="/creditos-das-fotos">créditos completos</a>.</p>
   </section>
 
   <div class="caixa city-tour-cta">
@@ -1098,7 +1356,7 @@
     <div class="fishing-gallery" id="fishingGallery" role="region" aria-roledescription="carrossel" aria-label="Pesca artesanal em Trindade">
       <div class="fg-stage" tabindex="0" aria-label="Galeria de fotos. Use as setas para navegar.">
         <div class="fg-slide is-active" data-fg-slide="0" aria-hidden="false"><img class="fg-photo" src="/assets/foto-pesca-peixe-560.webp" srcset="/assets/foto-pesca-peixe-480.webp 480w, /assets/foto-pesca-peixe-560.webp 560w" sizes="(max-width: 860px) 92vw, 600px" width="560" height="1000" alt="Peixe vermelho segurado sobre o mar" loading="lazy" decoding="async"></div>
-        <div class="fg-slide" data-fg-slide="1" aria-hidden="true"><img class="fg-photo" src="/assets/foto-pesca-cavalas-560.webp" srcset="/assets/foto-pesca-cavalas-480.webp 480w, /assets/foto-pesca-cavalas-560.webp 560w" sizes="(max-width: 860px) 92vw, 600px" width="560" height="1000" alt="Cavalas enfileiradas, em fotografia em preto e branco" loading="lazy" decoding="async"></div>
+        <div class="fg-slide" data-fg-slide="1" aria-hidden="true"><img class="fg-photo" src="/assets/foto-pesca-cavalas-recorte-514.webp" srcset="/assets/foto-pesca-cavalas-recorte-480.webp 480w, /assets/foto-pesca-cavalas-recorte-514.webp 514w" sizes="(max-width: 860px) 92vw, 600px" width="514" height="1000" alt="Cavalas enfileiradas, em fotografia em preto e branco" loading="lazy" decoding="async"></div>
         <div class="fg-slide" data-fg-slide="2" aria-hidden="true"><img class="fg-photo" src="/assets/foto-pesca-tainha-576.webp" srcset="/assets/foto-pesca-tainha-480.webp 480w, /assets/foto-pesca-tainha-576.webp 576w" sizes="(max-width: 860px) 92vw, 600px" width="576" height="570" alt="Rede de pesca da tainha no mar, com a vila de Trindade ao fundo" loading="lazy" decoding="async"></div>
         <div class="fg-slide" data-fg-slide="3" aria-hidden="true"><img class="fg-photo" src="/assets/foto-pesca-redes-560.webp" srcset="/assets/foto-pesca-redes-480.webp 480w, /assets/foto-pesca-redes-560.webp 560w" sizes="(max-width: 860px) 92vw, 600px" width="560" height="900" alt="Pescadores recolhendo a rede de um barco" loading="lazy" decoding="async"></div>
         <span class="fg-counter" data-fg-count aria-hidden="true">1 / 4</span>
@@ -1108,7 +1366,7 @@
       <div class="fg-caption" aria-live="polite" aria-atomic="true"><h2 data-fg-title>Peixe em destaque</h2><p data-fg-caption>Registro de peixe enviado pela equipe.</p></div>
       <div class="fg-thumbs" aria-label="Escolher uma fotografia">
         <button type="button" class="fg-thumb" data-fg-select="0" aria-label="Ver foto 1: Peixe em destaque" aria-pressed="true"><img src="/assets/foto-pesca-peixe-480.webp" width="480" height="857" alt="" loading="lazy" decoding="async"></button>
-        <button type="button" class="fg-thumb" data-fg-select="1" aria-label="Ver foto 2: Cavalas" aria-pressed="false"><img src="/assets/foto-pesca-cavalas-480.webp" width="480" height="857" alt="" loading="lazy" decoding="async"></button>
+        <button type="button" class="fg-thumb" data-fg-select="1" aria-label="Ver foto 2: Cavalas" aria-pressed="false"><img src="/assets/foto-pesca-cavalas-recorte-480.webp" width="480" height="934" alt="" loading="lazy" decoding="async"></button>
         <button type="button" class="fg-thumb" data-fg-select="2" aria-label="Ver foto 3: Pesca da tainha" aria-pressed="false"><img src="/assets/foto-pesca-tainha-480.webp" width="480" height="475" alt="" loading="lazy" decoding="async"></button>
         <button type="button" class="fg-thumb" data-fg-select="3" aria-label="Ver foto 4: Pescadores e redes" aria-pressed="false"><img src="/assets/foto-pesca-redes-480.webp" width="480" height="771" alt="" loading="lazy" decoding="async"></button>
       </div>
@@ -1130,12 +1388,12 @@
       <p>Águas abertas, praias e costões fazem parte do cenário da pesca local. Conheça seis peixes documentados em estudos sobre a comunidade de Trindade e a região de Paraty.</p>
     </header>
     <div class="peixes-grid">
-      <article class="peixe-card" data-revelar><span class="peixe-habitat">Mar aberto</span><h3>Cavala</h3><i class="peixe-cientifico">Scomberomorus cavalla</i><p>Peixe de águas abertas, citado entre os mais consumidos pelos pescadores de Trindade, Praia do Sono e Ponta Negra.</p><a href="#fonte-pesca-diagnostico" data-fish-source="fonte-pesca-diagnostico">Referência</a></article>
-      <article class="peixe-card" data-revelar><span class="peixe-habitat">Águas costeiras</span><h3>Sororoca</h3><i class="peixe-cientifico">Scomberomorus brasiliensis</i><p>Tem corpo alongado e manchas amareladas nos flancos. Vive junto a ilhas, costões e praias; aparece nos registros pesqueiros de Trindade.</p><a href="#fonte-pesca-panorama" data-fish-source="fonte-pesca-panorama">Referência</a></article>
-      <article class="peixe-card" data-revelar><span class="peixe-habitat">Corpo prateado</span><h3>Peixe-espada</h3><i class="peixe-cientifico">Trichiurus lepturus</i><p>O corpo comprido, achatado e brilhante lembra uma fita de prata. A espécie foi registrada nos desembarques da comunidade.</p><a href="#fonte-pesca-panorama" data-fish-source="fonte-pesca-panorama">Referência</a></article>
-      <article class="peixe-card" data-revelar><span class="peixe-habitat">Tradição caiçara</span><h3>Tainha</h3><i class="peixe-cientifico">Mugil spp.</i><p>Registrada na pesca local, faz parte da cultura pesqueira do litoral. A tainha Mugil liza utiliza estuários e lagoas costeiras durante seu crescimento.</p><a href="#fonte-pesca-tainha" data-fish-source="fonte-pesca-tainha">Referência</a></article>
-      <article class="peixe-card" data-revelar><span class="peixe-habitat">Registro local</span><h3>Anchova</h3><i class="peixe-cientifico">Pomatomus saltatrix</i><p>Também conhecida como enchova. Está entre os peixes identificados em desembarques de Trindade no estudo que comparou comunidades pesqueiras de Paraty.</p><a href="#fonte-pesca-estudo" data-fish-source="fonte-pesca-estudo">Referência</a></article>
-      <article class="peixe-card" data-revelar><span class="peixe-habitat">Registro local</span><h3>Bonito-pintado</h3><i class="peixe-cientifico">Euthynnus alletteratus</i><p>O bonito registrado no levantamento de Trindade pertence a esta espécie. Nomes populares podem designar peixes diferentes de uma região para outra.</p><a href="#fonte-pesca-estudo" data-fish-source="fonte-pesca-estudo">Referência</a></article>
+      <article class="peixe-card"><span class="peixe-habitat">Mar aberto</span><h3>Cavala</h3><i class="peixe-cientifico">Scomberomorus cavalla</i><p>Peixe de águas abertas, citado entre os mais consumidos pelos pescadores de Trindade, Praia do Sono e Ponta Negra.</p><a href="#fonte-pesca-diagnostico" data-fish-source="fonte-pesca-diagnostico">Referência</a></article>
+      <article class="peixe-card"><span class="peixe-habitat">Águas costeiras</span><h3>Sororoca</h3><i class="peixe-cientifico">Scomberomorus brasiliensis</i><p>Tem corpo alongado e manchas amareladas nos flancos. Vive junto a ilhas, costões e praias; aparece nos registros pesqueiros de Trindade.</p><a href="#fonte-pesca-panorama" data-fish-source="fonte-pesca-panorama">Referência</a></article>
+      <article class="peixe-card"><span class="peixe-habitat">Corpo prateado</span><h3>Peixe-espada</h3><i class="peixe-cientifico">Trichiurus lepturus</i><p>O corpo comprido, achatado e brilhante lembra uma fita de prata. A espécie foi registrada nos desembarques da comunidade.</p><a href="#fonte-pesca-panorama" data-fish-source="fonte-pesca-panorama">Referência</a></article>
+      <article class="peixe-card"><span class="peixe-habitat">Tradição caiçara</span><h3>Tainha</h3><i class="peixe-cientifico">Mugil spp.</i><p>Registrada na pesca local, faz parte da cultura pesqueira do litoral. A tainha Mugil liza utiliza estuários e lagoas costeiras durante seu crescimento.</p><a href="#fonte-pesca-tainha" data-fish-source="fonte-pesca-tainha">Referência</a></article>
+      <article class="peixe-card"><span class="peixe-habitat">Registro local</span><h3>Anchova</h3><i class="peixe-cientifico">Pomatomus saltatrix</i><p>Também conhecida como enchova. Está entre os peixes identificados em desembarques de Trindade no estudo que comparou comunidades pesqueiras de Paraty.</p><a href="#fonte-pesca-estudo" data-fish-source="fonte-pesca-estudo">Referência</a></article>
+      <article class="peixe-card"><span class="peixe-habitat">Registro local</span><h3>Bonito-pintado</h3><i class="peixe-cientifico">Euthynnus alletteratus</i><p>O bonito registrado no levantamento de Trindade pertence a esta espécie. Nomes populares podem designar peixes diferentes de uma região para outra.</p><a href="#fonte-pesca-estudo" data-fish-source="fonte-pesca-estudo">Referência</a></article>
     </div>
     <p class="nota-rodape">A presença varia com a época e as condições do mar; os registros não garantem captura em um passeio. As fotografias da galeria registram a pesca artesanal local.</p>
     <details class="fontes"><summary>Fontes e pesquisa sobre a região</summary><ul>
@@ -1160,8 +1418,8 @@
     <p>Hoje, caminhar por Trindade é encontrar paisagens e memórias que continuam vivas. As praias, as trilhas e a piscina natural do Cachadaço atraem quem procura contato com a natureza, enquanto a presença caiçara dá sentido humano a esse encontro. Ouvir os moradores, conhecer seus saberes e valorizar o trabalho local é uma forma de visitar com mais atenção. Porque a história de Trindade não termina no passado: ela segue sendo contada por quem chama este lugar de casa.</p>
   </article>
   <div class="historia-galeria">
-    <figure data-revelar><a href="https://paraty.com.br/fotos-de-trindade-decada-de-70/" target="_blank" rel="noopener" aria-label="Ver álbum histórico de Trindade no Portal Paraty"><img src="/assets/historia-trindade-09.jpg" alt="Grupo de pessoas reunido à sombra das árvores em Trindade, em fotografia antiga" width="380" height="250" loading="lazy" decoding="async"></a><figcaption><p>Encontros à sombra das árvores. Trindade, década de 1970 segundo o álbum de origem; ocasião e pessoas não identificadas.</p><a class="credito" href="https://paraty.com.br/fotos-de-trindade-decada-de-70/" target="_blank" rel="noopener">Fonte: Portal Paraty · ver acervo</a></figcaption></figure>
-    <figure data-revelar><a href="https://paraty.com.br/fotos-de-trindade-decada-de-70/" target="_blank" rel="noopener" aria-label="Ver álbum histórico de Trindade no Portal Paraty"><img src="/assets/historia-trindade-03.jpg" alt="Duas pessoas com um violão, em fotografia em preto e branco do álbum antigo de Trindade" width="380" height="250" loading="lazy" decoding="async"></a><figcaption><p>Música e convivência. Trindade, década de 1970 segundo o álbum de origem; pessoas não identificadas.</p><a class="credito" href="https://paraty.com.br/fotos-de-trindade-decada-de-70/" target="_blank" rel="noopener">Fonte: Portal Paraty · ver acervo</a></figcaption></figure>
+    <figure><a href="https://paraty.com.br/fotos-de-trindade-decada-de-70/" target="_blank" rel="noopener" aria-label="Ver álbum histórico de Trindade no Portal Paraty"><img src="/assets/historia-trindade-09.jpg" alt="Grupo de pessoas reunido à sombra das árvores em Trindade, em fotografia antiga" width="380" height="250" loading="lazy" decoding="async"></a><figcaption><p>Encontros à sombra das árvores. Trindade, década de 1970 segundo o álbum de origem; ocasião e pessoas não identificadas.</p><a class="credito" href="https://paraty.com.br/fotos-de-trindade-decada-de-70/" target="_blank" rel="noopener">Fonte: Portal Paraty · ver acervo</a></figcaption></figure>
+    <figure><a href="https://paraty.com.br/fotos-de-trindade-decada-de-70/" target="_blank" rel="noopener" aria-label="Ver álbum histórico de Trindade no Portal Paraty"><img src="/assets/historia-trindade-03.jpg" alt="Duas pessoas com um violão, em fotografia em preto e branco do álbum antigo de Trindade" width="380" height="250" loading="lazy" decoding="async"></a><figcaption><p>Música e convivência. Trindade, década de 1970 segundo o álbum de origem; pessoas não identificadas.</p><a class="credito" href="https://paraty.com.br/fotos-de-trindade-decada-de-70/" target="_blank" rel="noopener">Fonte: Portal Paraty · ver acervo</a></figcaption></figure>
   </div>
   <p class="nota-rodape historia-nota">Registros de época, preservados no enquadramento original. O álbum informa a década, mas não o ano exato nem a autoria de cada fotografia. As imagens não são apresentadas como registros do acordo de 1982.</p>
 
@@ -1173,25 +1431,25 @@
       <h2 id="titulo-lugares">Cinco praias e três cachoeiras</h2>
       <p>A vila fica entre a serra e o mar, dentro do Parque Nacional da Serra da Bocaina. Tudo abaixo se alcança a pé — as distâncias são de caminhada, não de carro.</p>
     </header>
-    <div class="lugares-fotos" data-revelar>
-      <img src="/assets/lugar-praia-meio-480.webp" srcset="/assets/lugar-praia-meio-480.webp 480w, /assets/lugar-praia-meio-960.webp 960w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="960" height="636" alt="Praia do Meio, em Trindade, com a ponta de pedras e o morro coberto de mata" loading="lazy" decoding="async">
-      <img src="/assets/lugar-praia-brava-rio-480.webp" srcset="/assets/lugar-praia-brava-rio-480.webp 480w, /assets/lugar-praia-brava-rio-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="916" alt="Praia Brava, em Trindade: o rio encontra o mar no canto da praia" class="foco-topo" loading="lazy" decoding="async">
+    <div class="lugares-fotos">
+      <img src="/assets/lugar-praia-meio-sem-texto-480.webp" srcset="/assets/lugar-praia-meio-sem-texto-480.webp 480w, /assets/lugar-praia-meio-sem-texto-960.webp 960w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="960" height="636" alt="Praia do Meio, em Trindade, com a ponta de pedras e o morro coberto de mata" loading="lazy" decoding="async">
+      <img src="/assets/lugar-praia-brava-rio-recorte-480.webp" srcset="/assets/lugar-praia-brava-rio-recorte-480.webp 480w, /assets/lugar-praia-brava-rio-recorte-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="716" alt="Praia Brava, em Trindade: o rio encontra o mar no canto da praia" loading="lazy" decoding="async">
       <img src="/assets/foto-piscina-cachadaco-recorte-495.webp" srcset="/assets/foto-piscina-cachadaco-recorte-495.webp 495w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="495" height="484" alt="Piscina Natural do Cachadaço, em Trindade: água verde e transparente entre pedras" loading="lazy" decoding="async">
       <img src="/assets/lugar-antigos-aerea-recorte-480.webp" srcset="/assets/lugar-antigos-aerea-recorte-480.webp 480w, /assets/lugar-antigos-aerea-recorte-668.webp 668w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="668" height="345" alt="Vista aérea da Praia dos Antigos: faixa de areia, mata e mar verde-azulado" loading="lazy" decoding="async">
       <img src="/assets/lugar-ponta-negra-aerea-recorte-480.webp" srcset="/assets/lugar-ponta-negra-aerea-recorte-480.webp 480w, /assets/lugar-ponta-negra-aerea-recorte-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="365" alt="Vista aérea da Praia da Ponta Negra, com casas na encosta e o mar azul" loading="lazy" decoding="async">
-      <img src="/assets/lugar-praia-ponta-negra-480.webp" srcset="/assets/lugar-praia-ponta-negra-480.webp 480w, /assets/lugar-praia-ponta-negra-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="467" alt="Praia da Ponta Negra: areia, palmeiras e casas na beira da praia" loading="lazy" decoding="async">
-      <img src="/assets/lugar-saco-bravo-cachoeira-480.webp" srcset="/assets/lugar-saco-bravo-cachoeira-480.webp 480w, /assets/lugar-saco-bravo-cachoeira-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="644" alt="Cachoeira do Saco Bravo caindo entre as pedras até um poço, com o mar ao fundo" loading="lazy" decoding="async">
+      <img src="/assets/lugar-praia-ponta-negra-recorte-480.webp" srcset="/assets/lugar-praia-ponta-negra-recorte-480.webp 480w, /assets/lugar-praia-ponta-negra-recorte-720.webp 720w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="720" height="267" alt="Praia da Ponta Negra: areia, palmeiras e casas na beira da praia" loading="lazy" decoding="async">
+      <img src="/assets/saco-bravo-cachoeira-lucas-480.webp" srcset="/assets/saco-bravo-cachoeira-lucas-480.webp 480w, /assets/saco-bravo-cachoeira-lucas-564.webp 564w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="564" height="697" alt="Cachoeira caindo entre as pedras em um poço junto ao mar" loading="lazy" decoding="async">
       <img src="/assets/lugar-igreja-centro-paraty-480.webp" srcset="/assets/lugar-igreja-centro-paraty-480.webp 480w, /assets/lugar-igreja-centro-paraty-698.webp 698w" sizes="(max-width: 600px) 72vw, (max-width: 1040px) 46vw, 300px" width="698" height="462" alt="Igreja no centro histórico de Paraty, com casarões brancos e pessoas na praça em frente" class="foco-esq" loading="lazy" decoding="async">
     </div>
     <ul class="lugares">
-      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia do Cepilho</h3><p>A praia do surf. Ondas grandes e formadas, logo na chegada da vila, com o acesso mais fácil de todas. Mar forte: não é praia de criança pequena.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3445124,-44.7145693" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
-      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia Brava</h3><p>Uma das mais preservadas da região, com faixa larga de areia e um rio no canto direito. Chega-se por trilha, o que a mantém vazia mesmo na alta temporada.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3384041,-44.7054969" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
-      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia do Meio</h3><p>A mais fotografada de Trindade: uma ponta de pedras divide a areia em duas. É daqui que saem os nossos passeios — o ponto de encontro fica na placa das trilhas.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3535628,-44.7264128" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
-      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia dos Ranchos</h3><p>A praia dos bares e restaurantes, de mar calmo. É onde a vila almoça e onde a maioria das famílias fica o dia inteiro.</p></li>
-      <li class="lugar" data-revelar><span class="lugar-tipo">Praia</span><h3>Praia do Cachadaço</h3><p>Areia branca e mar aberto, no fim da trilha. Ao lado dela fica a Piscina Natural do Cachadaço, protegida por pedras de granito — o ponto alto dos nossos roteiros.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3568484,-44.7309172" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
-      <li class="lugar" data-revelar><span class="lugar-tipo lugar-tipo-agua">Cachoeira</span><h3>Cachoeira da Pedra que Engole</h3><p>A mais conhecida da vila. O rio passa por uma fresta entre duas rochas e o banhista escorrega para dentro dela, saindo do outro lado. Fica a 15–20 minutos de caminhada do fim da Praia do Meio.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3508269,-44.7306156" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
-      <li class="lugar" data-revelar><span class="lugar-tipo lugar-tipo-agua">Cachoeira</span><h3>Cachoeira dos Codós</h3><p>Também chamada de Chuveiro. É o primeiro atrativo da trilha: um bloco de rocha divide a queda em duas e forma um poço raso, de cerca de um metro.</p></li>
-      <li class="lugar" data-revelar><span class="lugar-tipo lugar-tipo-agua">Cachoeira</span><h3>Poço das Duas Paredes</h3><p>Poço de água doce clara e fria entre dois paredões de pedra, na mesma trilha. É a melhor parada para tirar o sal e o calor da caminhada.</p></li>
+      <li class="lugar"><span class="lugar-tipo">Praia</span><h3>Praia do Cepilho</h3><p>A praia do surf. Ondas grandes e formadas, logo na chegada da vila, com o acesso mais fácil de todas. Mar forte: não é praia de criança pequena.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3445124,-44.7145693" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
+      <li class="lugar"><span class="lugar-tipo">Praia</span><h3>Praia Brava</h3><p>Uma das mais preservadas da região, com faixa larga de areia e um rio no canto direito. Chega-se por trilha, o que a mantém vazia mesmo na alta temporada.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3384041,-44.7054969" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
+      <li class="lugar"><span class="lugar-tipo">Praia</span><h3>Praia do Meio</h3><p>A mais fotografada de Trindade: uma ponta de pedras divide a areia em duas. É daqui que saem os nossos passeios — o ponto de encontro fica na placa das trilhas.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3535628,-44.7264128" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
+      <li class="lugar"><span class="lugar-tipo">Praia</span><h3>Praia dos Ranchos</h3><p>A praia dos bares e restaurantes, de mar calmo. É onde a vila almoça e onde a maioria das famílias fica o dia inteiro.</p></li>
+      <li class="lugar"><span class="lugar-tipo">Praia</span><h3>Praia do Cachadaço</h3><p>Areia branca e mar aberto, no fim da trilha. Ao lado dela fica a Piscina Natural do Cachadaço, protegida por pedras de granito — o ponto alto dos nossos roteiros.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3568484,-44.7309172" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
+      <li class="lugar"><span class="lugar-tipo lugar-tipo-agua">Cachoeira</span><h3>Cachoeira da Pedra que Engole</h3><p>A mais conhecida da vila. O rio passa por uma fresta entre duas rochas e o banhista escorrega para dentro dela, saindo do outro lado. Fica a 15–20 minutos de caminhada do fim da Praia do Meio.</p><a class="link-mapa" href="https://www.google.com/maps/search/?api=1&amp;query=-23.3508269,-44.7306156" target="_blank" rel="noopener">Ver no mapa<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a></li>
+      <li class="lugar"><span class="lugar-tipo lugar-tipo-agua">Cachoeira</span><h3>Cachoeira dos Codós</h3><p>Também chamada de Chuveiro. É o primeiro atrativo da trilha: um bloco de rocha divide a queda em duas e forma um poço raso, de cerca de um metro.</p></li>
+      <li class="lugar"><span class="lugar-tipo lugar-tipo-agua">Cachoeira</span><h3>Poço das Duas Paredes</h3><p>Poço de água doce clara e fria entre dois paredões de pedra, na mesma trilha. É a melhor parada para tirar o sal e o calor da caminhada.</p></li>
     </ul>
     <p class="nota-rodape">Praia dos Ranchos, Cachoeira dos Codós e Poço das Duas Paredes ainda não têm ponto cadastrado no mapa aberto — chegue por elas com o guia ou pergunte na vila.</p>
   </section>
@@ -1347,10 +1605,13 @@
           <tr><td>Casario colonial</td><td>Marinelson Almeida</td><td><a href="https://creativecommons.org/licenses/by/2.0" target="_blank" rel="noopener">CC BY 2.0</a></td><td><a href="https://commons.wikimedia.org/wiki/File:Centro_Hist%C3%B3rico_de_Paraty_-_RJ_(14042116675).jpg" target="_blank" rel="noopener">Wikimedia Commons</a></td></tr>
           <tr><td>Igreja de Santa Rita</td><td>Rejane Sarmento</td><td><a href="https://creativecommons.org/licenses/by-sa/4.0" target="_blank" rel="noopener">CC BY-SA 4.0</a></td><td><a href="https://commons.wikimedia.org/wiki/File:Igreja_de_Santa_Rita,_no_centro_hist%C3%B3rico_de_Paraty.jpg" target="_blank" rel="noopener">Wikimedia Commons</a></td></tr>
           <tr><td>Centro histórico à noite</td><td>Pedro Henrique Ponchio</td><td><a href="https://creativecommons.org/licenses/by/2.0" target="_blank" rel="noopener">CC BY 2.0</a></td><td><a href="https://commons.wikimedia.org/wiki/File:Paraty_(4996735551).jpg" target="_blank" rel="noopener">Wikimedia Commons</a></td></tr>
+          <tr><td>Rua de pedra e casario iluminados à noite</td><td>Leandro Neumann Ciuffo</td><td><a href="https://creativecommons.org/licenses/by/2.0" target="_blank" rel="noopener">CC BY 2.0</a></td><td><a href="https://commons.wikimedia.org/wiki/File:Centro_Hist._de_Paraty_-_10_(5545396220).jpg" target="_blank" rel="noopener">Wikimedia Commons</a></td></tr>
+          <tr><td>Igreja Matriz iluminada à noite</td><td>Leandro Neumann Ciuffo</td><td><a href="https://creativecommons.org/licenses/by/2.0" target="_blank" rel="noopener">CC BY 2.0</a></td><td><a href="https://commons.wikimedia.org/wiki/File:Igreja_Matriz_by_night_(5544814833).jpg" target="_blank" rel="noopener">Wikimedia Commons</a></td></tr>
+          <tr><td>Igreja de Santa Rita iluminada à noite</td><td>Leandro Neumann Ciuffo</td><td><a href="https://creativecommons.org/licenses/by/2.0" target="_blank" rel="noopener">CC BY 2.0</a></td><td><a href="https://commons.wikimedia.org/wiki/File:Igreja_de_Santa_Rita_by_night_(5545386912).jpg" target="_blank" rel="noopener">Wikimedia Commons</a></td></tr>
         </tbody>
       </table>
     </div>
-    <p>Modificação feita nas cinco fotos: só redimensionamento e conversão para WebP (480, 960 e 1280 px), sem corte nem edição de cor. As fotos de Paul R. Burley e Rejane Sarmento são CC BY-SA 4.0: versões editadas (recortadas) permanecem sob a mesma licença.</p>
+    <p>Modificação feita nas oito fotos: só redimensionamento e conversão para WebP (480, 960 e 1280 px), sem corte nem edição de cor. As fotos de Paul R. Burley e Rejane Sarmento são CC BY-SA 4.0: versões editadas (recortadas) permanecem sob a mesma licença.</p>
 
     <h2>Outras fotos do site</h2>
     <p>Todas as outras fotos são da equipe Trindade Adventure ou de parceiros (Restaurante Hymbé).</p>
@@ -1421,7 +1682,7 @@
     <header class="fg-light-header"><h2 id="fgLightTitle">Peixe em destaque</h2><button class="fg-close" type="button" data-fg-close aria-label="Fechar galeria">Fechar <span aria-hidden="true">×</span></button></header>
     <div class="fg-light-stage" tabindex="0" aria-label="Fotografia ampliada. Use as setas para navegar.">
       <div class="fg-slide is-active" data-fg-slide="0" aria-hidden="false"><img class="fg-photo" src="/assets/foto-pesca-peixe-560.webp" width="560" height="1000" alt="Peixe vermelho segurado sobre o mar" loading="lazy" decoding="async"></div>
-      <div class="fg-slide" data-fg-slide="1" aria-hidden="true"><img class="fg-photo" src="/assets/foto-pesca-cavalas-560.webp" width="560" height="1000" alt="Cavalas enfileiradas, em fotografia em preto e branco" loading="lazy" decoding="async"></div>
+      <div class="fg-slide" data-fg-slide="1" aria-hidden="true"><img class="fg-photo" src="/assets/foto-pesca-cavalas-recorte-514.webp" width="514" height="1000" alt="Cavalas enfileiradas, em fotografia em preto e branco" loading="lazy" decoding="async"></div>
       <div class="fg-slide" data-fg-slide="2" aria-hidden="true"><img class="fg-photo" src="/assets/foto-pesca-tainha-576.webp" width="576" height="570" alt="Rede de pesca da tainha no mar, com a vila de Trindade ao fundo" loading="lazy" decoding="async"></div>
       <div class="fg-slide" data-fg-slide="3" aria-hidden="true"><img class="fg-photo" src="/assets/foto-pesca-redes-560.webp" width="560" height="900" alt="Pescadores recolhendo a rede de um barco" loading="lazy" decoding="async"></div>
       <div class="fg-arrows"><button class="fg-arrow" type="button" data-fg-prev aria-label="Foto anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><button class="fg-arrow" type="button" data-fg-next aria-label="Próxima foto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button></div>
@@ -1443,8 +1704,7 @@
 
 <!-- Leaflet é servido pelo próprio site e só carrega quando o mapa se aproxima
      da tela. Se ainda assim faltar, o app.js mostra a lista de pontos. -->
-<script src="/app.js?v=20261107-trilho2" defer></script>
-<script src="/vendor/lenis-1.3.11.min.js" defer></script>
+<script src="/app.js?v=20261109-cine1" defer></script>
 <script src="/motion.js?v=20261020-s15" defer></script>
 <script src="/pescaria-galeria.js?v=20261005-rotas" defer></script>
 </body>
