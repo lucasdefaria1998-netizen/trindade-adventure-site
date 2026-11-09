@@ -435,7 +435,8 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("CITYTOUR página com o nome, a descrição-base e R$ 200", ctDoc.includes("City tour Paraty") && ctDoc.includes("Tour pelos museus e por todo o centro histórico de Paraty.") && ctDoc.includes("R$ 200"));
   checar("CITYTOUR botões de reserva e detalhe apontam para os endereços certos", ctDoc.includes('data-wa="Olá! Quero agendar o City tour Paraty'));
   const ctImgs = [...ctDoc.matchAll(/\ssrc="(\/assets\/paraty-[A-Za-z0-9_.\-]+\.webp)"/g)].map(m => m[1]);
-  checar("CITYTOUR página cita ao menos as 5 fotos aprovadas", new Set(ctImgs.map(s => s.replace(/-\d+\.webp$/, ""))).size === 5, ctImgs.join(", "));
+  // 09/11/2026: + 3 fotos do centro histórico à noite (Wikimedia, Leandro Neumann Ciuffo, CC BY 2.0), pedido do Lucas.
+  checar("CITYTOUR página cita as 5 fotos aprovadas + 3 da noite (09/11)", new Set(ctImgs.map(s => s.replace(/-\d+\.webp$/, ""))).size === 8, ctImgs.join(", "));
   let imgsQuebradas = [];
   for (const src of new Set(ctImgs)) { const r = await pegar(src); await r.arrayBuffer(); if (r.status !== 200) imgsQuebradas.push(`${src} → ${r.status}`); }
   checar("CITYTOUR todas as fotos citadas respondem 200", !imgsQuebradas.length, imgsQuebradas.join("; "));
@@ -463,25 +464,26 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     // [arquivo do src, maior arquivo do srcset, trecho que vem logo antes do <img>, lugar que o alt cita]
     ["capa-mirante-baia-800", "capa-mirante-baia-1200", 'class="hero-foto"', "baía de Trindade"],
     ["foto-piscina-cachadaco-recorte-495", "foto-piscina-cachadaco-recorte-495", 'id="mais-procurados"', "Piscina Natural do Cachadaço"],
-    ["lugar-praia-meio-480", "lugar-praia-meio-960", '<h3>Trindade Essencial</h3>', "Praia do Meio"],
+    ["lugar-praia-meio-sem-texto-480", "lugar-praia-meio-sem-texto-960", '<h3>Trindade Essencial</h3>', "Praia do Meio"],
     ["foto-praia-galhetas-recorte-480", "foto-praia-galhetas-recorte-720", "<h3>Trindade Adventure</h3>", "Praia das Galhetas"],
     ["foto-piscina-cachadaco-recorte-495", "foto-piscina-cachadaco-recorte-495", 'id="roteiro-essencial"', "Piscina Natural do Cachadaço"],
-    ["lugar-praia-meio-480", "lugar-praia-meio-960", 'id="roteiro-adventure"', "Praia do Meio"],
+    ["lugar-praia-meio-sem-texto-480", "lugar-praia-meio-sem-texto-960", 'id="roteiro-adventure"', "Praia do Meio"],
     ["foto-piscina-galhetas-recorte-410", "foto-piscina-galhetas-recorte-410", 'id="roteiro-boat"', "Piscina natural das Galhetas"],
-    ["mamangua-igreja-paraty-mirim-480", "mamangua-igreja-paraty-mirim-480", 'id="consulta-mamangua"', "Paraty-Mirim"],
+    ["mamangua-igreja-paraty-mirim-recorte-248", "mamangua-igreja-paraty-mirim-recorte-248", 'id="consulta-mamangua"', "Paraty-Mirim"],
     ["mamangua-praia-cruzeiro-recorte-210", "mamangua-praia-cruzeiro-recorte-210", 'id="consulta-mamangua"', "Praia do Cruzeiro"],
-    ["mamangua-pao-de-acucar-lucas-480", "mamangua-pao-de-acucar-lucas-480", 'id="consulta-mamangua"', "Pão de Açúcar"],
-    ["foto-cachoeira-saco-bravo-720", "foto-cachoeira-saco-bravo-720", 'id="consulta-saco-bravo"', "Cachoeira do Saco Bravo"],
+    // 09/11/2026: foto 04 do Lucas (sem texto). O local não foi confirmado por ele, então o alt é descritivo e sem nome
+    // de lugar — o teste exige exatamente essa descrição (não é afrouxamento: o alt antigo citava o lugar porque a foto antiga trazia o nome escrito).
+    ["saco-bravo-cachoeira-lucas-480", "saco-bravo-cachoeira-lucas-564", 'id="consulta-saco-bravo"', "Cachoeira caindo entre as pedras em um poço junto ao mar"],
     ["juatinga-praia-brava-aerea-348", "juatinga-praia-brava-aerea-348", 'id="consulta-juatinga"', "Praia Brava"],
     ["juatinga-piscina-galheta-aerea-357", "juatinga-piscina-galheta-aerea-357", 'id="consulta-juatinga"', "Galheta"],
     ["juatinga-praia-antigos-324", "juatinga-praia-antigos-324", 'id="consulta-juatinga"', "Praia dos Antigos"],
-    ["lugar-praia-meio-480", "lugar-praia-meio-960", 'class="lugares-fotos"', "Praia do Meio"],
-    ["lugar-praia-brava-rio-480", "lugar-praia-brava-rio-720", 'class="lugares-fotos"', "Praia Brava"],
+    ["lugar-praia-meio-sem-texto-480", "lugar-praia-meio-sem-texto-960", 'class="lugares-fotos"', "Praia do Meio"],
+    ["lugar-praia-brava-rio-recorte-480", "lugar-praia-brava-rio-recorte-720", 'class="lugares-fotos"', "Praia Brava"],
     ["foto-piscina-cachadaco-recorte-495", "foto-piscina-cachadaco-recorte-495", 'class="lugares-fotos"', "Piscina Natural do Cachadaço"],
     ["lugar-antigos-aerea-recorte-480", "lugar-antigos-aerea-recorte-668", 'class="lugares-fotos"', "Praia dos Antigos"],
     ["lugar-ponta-negra-aerea-recorte-480", "lugar-ponta-negra-aerea-recorte-720", 'class="lugares-fotos"', "Ponta Negra"],
-    ["lugar-praia-ponta-negra-480", "lugar-praia-ponta-negra-720", 'class="lugares-fotos"', "Praia da Ponta Negra"],
-    ["lugar-saco-bravo-cachoeira-480", "lugar-saco-bravo-cachoeira-720", 'class="lugares-fotos"', "Cachoeira do Saco Bravo"],
+    ["lugar-praia-ponta-negra-recorte-480", "lugar-praia-ponta-negra-recorte-720", 'class="lugares-fotos"', "Praia da Ponta Negra"],
+    ["saco-bravo-cachoeira-lucas-480", "saco-bravo-cachoeira-lucas-564", 'class="lugares-fotos"', "Cachoeira caindo entre as pedras em um poço junto ao mar"],
     ["lugar-igreja-centro-paraty-480", "lugar-igreja-centro-paraty-698", 'class="lugares-fotos"', "centro histórico de Paraty"]
   ];
   for (const [src, maior, bloco, lugar] of fotos) {
@@ -918,7 +920,8 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const passeiosDoc = await (await pegar("/passeios")).text();
   // 26/10/2026: as 3 fotos do Wikimedia saíram (fotos novas do Lucas); o crédito sai do cartão junto com elas.
   const cartaoMamangua = passeiosDoc.slice(passeiosDoc.indexOf('id="consulta-mamangua"'), passeiosDoc.indexOf('id="consulta-fishing"'));
-  checar("E26 Mamanguá em /passeios: 3 fotos do Lucas, sem as do Wikimedia nem o crédito delas no cartão", ["mamangua-igreja-paraty-mirim", "mamangua-praia-cruzeiro", "mamangua-pao-de-acucar-lucas"].every(s => cartaoMamangua.includes(s)) && !/mamangua-(vista-pico|barco)/.test(cartaoMamangua) && !cartaoMamangua.includes("Ygaray"));
+  // 09/11/2026: a foto do Pão de Açúcar (marca d'água fotosincriveis.com.br, de terceiro) saiu do cartão.
+  checar("E26 Mamanguá em /passeios: fotos do Lucas sem texto, sem a da marca d'água, sem as do Wikimedia nem o crédito delas no cartão", ["mamangua-igreja-paraty-mirim-recorte", "mamangua-praia-cruzeiro"].every(s => cartaoMamangua.includes(s)) && !cartaoMamangua.includes("mamangua-pao-de-acucar-lucas") && !/mamangua-(vista-pico|barco)/.test(cartaoMamangua) && !cartaoMamangua.includes("Ygaray"));
 
   // City tour Paraty em /passeios (antes era o cartão do parapente, removido): já checado no bloco CITYTOUR acima.
 
