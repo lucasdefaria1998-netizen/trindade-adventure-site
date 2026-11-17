@@ -284,6 +284,52 @@ const Origem = {
   }
 };
 
+/* Rede de parceiros indicadores (QR/link — E5/F2): captura ?parceiro= (e ?parceiroVia=) na chegada e
+   guarda no navegador até a validade. [Bloco 8a] A validade não é mais um número fixo aqui: o código só
+   é guardado depois que o servidor confirma que existe e está ativo (GET /api/parceiro), e a validade
+   gravada junto (validadeDias) é a de config.parceiro_validade_dias — quem decide é o servidor, não o
+   cliente. Consequência também desejada: com a rede desligada (/api/parceiro sempre 404), nada é
+   gravado no navegador do turista. Último clique vence (sobrescreve o anterior), como recomendado em
+   D1 (TODO(DECISAO-D1): cupom como segunda forma de atribuição, ver mostrarFaixaParceiro). Um código
+   forjado ou de parceiro inativo também não gera atribuição nenhuma, só é ignorado silenciosamente. */
+const Parceiro = {
+  CHAVE: "trindade.parceiro",
+  VALIDADE_DIAS_PADRAO: 7, // só para localStorage escrito antes deste código existir; o servidor manda o valor de agora em diante.
+
+  async capturar() {
+    try {
+      const params = new URLSearchParams(location.search);
+      const codigo = (params.get("parceiro") || "").trim().toLowerCase();
+      if (!codigo || !/^[a-z0-9]{6,32}$/.test(codigo)) return;
+      const r = await chamarAPI("/api/parceiro?codigo=" + encodeURIComponent(codigo));
+      if (r.status !== 200 || !r.corpo || !r.corpo.nome) return; // inexistente, inativo ou rede desligada
+      const via = params.get("parceiroVia") === "qr" ? "qr" : "link";
+      const validadeDias = Number(r.corpo.validadeDias) > 0 ? Number(r.corpo.validadeDias) : this.VALIDADE_DIAS_PADRAO;
+      localStorage.setItem(this.CHAVE, JSON.stringify({ codigo, via, ts: Date.now(), validadeDias, nome: r.corpo.nome }));
+    } catch (e) {}
+  },
+
+  ativo() {
+    try {
+      const salvo = JSON.parse(localStorage.getItem(this.CHAVE) || "null");
+      if (!salvo || !salvo.codigo || !salvo.ts) return null;
+      const validadeDias = Number(salvo.validadeDias) > 0 ? Number(salvo.validadeDias) : this.VALIDADE_DIAS_PADRAO;
+      if (Date.now() - salvo.ts > validadeDias * 86400000) { localStorage.removeItem(this.CHAVE); return null; }
+      return salvo;
+    } catch (e) { return null; }
+  }
+};
+
+// Faixa discreta "Indicado por …" na página de reserva (F2). Usa o nome já confirmado na captura
+// (Parceiro.ativo().nome) — nunca lista parceiros, nunca pede de novo um código que já foi validado.
+function mostrarFaixaParceiro() {
+  const faixa = document.getElementById("faixaParceiro");
+  const ativo = Parceiro.ativo();
+  if (!faixa || !ativo || !ativo.nome) return;
+  faixa.textContent = "Indicado por " + ativo.nome;
+  faixa.hidden = false;
+}
+
 /* Um relato do próprio cliente ("como conheceu") só deve sobrepor a detecção
    automática quando ela veio fraca (visita direta ou não reconhecida) — nunca
    apaga um clique de fato rastreado vindo do Instagram ou do Google. */
@@ -1693,6 +1739,7 @@ function ligarReserva() {
 
     const o = Origem.detectar();
     const gEnvio = grupoDaReserva();
+    const parceiroAtivo = Parceiro.ativo();
     const chave = chaveDoEnvio([reserva.plano, reserva.data, reserva.hora, gEnvio.pagantes, gEnvio.criancas, gEnvio.idades.join("."), dadosForm.tel, dadosForm.nome].join("|"));
     // Token novo do desafio anti-robô a cada envio. Sem ele (script bloqueado, rede ruim) não
     // adianta chamar o servidor: vai direto para o WhatsApp, abaixo, com a mesma aba já aberta.
@@ -1704,7 +1751,7 @@ function ligarReserva() {
     } else resultado = await chamarAPI("/api/reservas", {
       method: "POST",
       headers: { "content-type": "application/json", "Idempotency-Key": chave },
-      body: JSON.stringify({
+      body: JSON.stringify(Object.assign({
         plano: reserva.plano, data: reserva.data, hora: reserva.hora,
         pax: gEnvio.pessoas, adultos: gEnvio.pagantes, criancas: gEnvio.criancas,
         idadesCriancas: gEnvio.idades.map(n => Number(n)),
@@ -1716,7 +1763,7 @@ function ligarReserva() {
         instagramCliente: reserva.instagramCliente, seguiuInstagram: reserva.seguiuInstagram,
         sessao: Origem.sessao(),
         "cf-turnstile-response": tokenAnti
-      })
+      }, parceiroAtivo ? { parceiroCodigo: parceiroAtivo.codigo, parceiroVia: parceiroAtivo.via } : {}))
     });
 
     atualizarBotaoEnvio();
@@ -2222,12 +2269,27 @@ function ligarFileiraPasseios() {
     const barra = ind && $("span", ind);
     if (!ind || !barra) return;
     fileira.dataset.fileiraLigada = "1";
+    const ant = $("[data-fileira-ant]", fileira.parentElement), prox = $("[data-fileira-prox]", fileira.parentElement);
+    const passo = sentido => {
+      const cartao = fileira.firstElementChild;
+      const largura = cartao ? cartao.getBoundingClientRect().width + parseFloat(getComputedStyle(fileira).columnGap || 0) : fileira.clientWidth;
+      fileira.scrollBy({ left: sentido * largura, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+    };
+    if (ant) ant.addEventListener("click", () => passo(-1));
+    if (prox) prox.addEventListener("click", () => passo(1));
     let agendado = 0;
     const desenhar = () => {
       agendado = 0;
       const total = fileira.scrollWidth, visivel = fileira.clientWidth;
       const rola = total - visivel > 2 && getComputedStyle(fileira).overflowX !== "visible";
       ind.classList.toggle("ativo", rola);
+      // Setas da fileira (14/11/2026): só quando há o que rolar; cada uma desativa na ponta.
+      if (ant && prox) {
+        const mostra = rola && getComputedStyle(ind).display !== "none";
+        ant.hidden = prox.hidden = !mostra;
+        ant.disabled = fileira.scrollLeft <= 2;
+        prox.disabled = fileira.scrollLeft >= total - visivel - 2;
+      }
       if (!rola) return;
       const fr = visivel / total;
       barra.style.width = (fr * 100).toFixed(2) + "%";
@@ -2243,6 +2305,8 @@ function ligarFileiraPasseios() {
 function iniciar() {
   // Link antigo (#/passeios?plano=boat) vira o endereço novo antes de tudo.
   migrarEnderecoAntigo();
+  Parceiro.capturar().then(mostrarFaixaParceiro); // captura é assíncrona (confirma com o servidor antes de gravar — Bloco 8a)
+  mostrarFaixaParceiro(); // mostra de imediato se já havia uma atribuição válida guardada de uma visita anterior
   ligarMenu();
   ligarLinksWhatsApp();
   mostrarDadosDaEmpresa();

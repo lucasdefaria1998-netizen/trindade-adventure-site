@@ -1015,3 +1015,211 @@ html[data-rota-atual="inicio"] .topbar:not(.is-scrolled) .nav a:not(.nav-cta){co
 .noite-credito a{color:inherit}
 @media(prefers-reduced-motion:reduce){html[data-motion] .hero-foto img{animation:none}}
 .aba .aba-pre{margin-right:.25em}
+
+/* ==========================================================================
+   VIDRO (09/11/2026): efeito "glass" no estilo do iOS/macOS — barras e botões
+   translúcidos com desfoque do que está atrás, borda fina clara, brilho na
+   borda de cima e sombra suave. O site só tem o tema escuro, então o vidro é
+   escuro-esverdeado (o conteúdo atrás aparece desfocado e saturado).
+   Tudo passa pelos tokens abaixo: quem tem "reduzir transparência" no sistema
+   (ou um navegador sem backdrop-filter) recebe as mesmas peças, mas sólidas.
+   ========================================================================== */
+:root{
+  --vidro-blur:blur(22px) saturate(180%);
+  --vidro-blur-leve:blur(12px) saturate(150%);
+  --vidro-fundo:rgb(255 255 255 / .10);          /* botões "de vidro" */
+  --vidro-fundo-hover:rgb(255 255 255 / .18);
+  --vidro-fundo-forte:rgb(18 27 22 / .55);       /* barras e painéis */
+  --vidro-fundo-escuro:rgb(10 16 13 / .42);      /* setas sobre foto */
+  --vidro-verde:rgb(95 184 148 / .84);           /* botão principal, vidro tingido de verde */
+  --vidro-verde-hover:rgb(124 201 168 / .9);
+  --vidro-borda:rgb(255 255 255 / .24);
+  --vidro-brilho:inset 0 1px 0 rgb(255 255 255 / .36),inset 0 -1px 0 rgb(255 255 255 / .06);
+  --vidro-sombra:0 10px 28px -14px rgb(0 0 0 / .6);
+}
+@media(prefers-reduced-transparency:reduce){
+  :root{--vidro-blur:none;--vidro-blur-leve:none;--vidro-fundo:#1F2B25;--vidro-fundo-hover:#27362E;--vidro-fundo-forte:#131C18;--vidro-fundo-escuro:#101814;--vidro-verde:#5FB894;--vidro-verde-hover:#7CC9A8}
+}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  :root{--vidro-fundo:#1F2B25;--vidro-fundo-hover:#27362E;--vidro-fundo-forte:#131C18;--vidro-fundo-escuro:#101814;--vidro-verde:#5FB894;--vidro-verde-hover:#7CC9A8}
+}
+
+/* botões: cápsula; o principal é vidro verde, os demais vidro claro */
+.btn{border-radius:999px}
+.btn-secundario,.btn-contorno-claro,.btn-wa{
+  background:var(--vidro-fundo);border-color:var(--vidro-borda);color:var(--ink);
+  -webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);
+  box-shadow:var(--vidro-brilho),var(--vidro-sombra)}
+.btn-secundario:hover,.btn-contorno-claro:hover,.btn-wa:hover{background:var(--vidro-fundo-hover);border-color:rgb(255 255 255 / .4)}
+.btn-primario,.btn-claro,.nav .nav-cta{
+  background:linear-gradient(180deg,rgb(255 255 255 / .32) 0%,rgb(255 255 255 / 0) 55%),var(--vidro-verde);
+  border-color:rgb(255 255 255 / .38);color:var(--accent-ink);
+  -webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);
+  box-shadow:var(--vidro-brilho),0 10px 26px -12px rgb(95 184 148 / .65)}
+.btn-primario:hover,.btn-claro:hover,.nav .nav-cta:hover,.nav .nav-cta[aria-current="page"]{
+  background:linear-gradient(180deg,rgb(255 255 255 / .36) 0%,rgb(255 255 255 / 0) 55%),var(--vidro-verde-hover)}
+.btn:disabled{box-shadow:none}
+
+/* topbar: o vidro fica num pseudo-elemento para não "aninhar" desfoque com o menu aberto */
+.topbar{background:transparent;border-bottom-color:transparent}
+.topbar::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;
+  background:var(--vidro-fundo-forte);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);
+  border-bottom:1px solid rgb(255 255 255 / .12);box-shadow:inset 0 1px 0 rgb(255 255 255 / .08),0 12px 30px -22px rgb(0 0 0 / .8)}
+html[data-rota-atual="inicio"] .topbar:not(.is-scrolled)::before{background:rgb(255 255 255 / .05);-webkit-backdrop-filter:var(--vidro-blur-leve);backdrop-filter:var(--vidro-blur-leve);border-bottom-color:rgb(255 255 255 / .16)}
+.nav a:hover{background:rgb(255 255 255 / .10)}
+@media(min-width:1041px){.nav a{border-radius:999px}}
+.menu-toggle{border-radius:999px;background:var(--vidro-fundo);border-color:var(--vidro-borda);
+  -webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);box-shadow:var(--vidro-brilho)}
+@media(max-width:1040px){
+  .js .nav{background:rgb(18 27 22 / .7);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);
+    border:1px solid var(--vidro-borda);border-top:0;border-radius:0 0 24px 24px;box-shadow:var(--vidro-brilho),0 24px 40px -24px rgb(0 0 0 / .7)}
+  .js .nav a:hover{background:none}
+  .js .nav .nav-cta{border-radius:999px}
+}
+
+/* barra do clima */
+#climaBar{background:rgb(15 22 19 / .78);-webkit-backdrop-filter:var(--vidro-blur-leve);backdrop-filter:var(--vidro-blur-leve);border-bottom-color:rgb(255 255 255 / .08)}
+
+/* abertura: as três colunas viram cartões de vidro */
+.hero-colunas li{border-radius:18px;border-color:var(--vidro-borda);background:var(--vidro-fundo);
+  -webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);box-shadow:var(--vidro-brilho),var(--vidro-sombra)}
+.hero-colunas li:first-child{box-shadow:var(--vidro-brilho),var(--vidro-sombra),inset 0 -2px 0 var(--barro)}
+
+/* abertura: texto novo ("O Melhor da Trindade começa aqui" + subtítulo) */
+#inicio>.hero .hero-grande:last-child{padding-bottom:.08em}   /* a cedilha do "COMEÇA" não encosta no subtítulo */
+#inicio>.hero .hero-lede{max-width:none;margin-top:26px;font-size:clamp(15px,1.5vw,20px);letter-spacing:.16em}
+@media(max-width:640px){#inicio>.hero .hero-titulo{font-size:clamp(44px,13.4vw,70px)}#inicio>.hero .hero-lede{margin-top:22px;font-size:14px;letter-spacing:.14em}}
+
+/* setas das galerias, sobre foto */
+.galeria-seta,.mg-nav,.fg-arrow{border-radius:50%;background:var(--vidro-fundo-escuro);border:1px solid rgb(255 255 255 / .34);color:#fff;
+  -webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);box-shadow:var(--vidro-brilho),0 6px 16px -8px rgb(0 0 0 / .7)}
+.mg-nav:hover,.fg-arrow:hover,.galeria-seta:hover{background:rgb(10 16 13 / .6)}
+@media(hover:hover){.mg-nav:hover,.fg-arrow:hover{background:rgb(10 16 13 / .6)}}
+
+/* aviso (toast) e botão flutuante de WhatsApp */
+.torrada{background:rgb(18 27 22 / .78);color:var(--ink);border:1px solid var(--vidro-borda);border-radius:999px;
+  -webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);box-shadow:var(--vidro-brilho),var(--vidro-sombra)}
+.wa-flutuante{box-shadow:var(--vidro-brilho),var(--sombra);border:1px solid rgb(255 255 255 / .35)}
+
+/* celular: a barra de baixo vira uma cápsula flutuante de vidro, no estilo do iOS */
+@media(max-width:720px){
+  :root{--tabbar-h:78px}   /* 66 da barra + 8 de respiro embaixo + 4 de folga */
+  .tabbar{left:12px;right:12px;bottom:calc(8px + env(safe-area-inset-bottom));padding:6px;border-radius:30px;
+    background:var(--vidro-fundo-forte);border:1px solid var(--vidro-borda);
+    -webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);box-shadow:var(--vidro-brilho),0 18px 40px -16px rgb(0 0 0 / .75)}
+  .tabbar a{border-radius:24px}
+  .tabbar a[aria-current="page"]{background:rgb(255 255 255 / .14);box-shadow:var(--vidro-brilho)}
+  #reservar .barra-fixa-reserva{background:var(--vidro-fundo-forte);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);border-top-color:var(--vidro-borda)}
+}
+
+/* ==========================================================================
+   LIQUID GLASS — 2ª passada (10/11/2026): o vidro deixa de ser só das barras
+   e dos botões e passa a ser a "matéria" do site inteiro.
+   1) um fundo com luz ambiente (verde-mata, azul-mar, areia) para o vidro ter
+      o que refletir; 2) superfícies translúcidas com cantos generosos, borda
+      clara fina e brilho na aresta de cima; 3) campos e opções do formulário
+      no mesmo material; 4) resposta "líquida" ao toque (reflexo que corre no
+      botão, leve mola ao apertar).
+   Desfoque (backdrop-filter) só no que flutua sobre foto ou sobre a página
+   rolando: barras, botões da abertura, setas, janela dos termos. Os cartões
+   são translúcidos sem desfoque — mesmo aspecto, sem pesar no celular.
+   ========================================================================== */
+:root:root,:root[data-theme]{
+  --r-lg:24px; --r:16px; --r-sm:12px;
+  --surface:rgb(255 255 255 / .055);
+  --surface-2:rgb(255 255 255 / .035);
+  --line:rgb(255 255 255 / .11);
+  --line-2:rgb(255 255 255 / .22);
+  --vidro-aresta:inset 0 1px 0 rgb(255 255 255 / .12),inset 0 0 0 1px rgb(255 255 255 / .02);
+  --vidro-profundo:0 28px 50px -34px rgb(0 0 0 / .75);
+}
+@media(prefers-reduced-transparency:reduce){
+  :root:root,:root[data-theme]{--surface:#17211C;--surface-2:#131C18;--line:#2A3A32;--line-2:#3F5A4C}
+}
+
+/* luz ambiente atrás de tudo (fixa: o conteúdo desliza por cima dela) */
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(62vw 54vh at 8% 6%,rgb(70 170 132 / .17),transparent 70%),
+    radial-gradient(54vw 52vh at 96% 34%,rgb(48 124 160 / .15),transparent 70%),
+    radial-gradient(70vw 60vh at 46% 108%,rgb(196 148 96 / .11),transparent 70%)}
+@media(prefers-reduced-transparency:reduce){body::before{display:none}}
+
+/* superfícies: cartões, painéis, passos do formulário */
+.card-passeio,.caixa,.consulta,.roteiro-resumo,.roteiro-dia,.passo,.resumo,.restaurante,.mapa,.cam,.peixe-card,.fishing-gallery,.historia-capa,.historia-galeria figure{
+  border-radius:var(--r-lg);box-shadow:var(--vidro-aresta),var(--vidro-profundo)}
+.card-passeio,.consulta,.roteiro-resumo,.restaurante{background:linear-gradient(180deg,rgb(255 255 255 / .075),rgb(255 255 255 / .035))}
+.card-destaque{border-top:1px solid var(--line);box-shadow:var(--vidro-aresta),var(--vidro-profundo),inset 0 3px 0 var(--barro)}
+.pescaria-info{background:linear-gradient(180deg,rgb(95 184 148 / .16),rgb(95 184 148 / .07));border:1px solid rgb(95 184 148 / .28);box-shadow:var(--vidro-aresta)}
+.nota{background:rgb(255 255 255 / .05);border:1px solid var(--line)}
+.pill{border-radius:999px;background:rgb(255 255 255 / .09);border:1px solid rgb(255 255 255 / .1)}
+.ponto{background:#18231E}                                   /* opaco: esconde a linha do roteiro que passa por trás */
+.noite-miniaturas a{border-radius:14px;border-color:var(--vidro-borda);box-shadow:var(--vidro-brilho),var(--vidro-sombra)}
+.rodape{background:rgb(255 255 255 / .03);box-shadow:inset 0 1px 0 rgb(255 255 255 / .08)}
+
+/* formulário de reserva: opções e campos em vidro; o escolhido é vidro verde */
+.plano-opcao,.data-btn,.hslot{background:rgb(255 255 255 / .05);border-color:var(--line-2);box-shadow:inset 0 1px 0 rgb(255 255 255 / .1)}
+.plano-opcao:hover,.data-btn:hover,.hslot:hover:not(:disabled){background:rgb(255 255 255 / .09)}
+.plano-opcao[aria-pressed="true"]{background:linear-gradient(180deg,rgb(95 184 148 / .26),rgb(95 184 148 / .12));box-shadow:inset 0 0 0 1px var(--accent),inset 0 1px 0 rgb(255 255 255 / .2),0 14px 30px -18px rgb(95 184 148 / .6)}
+.data-btn[aria-pressed="true"],.hslot[aria-pressed="true"]{
+  background:linear-gradient(180deg,rgb(255 255 255 / .3) 0%,rgb(255 255 255 / 0) 55%),var(--vidro-verde);border-color:rgb(255 255 255 / .38);
+  box-shadow:var(--vidro-brilho),0 12px 26px -14px rgb(95 184 148 / .7)}
+.field input,.field select,.field textarea,.outra-data input{background:rgb(0 0 0 / .24);border-color:var(--line-2);box-shadow:inset 0 1px 2px rgb(0 0 0 / .35)}
+.field select option{background:#17211C;color:var(--ink)}
+#modalTermos{background:rgb(20 30 25 / .84);border-color:var(--vidro-borda);border-radius:var(--r-lg);
+  -webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);box-shadow:var(--vidro-brilho),0 40px 80px -30px rgb(0 0 0 / .8)}
+#modalTermos::backdrop{background:rgb(4 10 8 / .55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+
+/* perguntas frequentes: cada pergunta é uma pastilha de vidro */
+.faq details{margin-bottom:10px;padding-inline:18px;border:1px solid var(--line);border-radius:var(--r);background:rgb(255 255 255 / .045);box-shadow:inset 0 1px 0 rgb(255 255 255 / .09)}
+.faq details:last-child{border-bottom:1px solid var(--line)}
+.faq details[open]{background:rgb(255 255 255 / .07)}
+
+/* menu: o "Reservar" continua cápsula quando é a página atual */
+.nav .nav-cta[aria-current="page"]{border-radius:999px;box-shadow:var(--vidro-brilho),0 10px 26px -12px rgb(95 184 148 / .65)}
+
+/* desfoque só onde o botão flutua sobre foto; nos cartões o vidro é só translúcido (mais leve) */
+.btn-secundario,.btn-contorno-claro,.btn-wa,.btn-primario,.btn-claro{-webkit-backdrop-filter:none;backdrop-filter:none}
+#inicio>.hero .btn,.noite-paraty .btn,.nav .nav-cta{-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur)}
+
+/* resposta líquida: reflexo que atravessa o botão principal e mola ao apertar */
+.btn{position:relative;overflow:hidden}
+.btn-primario::after,.btn-claro::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(115deg,transparent 32%,rgb(255 255 255 / .38) 48%,transparent 64%);transform:translateX(-130%)}
+@media(hover:hover){
+  html[data-motion="running"] .btn-primario:hover::after,html[data-motion="running"] .btn-claro:hover::after{transform:translateX(130%);transition:transform .8s cubic-bezier(.2,.7,.2,1)}
+  html[data-motion="running"] .card-passeio{transition:transform .5s cubic-bezier(.2,.8,.2,1),box-shadow .5s}
+  html[data-motion="running"] .card-passeio:hover{transform:translateY(-4px);box-shadow:var(--vidro-aresta),0 36px 60px -34px rgb(0 0 0 / .85)}
+  html[data-motion="running"] .card-destaque:hover{box-shadow:var(--vidro-aresta),0 36px 60px -34px rgb(0 0 0 / .85),inset 0 3px 0 var(--barro)}
+}
+/* "Escolha o passeio": ao passar o mouse o cartão cresce de verdade (sobe, aumenta e a foto aproxima).
+   A fileira rola na horizontal (overflow corta o que passa da borda), então ganha uma folga interna
+   compensada por margem negativa: o layout fica igual e o cartão ampliado não é cortado. */
+@media(hover:hover) and (pointer:fine){
+  .grade-passeios{padding:34px 18px;margin:-34px -18px;scroll-padding-inline:18px}
+  .grade-passeios>.card-passeio{position:relative;z-index:0}
+  .grade-passeios .galeria-slide{overflow:hidden}
+  .grade-passeios .galeria-slide img{transition:transform .9s cubic-bezier(.2,.8,.2,1)}
+  html[data-motion="running"] .grade-passeios>.card-passeio{transition:transform .55s cubic-bezier(.2,.9,.25,1.15),box-shadow .55s,border-color .3s}
+  html[data-motion="running"] .grade-passeios>.card-passeio:hover,
+  html[data-motion="running"] .grade-passeios>.card-passeio:focus-within{z-index:2;transform:translateY(-10px) scale(1.05);
+    border-color:rgb(255 255 255 / .35);box-shadow:var(--vidro-aresta),0 48px 80px -30px rgb(0 0 0 / .9)}
+  html[data-motion="running"] .grade-passeios>.card-destaque:hover,
+  html[data-motion="running"] .grade-passeios>.card-destaque:focus-within{box-shadow:var(--vidro-aresta),0 48px 80px -30px rgb(0 0 0 / .9),inset 0 3px 0 var(--barro)}
+  html[data-motion="running"] .grade-passeios>.card-passeio:hover .galeria-slide img{transform:scale(1.08)}
+}
+html[data-motion="running"] .btn{transition:transform .28s cubic-bezier(.3,1.5,.5,1),background-color .25s,border-color .25s,box-shadow .3s}
+.btn:active{transform:scale(.96)}
+.tabbar a{transition:background-color .25s,color .2s,transform .28s cubic-bezier(.3,1.5,.5,1)}
+.tabbar a:active{transform:scale(.94)}
+
+/* Setas da fileira "Escolha o passeio" (14/11/2026): com 7 cartões, a fileira passa da tela no desktop. */
+.fileira-controles{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:24px}
+.fileira-controles .fileira-indicador{margin:0;flex:0 1 280px}
+.fileira-seta{width:44px;height:44px;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;
+  background:var(--vidro-fundo-escuro);border:1px solid rgb(255 255 255 / .34);color:#fff;cursor:pointer;
+  -webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);transition:background-color .2s,opacity .2s}
+.fileira-seta:hover:not(:disabled){background:rgb(10 16 13 / .6)}
+.fileira-seta:disabled{opacity:.35;cursor:default}
+.fileira-seta[hidden]{display:none}
+.fileira-ant .ico{transform:scaleX(-1)}

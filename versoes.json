@@ -4,8 +4,8 @@
     "sha256": "4759b0358431d0b5902fc8de4ef12f4101a176cfe18784df1d897c47a54cc821"
   },
   "app.js": {
-    "v": "20261109-cine1",
-    "sha256": "84ac8722b063b13bdc9d4a70c902effa4260a70289612207db3573bb7e838701"
+    "v": "20261114-fileira1",
+    "sha256": "6c97eaa6b0600c7b458b2462dc4f688e9b81093f5942a8742d55bf5680394ba1"
   },
   "motion.js": {
     "v": "20261020-s15",
@@ -16,7 +16,7 @@
     "sha256": "fd0e859e0fbfd486f8840402c3eb610a3dbf71504af0469ef34c44c4cca9c183"
   },
   "estilo.css": {
-    "v": "20261109-cine4",
-    "sha256": "0b2f34e2b7fbcb34bf0609a476c92384a901a41d80f702159bdc27c2f91e2bb8"
+    "v": "20261114-fileira1",
+    "sha256": "bf2be963c45008cd0d35e9429d2b18f92a3b1641be47a594cd83d9b681c16882"
   }
 }
