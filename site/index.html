@@ -46,7 +46,10 @@
      TODO(cadastur): o número Cadastur novo entra em site-config → negocio.cadastur.
        Vazio = não aparece no rodapé nem no JSON-LD. Não usar o CNPJ (eram o mesmo
        número por engano; o Cadastur publicado na busca pública é de outra empresa
-       homônima, por isso o campo ficou vazio em 24/10/2026 até chegar o número certo). -->
+       homônima, por isso o campo ficou vazio em 24/10/2026 até chegar o número certo).
+     logo, instagram, googleMeuNegocio: o servidor põe no JSON-LD da empresa (logo em URL
+       absoluta; sameAs só com os perfis preenchidos). googleMeuNegocio fica vazio até
+       existir o link do perfil no Google — vazio = fora do sameAs. -->
 <script type="application/json" id="site-config">
 {
   "origem": "https://trindadeadventury.com.br",
@@ -197,7 +200,10 @@
     "nome": "Trindade Adventure",
     "razaoSocial": "64.565.826 IGOR SANTIAGO FRAGA",
     "cnpj": "64.565.826/0001-80",
-    "cadastur": ""
+    "cadastur": "",
+    "logo": "/apple-touch-icon.png",
+    "instagram": "https://www.instagram.com/trindadeadventure/",
+    "googleMeuNegocio": ""
   }
 }
 </script>
@@ -235,8 +241,10 @@
      o ponto de encontro e o preço de cada roteiro com agenda. Só entra aqui o
      que o próprio site já informa — sem nota, avaliação ou selo inventado.
      Se o preço mudar, mude também aqui (ver LEIA-ME, "Preço de um passeio").
-     "geo" é o ponto de encontro (Praia do Meio), o mesmo do mapa do app.js. -->
-<script type="application/ld+json">
+     "geo" é o ponto de encontro (Praia do Meio), o mesmo do mapa do app.js.
+     logo e sameAs não ficam aqui: o servidor os põe
+     a partir de "negocio" no site-config (ver jsonLdDaEmpresa no _worker.js). -->
+<script type="application/ld+json" id="ld-empresa">
 {
   "@context": "https://schema.org",
   "@type": "TravelAgency",
@@ -259,7 +267,6 @@
   },
   "geo": { "@type": "GeoCoordinates", "latitude": -23.35356, "longitude": -44.72641 },
   "areaServed": { "@type": "Place", "name": "Trindade, Paraty — RJ" },
-  "sameAs": ["https://www.instagram.com/trindadeadventure/"],
   "makesOffer": [
     { "@type": "Offer", "name": "Trindade Essencial",
       "url": "https://trindadeadventury.com.br/passeios/essencial",

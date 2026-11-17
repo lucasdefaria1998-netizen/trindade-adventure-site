@@ -500,7 +500,7 @@ async function servirPagina(request, env, url) {
   }
   const avaliacoes = await lerAvaliacoes(env, url);
   if (pagina && avaliacoes.length && (secao === "inicio" || secao === "passeios")) jsonld.push(jsonLdAvaliacoes(site.origem, avaliacoes));
-  return aplicarMetadados(resposta, meta, !pagina, env, { secao, foco, hero: heroDaRota(html, secao, foco), empresa: textoDaEmpresa(site.negocio), jsonld, avaliacoes: htmlDasAvaliacoes(avaliacoes) });
+  return aplicarMetadados(resposta, meta, !pagina, env, { secao, foco, hero: heroDaRota(html, secao, foco), empresa: textoDaEmpresa(site.negocio), ldEmpresa: jsonLdDaEmpresa(html, site), jsonld, avaliacoes: htmlDasAvaliacoes(avaliacoes) });
 }
 
 /* Avaliações de clientes (auditoria 16/11, P1.5). Fonte única: site/dados/avaliacoes.json, uma lista de
@@ -649,6 +649,29 @@ function jsonLdDaPagina(site, caminho, pagina, meta) {
   return blocos;
 }
 
+/* TravelAgency do index.html (auditoria 16/11, P2). O bloco <script id="ld-empresa"> traz o que não muda;
+   logo e sameAs saem de "negocio" no site-config, o mesmo lugar do rodapé. Logo em URL absoluta
+   (apple-touch-icon.png, PNG 180×180, acima dos 112 px que o Google pede). sameAs só com perfis preenchidos
+   e https: o Instagram e, quando existir o link, o Google Meu Negócio.
+   Devolve o JSON pronto para o <script> ("<" escapado) ou null se o bloco não existir ou não for JSON. */
+function jsonLdDaEmpresa(html, site) {
+  const m = String(html || "").match(/<script type="application\/ld\+json" id="ld-empresa">([\s\S]*?)<\/script>/);
+  if (!m || !site) return null;
+  let j;
+  try { j = JSON.parse(m[1]); } catch (e) { return null; }
+  const n = site.negocio || {};
+  const url = v => {
+    const s = typeof v === "string" ? v.trim() : "";
+    const abs = s.startsWith("/") && !s.startsWith("//") ? site.origem + s : s;
+    return /^https:\/\/[^\s"<>]+$/.test(abs) ? abs : "";
+  };
+  delete j.sameAs; delete j.logo;
+  if (url(n.logo)) j.logo = url(n.logo);
+  const perfis = [n.instagram, n.googleMeuNegocio].map(url).filter(Boolean);
+  if (perfis.length) j.sameAs = perfis;
+  return JSON.stringify(j).replace(/</g, "\\u003c");
+}
+
 /* Dados legais do rodapé (razão social, CNPJ, Cadastur), a partir de "negocio" no site-config. Campo vazio
    não entra: sem rótulo solto. Mesma regra e mesmo texto do app.js (mostrarDadosDaEmpresa). */
 function textoDaEmpresa(n) {
@@ -736,6 +759,12 @@ function aplicarMetadados(resposta, m, naoEncontrada, env, rota) {
 
   // Comentários HTML (notas de arquitetura: banco, rotas de API, worker…) ficam só no código-fonte, não vão para o visitante.
   rw = rw.onDocument({ comments(c) { c.remove(); } });
+
+  // TravelAgency com logo e sameAs do site-config (jsonLdDaEmpresa); o id só serve para achar o bloco.
+  rw = rw.on("#ld-empresa", { element(el) {
+    el.removeAttribute("id");
+    if (rota.ldEmpresa) el.setInnerContent(rota.ldEmpresa, { html: true });
+  } });
 
   // JSON-LD da rota (BreadcrumbList, TouristTrip). "<" escapado: nada de fechar o <script> por dentro.
   if (rota.jsonld && rota.jsonld.length) {
@@ -2880,5 +2909,5 @@ export {
   calcularCobranca, dentroDoPrazoDeEstorno, minutosDoLink, planoPagaOnline, pagamentoOnlineAtivo, PAGAMENTO,
   saldoAntecedenciaH, executarTarefasPagamento, comporGrupo,
   textoTermosDe, hashTexto, validarAceiteTermos, faqPageDe,
-  avaliacoesValidas, htmlDasAvaliacoes, jsonLdAvaliacoes
+  avaliacoesValidas, htmlDasAvaliacoes, jsonLdAvaliacoes, jsonLdDaEmpresa, textoDaEmpresa
 };

@@ -559,7 +559,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   // og:image, twitter:image, JSON-LD e site-config apontam para a capa nova (JPG 1200×630)
   const og = "https://trindadeadventury.com.br/assets/og-capa-mirante.jpg";
   checar("FOTOS-LUCAS og:image e twitter:image = og-capa-mirante.jpg", doc.includes(`<meta property="og:image" content="${og}">`) && doc.includes(`<meta name="twitter:image" content="${og}">`));
-  checar("FOTOS-LUCAS JSON-LD image e site-config imagemPadrao = og-capa-mirante.jpg", doc.includes(`"image": "${og}"`) && SITE.imagemPadrao === "/assets/og-capa-mirante.jpg" && JSON.stringify(SITE.imagensDim["/assets/og-capa-mirante.jpg"]) === "[1200,630]");
+  checar("FOTOS-LUCAS JSON-LD image e site-config imagemPadrao = og-capa-mirante.jpg", /"image":\s*"([^"]*)"/.exec(doc)?.[1] === og && SITE.imagemPadrao === "/assets/og-capa-mirante.jpg" && JSON.stringify(SITE.imagensDim["/assets/og-capa-mirante.jpg"]) === "[1200,630]");
   const jpg = readFileSync(new URL("../site/assets/og-capa-mirante.jpg", import.meta.url));
   let k = 2, dimJpg = null; // procura o marcador SOF do JPEG para ler largura × altura
   while (k < jpg.length) { const mk = jpg[k + 1], len = jpg.readUInt16BE(k + 2); if (mk >= 0xc0 && mk <= 0xc3) { dimJpg = [jpg.readUInt16BE(k + 7), jpg.readUInt16BE(k + 5)]; break; } k += 2 + len; }
@@ -1226,6 +1226,36 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   // servidas como as outras fotos: image/webp com cache imutável
   const r = await pegar("/assets/otim/" + variacoes[0]);
   checar("P1.4 /assets/otim/* sai como image/webp com cache imutável", r.status === 200 && r.headers.get("content-type") === "image/webp" && (r.headers.get("cache-control") || "").includes("immutable"), `${r.status} ${r.headers.get("content-type")} ${r.headers.get("cache-control")}`);
+}
+
+// ---------- AUDITORIA 16/11 — P2: logo e sameAs da empresa a partir do site-config ----------
+{
+  const n = SITE.negocio;
+  checar("P2.3 site-config: logo, instagram e googleMeuNegocio (vazio até existir o link)", n.logo === "/apple-touch-icon.png" && n.instagram === "https://www.instagram.com/trindadeadventure/" && n.googleMeuNegocio === "", JSON.stringify([n.logo, n.instagram, n.googleMeuNegocio]));
+  checar("P2.3 index.html: sameAs não está mais fixo no bloco da empresa", !/"sameAs"/.test(html.slice(html.indexOf('id="ld-empresa"'), html.indexOf("</script>", html.indexOf('id="ld-empresa"')))));
+  const png = readFileSync(new URL("../site" + n.logo, import.meta.url));
+  const [lw, lh] = [png.readUInt32BE(16), png.readUInt32BE(20)];
+  checar(`P2.3 o logo é PNG de pelo menos 112 px (${lw}×${lh})`, png.toString("ascii", 1, 4) === "PNG" && lw >= 112 && lh >= 112, `${lw}x${lh}`);
+  const rl = await pegar(n.logo); await rl.arrayBuffer();
+  checar("P2.3 o logo é servido (200, image/png)", rl.status === 200 && (rl.headers.get("content-type") || "").startsWith("image/png"), rl.status + " " + rl.headers.get("content-type"));
+  for (const c of ["/", "/passeios/essencial", "/reservar", "/contato", "/nao-existe"]) {
+    const doc = await (await pegar(c)).text();
+    const emp = [...doc.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m => JSON.parse(m[1])).filter(j => j["@type"] === "TravelAgency" && j.makesOffer);
+    const j = emp[0] || {};
+    checar(`P2.3 ${c}: um TravelAgency com logo em URL absoluta e sameAs só com o Instagram`, emp.length === 1 && j.logo === SITE.origem + "/apple-touch-icon.png" && JSON.stringify(j.sameAs) === JSON.stringify([n.instagram]), JSON.stringify([j.logo, j.sameAs]));
+    checar(`P2.3 ${c}: o id interno do bloco não vai para o visitante`, !doc.includes('id="ld-empresa"'));
+  }
+  // Com dados: valores que existem só aqui no teste (nunca no site-config).
+  const src = readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
+  const w = await import("data:text/javascript;base64," + Buffer.from(src).toString("base64"));
+  const com = (extra) => JSON.parse(w.jsonLdDaEmpresa(html, { ...SITE, negocio: { ...n, ...extra } }));
+  const cheio = com({ googleMeuNegocio: "https://example.com/perfil-de-teste" });
+  checar("P2.3 com o link do Google: sameAs = Instagram + Google", JSON.stringify(cheio.sameAs) === JSON.stringify([n.instagram, "https://example.com/perfil-de-teste"]), JSON.stringify(cheio.sameAs));
+  const ruim = com({ googleMeuNegocio: "http://example.com/x", instagram: "javascript:alert(1)", logo: "//example.com/x.png" });
+  checar("P2.3 link que não é https (ou //, javascript:) fica de fora", !("sameAs" in ruim) && !("logo" in ruim), JSON.stringify([ruim.sameAs, ruim.logo]));
+  const esc = com({ googleMeuNegocio: "https://example.com/</script><b>" });
+  checar("P2.3 link com \"<\" fica de fora (nada fecha o <script> por dentro)", !("sameAs" in esc && esc.sameAs.some(s => s.includes("<"))) && !w.jsonLdDaEmpresa(html, SITE).includes("<"), "");
+  checar("P2.3 o resto do bloco segue o do index.html (makesOffer, geo, taxID)", cheio.makesOffer.length >= 3 && cheio.geo && cheio.taxID === n.cnpj && cheio["@id"] === SITE.origem + "/#empresa");
 }
 
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);
