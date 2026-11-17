@@ -4,15 +4,15 @@
     "sha256": "7bc7c8b10387502936ac13b7ed3762e4c16b015058036c60595757a651e678cb"
   },
   "app.js": {
-    "v": "20261116-p0",
-    "sha256": "74a5d6c0c1ffd0da781f6cfbc29785cd5ae97036dc11a2d30941a09c22a4b1ff"
+    "v": "20261116-p13",
+    "sha256": "acb1f6f2e3a76833309c940b9bef3d30973d61d986972a4ce05a6e538c4a3b82"
   },
   "motion.js": {
-    "v": "20261020-s15",
-    "sha256": "b7338862fd377dc04e18e53a234d34924cc59d003990d416db0fa0a73a35c14a"
+    "v": "20261116-p13",
+    "sha256": "862dc5ef0a70868fe06aba00e840dc3e9aafb1230dfec745fab7c51a7386955d"
   },
   "pescaria-galeria.js": {
-    "v": "20261005-rotas",
+    "v": "20261116-p13",
     "sha256": "fd0e859e0fbfd486f8840402c3eb610a3dbf71504af0469ef34c44c4cca9c183"
   },
   "estilo.css": {

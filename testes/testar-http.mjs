@@ -398,7 +398,8 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("E15 iniciar(): mapa, reserva e câmeras não rodam mais direto na carga (só via montar/montarOsDemais)",
     !/^\s*(prepararMapa|ligarReserva|desenharCameras|ligarRelogios)\(\);/m.test(iniciar) && /montarOsDemais\(\)/.test(iniciar) && /montar\(nome\)/.test(app));
   const html = await (await pegar("/")).text();
-  checar("E15 index.html aponta app.js e motion.js para o ?v= da etapa", /\/app\.js\?v=[\w.-]+/.test(html) && html.includes("/motion.js?v=20261020-s15"));
+  // Auditoria 16/11 (P1.3): o motion.js deixou de ter <script> próprio; o endereço fica no data-js-motion do <body>.
+  checar("E15 index.html aponta app.js e motion.js para o ?v= da etapa", /\/app\.js\?v=[\w.-]+/.test(html) && /data-js-motion="\/motion\.js\?v=[\w.-]+"/.test(html));
 }
 
 
@@ -1029,6 +1030,29 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("P1.2 cada seção leva o seu CSS crítico (início ≠ passeios ≠ reservar)", new Set([criticos.inicio, criticos.passeios, criticos.reservar]).size === 3);
   const html = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
   checar("P1.2 o css-critico do index.html (servido sem o worker) é o da seção inicio", (html.match(/<style id="css-critico">([\s\S]*?)<\/style>/) || [])[1] === criticos.inicio);
+}
+
+
+// ---------- AUDITORIA 16/11 — P1.3: motion.js e galeria da pescaria fora da carga (o comportamento no navegador está em testar-acabamentos.mjs) ----------
+{
+  const versoes = JSON.parse(readFileSync(new URL("../versoes.json", import.meta.url), "utf8"));
+  for (const rota of ["/", "/pescaria"]) {
+    const doc = await (await pegar(rota)).text();
+    checar(`P1.3 ${rota}: nenhum <script src> de motion.js ou pescaria-galeria.js na página`, !/<script[^>]*src="\/(motion|pescaria-galeria)\.js/.test(doc));
+    const body = (doc.match(/<body[^>]*>/) || [""])[0];
+    checar(`P1.3 ${rota}: <body> leva os endereços com o ?v= registrado`, body.includes(`data-js-motion="/motion.js?v=${versoes["motion.js"].v}"`) && body.includes(`data-js-galeria="/pescaria-galeria.js?v=${versoes["pescaria-galeria.js"].v}"`), body);
+  }
+  for (const n of ["motion.js", "pescaria-galeria.js"]) {
+    const r = await pegar(`/${n}?v=${versoes[n].v}`); await r.arrayBuffer();
+    checar(`P1.3 /${n}?v=… responde 200 com cache imutável`, r.status === 200 && /immutable/.test(r.headers.get("cache-control") || ""), `${r.status} ${r.headers.get("cache-control")}`);
+  }
+  const app = readFileSync(new URL("../site/app.js", import.meta.url), "utf8");
+  const ac = app.slice(app.indexOf("function ligarAcabamentos()"), app.indexOf("function ligarAcabamentos()") + 4000);
+  checar("P1.3 app.js: motion.js só sob pedido, nunca com prefers-reduced-motion", /const pedirMotion = \(\) => \{\s*if \(reduzido\.matches\) return;/.test(ac) && /requestIdleCallback\(pedirMotion/.test(ac) && /dataset\.jsMotion/.test(ac));
+  checar("P1.3 app.js: galeria da pescaria via IntersectionObserver", /new IntersectionObserver\(/.test(ac) && /dataset\.jsGaleria/.test(ac) && /#fishingGallery/.test(ac));
+  checar("P1.3 app.js liga o topo que muda ao rolar (is-scrolled) e é chamado depois da primeira rota", /is-scrolled/.test(ac) && /aplicarRota\(false\);\s*montarOsDemais\(\);\s*ligarAcabamentos\(\);/.test(app));
+  const motion = readFileSync(new URL("../site/motion.js", import.meta.url), "utf8");
+  checar("P1.3 motion.js não mexe mais no is-scrolled (ficou no app.js)", !/classList\.toggle\('is-scrolled'/.test(motion));
 }
 
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);

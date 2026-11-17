@@ -618,7 +618,79 @@ function navegar(destino, substituir) {
 function rolarAte(el) {
   if (!el) return;
   if (window.trindadeRolar) window.trindadeRolar(el);
-  else el.scrollIntoView({ block: "start", behavior: "smooth" });
+  else el.scrollIntoView({ block: "start", behavior: document.documentElement.dataset.motion === "paused" ? "instant" : "smooth" });
+}
+
+/* Acabamentos fora do caminho crítico (auditoria 16/11, P1.3). O motion.js (revelação ao rolar, botão
+   de pausa) só chega na primeira interação ou quando o navegador fica ocioso depois da carga, e nem
+   chega com movimento reduzido pelo sistema. A galeria da pescaria só chega quando ela (ou a lista de
+   fontes dos peixes) se aproxima da tela. Os endereços com ?v= ficam no <body> do index.html. O que
+   precisa valer desde o primeiro instante — o topo que muda ao rolar e o rótulo do botão — fica aqui. */
+function carregarScript(src) {
+  if (!src || document.querySelector(`script[src="${src}"]`)) return;
+  const s = document.createElement("script");
+  s.src = src;
+  s.async = true;
+  document.body.appendChild(s);
+}
+
+function ligarAcabamentos() {
+  const root = document.documentElement;
+  const topbar = $(".topbar");
+  let agendado = 0;
+  const topo = () => topbar?.classList.toggle("is-scrolled", scrollY > 8);
+  window.addEventListener("scroll", () => {
+    if (!agendado) agendado = requestAnimationFrame(() => { agendado = 0; topo(); });
+  }, { passive: true });
+  topo();
+
+  // motion.js. Enquanto ele não chega, o botão já mostra e grava a escolha; ao chegar, ele assume
+  // (window.trindadeRolar é o sinal de que já rodou).
+  const reduzido = matchMedia("(prefers-reduced-motion: reduce)");
+  const botao = $("#btnMovimento");
+  const motionPronto = () => !!window.trindadeRolar;
+  const pausado = () => { try { return localStorage.getItem("trindade.motion") === "paused"; } catch (e) { return false; } };
+  const rotular = () => {
+    if (motionPronto()) return;
+    const ativo = !pausado() && !reduzido.matches;
+    root.dataset.motion = ativo ? "running" : "paused";
+    if (!botao) return;
+    botao.textContent = reduzido.matches ? "Movimento reduzido pelo sistema" : ativo ? "Pausar animações" : "Ativar animações";
+    botao.disabled = reduzido.matches;
+    botao.setAttribute("aria-pressed", String(!ativo));
+  };
+  const gatilhos = ["pointerdown", "keydown", "touchstart", "wheel", "scroll"];
+  const pedirMotion = () => {
+    if (reduzido.matches) return;
+    gatilhos.forEach(t => window.removeEventListener(t, pedirMotion));
+    carregarScript(document.body.dataset.jsMotion);
+  };
+  botao?.addEventListener("click", () => {
+    if (motionPronto()) return;
+    try { localStorage.setItem("trindade.motion", pausado() ? "running" : "paused"); } catch (e) {}
+    rotular();
+  });
+  reduzido.addEventListener("change", () => { rotular(); pedirMotion(); });
+  rotular();
+  if (!reduzido.matches) {
+    gatilhos.forEach(t => window.addEventListener(t, pedirMotion, { passive: true }));
+    window.addEventListener("trindade:before-route", pedirMotion, { once: true });
+    const ocioso = () => ("requestIdleCallback" in window ? requestIdleCallback(pedirMotion, { timeout: 4000 }) : setTimeout(pedirMotion, 2000));
+    if (document.readyState === "complete") ocioso();
+    else window.addEventListener("load", ocioso, { once: true });
+  }
+
+  // Galeria da pescaria: só na rota que a tem, quando ela aparece (seção escondida nunca cruza a tela).
+  const srcGaleria = document.body.dataset.jsGaleria;
+  const alvos = [$("#fishingGallery"), $('a[href^="#fonte-"]')].filter(Boolean);
+  if (!srcGaleria || !alvos.length) return;
+  if (!("IntersectionObserver" in window)) { carregarScript(srcGaleria); return; }
+  const io = new IntersectionObserver(entradas => {
+    if (!entradas.some(e => e.isIntersecting)) return;
+    io.disconnect();
+    carregarScript(srcGaleria);
+  }, { rootMargin: "300px 0px" });
+  alvos.forEach(a => io.observe(a));
 }
 
 window.addEventListener("popstate", () => aplicarRota(true));
@@ -2351,6 +2423,7 @@ function iniciar() {
 
   aplicarRota(false);
   montarOsDemais();
+  ligarAcabamentos();
 
   // Tempo e mar e a métrica de visita esperam a página terminar de carregar:
   // no 4G, a foto da abertura chega primeiro. A faixa já reserva o espaço.

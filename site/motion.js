@@ -1,6 +1,8 @@
 /* Movimento progressivo. O app.js cuida das regras do negócio; aqui só entra
    o que é acabamento: rolagem suave no desktop, revelação discreta ao rolar e
-   o botão que pausa tudo. Sem este arquivo o site continua completo. */
+   o botão que pausa tudo. Sem este arquivo o site continua completo.
+   Quem carrega este arquivo é o app.js (ligarAcabamentos): na primeira interação
+   ou no ocioso depois da carga, e nunca com movimento reduzido pelo sistema. */
 (() => {
  'use strict';
  const root = document.documentElement;
@@ -87,11 +89,11 @@
   else alvo.scrollIntoView({ block: opcoes.bloco || 'start', behavior: ativo() ? 'smooth' : 'instant' });
  };
 
- const topbar = document.querySelector('.topbar');
+ /* O topo que muda ao rolar (is-scrolled) fica no app.js: este arquivo chega depois e pode nem chegar. */
  let agendado = 0;
  addEventListener('scroll', () => {
   if (agendado) return;
-  agendado = requestAnimationFrame(() => { agendado = 0; topbar?.classList.toggle('is-scrolled', scrollY > 8); conferirPendentes(); });
+  agendado = requestAnimationFrame(() => { agendado = 0; conferirPendentes(); });
  }, { passive: true });
  addEventListener('resize', conferirPendentes, { passive: true });
 
