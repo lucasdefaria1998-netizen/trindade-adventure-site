@@ -1263,5 +1263,24 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("P2.3 o resto do bloco segue o do index.html (makesOffer, geo, taxID)", cheio.makesOffer.length >= 3 && cheio.geo && cheio.taxID === n.cnpj && cheio["@id"] === SITE.origem + "/#empresa");
 }
 
+// ---------- AUDITORIA 16/11 — P2.1: endereço oficial sem www (o 301 do www é no Cloudflare, docs/dns-www.md) ----------
+{
+  const WWW = /www\.trindadeadventury\.com\.br/i;
+  checar("P2.1 site-config: origem sem www", SITE.origem === "https://trindadeadventury.com.br", SITE.origem);
+  const sitemap = await (await pegar("/sitemap.xml")).text(), robots = await (await pegar("/robots.txt")).text();
+  checar("P2.1 sitemap.xml e robots.txt sem www", !WWW.test(sitemap) && !WWW.test(robots) && /<loc>https:\/\/trindadeadventury\.com\.br\//.test(sitemap));
+  const rotas = ["/", ...[...sitemap.matchAll(/<loc>([^<]*)<\/loc>/g)].map(m => new URL(m[1]).pathname)].filter((u, i, a) => a.indexOf(u) === i);
+  const comWww = [];
+  for (const c of rotas) {
+    const doc = await (await pegar(c)).text();
+    const canon = (doc.match(/<link rel="canonical" href="([^"]*)"/) || [])[1];
+    if (canon !== "https://trindadeadventury.com.br" + c || WWW.test(doc)) comWww.push(c + " " + canon);
+  }
+  checar(`P2.1 as ${rotas.length} rotas do sitemap: canonical = endereço sem www e nenhum www no HTML`, rotas.length >= 16 && !comWww.length, comWww.join(" | "));
+  const doc = readFileSync(new URL("../docs/dns-www.md", import.meta.url), "utf8");
+  checar("P2.1 docs/dns-www.md: CNAME www → apex com proxy e 301 www/* → https://trindadeadventury.com.br/${1}",
+    /CNAME/.test(doc) && /Proxied/.test(doc) && doc.includes("https://www.trindadeadventury.com.br/*") && doc.includes("https://trindadeadventury.com.br/${1}") && /\*\*301\*\*/.test(doc));
+}
+
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);
 process.exit(falhas ? 1 : 0);
