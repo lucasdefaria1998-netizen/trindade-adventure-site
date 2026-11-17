@@ -136,6 +136,8 @@ await status422("hora fora do plano (Boat às 9)", { plano: "boat", hora: 9 }, "
 await status422("hora fora do plano (Essencial 7:30)", { hora: 7.5 }, "hora");
 await status422("hora como texto", { hora: "9" }, "hora");
 await status422("plano desconhecido", { plano: "luxo" }, "plano");
+await status422("plano 'pescaria' (saiu do site em 17/11, #24)", { plano: "pescaria" }, "plano");
+await status422("plano 'fishing' (saiu do site em 17/11, #24)", { plano: "fishing" }, "plano");
 await status422("plano 'constructor'", { plano: "constructor" }, "plano");
 await status422("plano '__proto__'", { plano: "__proto__" }, "plano");
 for (const [n, v] of [["0", 0], ["1.5", 1.5], ["999", 999], ["16", 16], ["-1", -1], ["texto '2'", "2"], ["null", null]]) await status422(`pax ${n}`, { pax: v }, "pax");
@@ -354,7 +356,7 @@ const restamEm = async (dia, hora) => (await (await fetch(`${BASE}/api/disponibi
   const { execFileSync } = await import("node:child_process");
   const { fileURLToPath } = await import("node:url");
   let achados = "";
-  try { achados = execFileSync("git", ["-C", fileURLToPath(new URL("..", import.meta.url)), "grep", "-nE", "TURNSTILE_SECRET|0x4AAAA", "--", "site/app.js", "site/index.html", "site/estilo.css", "site/motion.js", "site/pescaria-galeria.js"], { encoding: "utf8" }); } catch (e) { achados = e.stdout || ""; }
+  try { achados = execFileSync("git", ["-C", fileURLToPath(new URL("..", import.meta.url)), "grep", "-nE", "TURNSTILE_SECRET|0x4AAAA", "--", "site/app.js", "site/index.html", "site/estilo.css", "site/motion.js"], { encoding: "utf8" }); } catch (e) { achados = e.stdout || ""; }
   checar("E6  segredo do Turnstile e chaves reais não aparecem no JS/HTML do site", achados.trim() === "", achados.trim());
 }
 {
@@ -456,7 +458,7 @@ const restamEm = async (dia, hora) => (await (await fetch(`${BASE}/api/disponibi
   const casos = [
     ["GET pages.dev/passeios/boat?utm_source=x", `https://${P}/passeios/boat?utm_source=x`, "GET", ON, "https://trindadeadventury.com.br/passeios/boat?utm_source=x"],
     ["GET www/ → apex", "https://www.trindadeadventury.com.br/", "GET", ON, "https://trindadeadventury.com.br/"],
-    ["HEAD igual ao GET", `https://${P}/pescaria`, "HEAD", ON, "https://trindadeadventury.com.br/pescaria"],
+    ["HEAD igual ao GET", `https://${P}/pousadas`, "HEAD", ON, "https://trindadeadventury.com.br/pousadas"],
     ["POST /api/reservas no pages.dev", `https://${P}/api/reservas`, "POST", ON, null],
     ["PUT não redireciona", `https://${P}/x`, "PUT", ON, null],
     ["preview por hash", `https://abc123.${P}/`, "GET", ON, null],

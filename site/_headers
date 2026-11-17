@@ -57,9 +57,6 @@
 /motion.js
   Cache-Control: public, max-age=86400
 
-/pescaria-galeria.js
-  Cache-Control: public, max-age=86400
-
 /favicon.svg
   Cache-Control: public, max-age=604800
 

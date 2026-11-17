@@ -4,19 +4,15 @@
     "sha256": "7bc7c8b10387502936ac13b7ed3762e4c16b015058036c60595757a651e678cb"
   },
   "app.min.js": {
-    "v": "20261116-p26",
-    "sha256": "37ee1e4b43ed108d2b48b2d0460fd99c6feb2278731708a16fe63b18c722c58f"
+    "v": "20261117-24",
+    "sha256": "7190f5f898372c19fee830081770987c9096ad3bc974e3588374426fbd28b470"
   },
   "motion.js": {
     "v": "20261116-p13",
     "sha256": "862dc5ef0a70868fe06aba00e840dc3e9aafb1230dfec745fab7c51a7386955d"
   },
-  "pescaria-galeria.js": {
-    "v": "20261116-p13",
-    "sha256": "fd0e859e0fbfd486f8840402c3eb610a3dbf71504af0469ef34c44c4cca9c183"
-  },
   "estilo.min.css": {
-    "v": "20261116-p26",
-    "sha256": "405113f0e7c817267164b74813bab3bb4736b6e38e431264e5d8bd789f54745b"
+    "v": "20261117-24",
+    "sha256": "4d5ef14ef147a77dcba114c07c3d42942b56e566f50352d05249f9dd7b4438bb"
   }
 }

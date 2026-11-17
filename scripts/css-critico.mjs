@@ -33,7 +33,7 @@ const arqHtml = fileURLToPath(new URL("site/index.html", raiz));
 const arqWorker = fileURLToPath(new URL("site/_worker.js", raiz));
 
 const ROTAS = ["/", "/passeios", "/passeios/essencial", "/passeios/adventure", "/passeios/boat", "/passeios/juatinga", "/reservar", "/contato",
-  "/city-tour-paraty", "/pescaria", "/historia", "/cameras", "/termos-do-passeio", "/politica-de-privacidade", "/creditos-das-fotos", "/rota-que-nao-existe"];
+  "/city-tour-paraty", "/pousadas", "/historia", "/cameras", "/termos-do-passeio", "/politica-de-privacidade", "/creditos-das-fotos", "/rota-que-nao-existe"];
 const JANELAS = [[360, 740, true], [412, 823, true], [768, 1024, true], [1024, 768, false], [1350, 940, false], [1920, 1080, false]];
 
 /* ---------- leitura do estilo.css: blocos com o texto original ---------- */

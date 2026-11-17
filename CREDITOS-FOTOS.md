@@ -17,7 +17,7 @@ O crédito aparece no site junto de cada foto (legenda pequena) e na página /cr
 
 Originais baixados (fora do deploy): `/workspace/mamangua/*-orig.jpg`; metadados completos em `/workspace/mamangua/meta.json`.
 
-Todas as outras fotos do site são da equipe Trindade Adventure ou de parceiros (Restaurante Hymbé).
+Todas as outras fotos do site são da equipe Trindade Adventure ou das pousadas parceiras, que autorizaram o uso.
 
 Fotos do City tour Paraty (05/11/2026), também do Wikimedia Commons: ver
 `docs/CREDITOS-FOTOS-CITY-TOUR-PARATY.md` para a lista completa (autor, licença, link) — o resumo
