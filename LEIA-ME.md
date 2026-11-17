@@ -18,7 +18,7 @@ para o Cloudflare. `testes/` e este LEIA-ME ficam fora do deploy.
 | `estilo.css` | Cores, tipografia e layout. |
 | `boot.js` | Roda antes do primeiro desenho: marca JavaScript, tema e preferência de movimento, e ativa a fonte. Sem `defer`, no `<head>`. |
 | `app.js` | Comportamento do site público: navegação, tempo e mar ao vivo, montador de reserva, mapa, envio para a API. |
-| `motion.js`, `pescaria-galeria.js` | Acabamento: rolagem suave e revelação ao rolar; galeria da pescaria. O site funciona sem eles. |
+| `motion.js` | Acabamento: rolagem suave e revelação ao rolar. O site funciona sem ele. |
 | `_worker.js` | O backend. Um arquivo só, porque o deploy por arraste-e-solta do Cloudflare não compila a pasta `/functions` — só aceita `_worker.js`. Responde `/api/*` (reservas, disponibilidade, painel), entrega cada página com título e metadados próprios e responde 404 de verdade para endereço ou arquivo que não existe. |
 | `admin.html` | O painel da operação (agenda, reservas, origem dos clientes, ajustes). Só abre para quem faz login — ver seção "Painel da operação" abaixo. |
 | `assets/` | Fotos. `og-v2.jpg` é a imagem que aparece quando alguém cola o link no WhatsApp. |
@@ -136,15 +136,18 @@ WhatsApp mostram "combinado pelo WhatsApp" em vez de um valor de sinal.
 
 **Texto de uma página no Google/WhatsApp** — tabela `site-config` no
 `<head>` do `index.html`: `titulo`, `descricao`, `imagem` (JPG). Algumas
-descrições citam preço (Essencial, Adventure, Boat, Pescaria): ao mudar um
+descrições citam preço (Essencial, Adventure, Boat): ao mudar um
 preço, mude também ali. Página nova = entrada nova na tabela + seção com
 `data-secao` no HTML + linha no `sitemap.xml`.
 
 **CNPJ, razão social, Cadastur** — `negocio` na mesma tabela `site-config`.
 Campo vazio não aparece no rodapé. O CNPJ também está no JSON-LD (`taxID`).
 
-**Cupom** — `CFG.cupom` em `app.js`. Sem uso visível no site desde que a
-página de Pousadas (que mostrava o cupom) foi removida em 05/11/2026.
+**Cupom** — `CFG.cupom` em `app.js`. Sem uso visível no site desde 05/11/2026
+(a página de Pousadas, que voltou em 17/11, agora fala do voucher, não do cupom).
+
+**Restaurante do almoço e pousadas do voucher** — `parceiros` na tabela
+`site-config` (ver "Parceiros no site" abaixo).
 
 Depois de qualquer alteração, publique de novo (seção abaixo).
 
@@ -152,7 +155,7 @@ Depois de qualquer alteração, publique de novo (seção abaixo).
 
 Até 05/10/2026 o site navegava por `#/` (`/#/passeios?plano=adventure`).
 Agora cada página tem endereço próprio: `/passeios`, `/passeios/adventure`,
-`/passeios/juatinga`, `/reservar`, `/city-tour-paraty`, `/pescaria`, `/historia`,
+`/passeios/juatinga`, `/reservar`, `/city-tour-paraty`, `/pousadas`, `/historia`,
 `/contato`, `/cameras`, `/termos-do-passeio`, `/politica-de-privacidade`.
 Links antigos com `#/` continuam funcionando — o `app.js` converte na hora,
 mantendo `?fonte=` do rastreamento.
@@ -165,7 +168,7 @@ mantendo `?fonte=` do rastreamento.
 
 ### Regra: mudou o arquivo, mude o `?v=`
 
-`boot.js`, `app.js`, `motion.js`, `pescaria-galeria.js` e `estilo.css` são
+`boot.js`, `app.js`, `motion.js` e `estilo.css` são
 chamados no `index.html` com `?v=…`. Quando o pedido traz `?v=` (formato
 `A-Z a-z 0-9 . _ -`, até 40 caracteres), o `_worker.js` responde
 `Cache-Control: public, max-age=31536000, immutable`: o navegador guarda por um
@@ -291,12 +294,12 @@ site. Só mexa neles de novo se for trocar de banco ou de política de acesso.
 
 ## Pendências antes de divulgar o link
 
-1. **Pousadas e Voo de Parapente saíram do site em 05/11/2026** (pedido do
-   cliente): removidos o item de menu, a aba/seção de Pousadas e a página
-   `/voo-de-parapente`. As fotos (`pousada-madeira-*`, `pousada-hymbe-*`,
-   `parapente-voo-*`) continuam em `assets/`, sem uso em nenhuma página — ver
-   decisão pendente no relatório da branch `feat/city-tour-paraty-remove-pousadas-parapente`
-   sobre apagar ou manter esses arquivos.
+1. **Pescaria saiu e Pousadas voltou em 17/11/2026 (#24, pedido do cliente).** `/pescaria` e
+   `/passeios/fishing` respondem 301 para `/passeios`; fotos da pesca e `pescaria-galeria.js`
+   apagados — **depois do deploy, purgar o cache do Cloudflare**. `/pousadas` voltou como página
+   do voucher; nenhuma pousada aparece até entrar em `parceiros.pousadasAtivas` (precisa de
+   autorização por escrito da pousada). Voo de Parapente segue fora desde 05/11/2026; as fotos
+   `pousada-hymbe-*` e `parapente-voo-*` continuam em `assets/` sem uso.
 2. **As câmeras não existem.** A seção está marcada como demonstração. Quando
    houver câmera de verdade, ela precisa de uma URL de transmissão HLS e o
    quadro passa a exibir vídeo real. Enquanto isso, considere esconder a aba.
@@ -331,14 +334,26 @@ site. Só mexa neles de novo se for trocar de banco ou de política de acesso.
    comentário `TODO(cadastur)` acima da tabela `site-config` lembrando disso. Razão social e CNPJ
    continuam normais: 64.565.826 IGOR SANTIAGO FRAGA · CNPJ 64.565.826/0001-80.
 
-## Parceiros reais no site
+## Parceiros no site
 
-- **Restaurante Hymbé, na praia** (`@hymberestaurantepraia`) — onde o voucher
-  de almoço dos roteiros Adventure e Boat é usado. Tem um bloco próprio na
-  página de Passeios, logo depois dos três roteiros, com galeria de fotos.
-- **Casa de Madeira Trindade** (`@demadeiratrindade`, WhatsApp
-  `5524987873576`) — era a parceira da página de Pousadas, removida em
-  05/11/2026. As fotos (`pousada-madeira-*`) continuam em `assets/`, sem uso.
+Tudo em `parceiros`, na tabela `site-config` do `index.html`; o `_worker.js` aplica no HTML
+antes de entregar a página (funciona sem JavaScript).
+
+- **Restaurante do almoço** (voucher do Adventure e do Boat) — desde 17/11/2026 (#24) o nome é
+  fictício de propósito: `restaurante.nome = "Restaurante Exemplo"`, com `provisorio: true`
+  (selo "Nome provisório") e foto "em breve". Para pôr o restaurante real: troque `nome`,
+  ponha `provisorio: false` e, se quiser o link, `instagram` (só o usuário, sem @). O nome vai
+  para todo elemento com `data-restaurante-nome` (Passeios, roteiros, Termos, /pousadas).
+- **Pousadas** (`/pousadas`) — cada pousada é um `<article data-pousada="slug">`. Só aparece
+  quem está em `parceiros.pousadasAtivas`; as outras saem do HTML no servidor. Lista vazia =
+  aviso "estamos fechando as primeiras pousadas". **Casa de Madeira Trindade**
+  (`casa-de-madeira`, `@demadeiratrindade`, WhatsApp `5524987873576`) já está no HTML,
+  esperando a confirmação de que o voucher vale lá.
+- **Não publique com o nome fictício** sem o OK do Lucas: enquanto `provisorio` for `true`, o
+  bloco do restaurante sai com o selo "Nome provisório" para todo mundo.
+- `parceiros.pousadasAtivas` (vitrine do site) e a tabela `parceiros` do D1 (códigos TRI do
+  painel de parceiros) são **listas independentes**: o site não lê o D1. Ao ativar ou tirar
+  uma pousada, confira as duas.
 
 O botão "Falar" de um parceiro com WhatsApp próprio manda a mensagem para
 esse número, não para o da operação — isso é o atributo `data-wa-numero` no
@@ -346,11 +361,9 @@ esse número, não para o da operação — isso é o atributo `data-wa-numero` 
 Se adicionar um parceiro novo com WhatsApp próprio, use o mesmo padrão;
 sem `data-wa-numero`, o link cai no WhatsApp da Trindade Adventure.
 
-As galerias de foto (Restaurante Hymbé) usam o
-componente `miniGaleriaHTML`/`ligarMiniGalerias()` em `app.js` — um carrossel
-simples sem biblioteca externa, com setas e paginação por toque. Para trocar
-as fotos de uma galeria, edite o array de `{src, alt}` passado pra
-`miniGaleriaHTML` dentro de `iniciar()`.
+Para galeria de fotos de um parceiro há o componente `miniGaleriaHTML`/`ligarMiniGalerias()`
+em `app.js` — um carrossel simples sem biblioteca externa, com setas e contador. Hoje nenhum
+bloco usa (o restaurante fictício não tem foto).
 
 ## Decisões de projeto que valem conhecer
 
@@ -403,8 +416,7 @@ E-mails publicados: `contato@trindadeadventury.com.br` (rodapé, `/contato`, JSO
 
 Cada rota também sai com JSON-LD próprio, montado pelo `_worker.js`: `BreadcrumbList` nas
 rotas internas e `TouristTrip` + `Offer` (preço da tabela `PLANOS`, BRL, `InStock`) em
-Essencial, Adventure e Boat. Passeios sob consulta e a pescaria não têm `Offer` (a pescaria
-ainda não tem a unidade do preço decidida). `og:image:width/height` vêm de
+Essencial, Adventure e Boat. Passeios sob consulta não têm `Offer`. `og:image:width/height` vêm de
 `site-config.imagensDim` — ao trocar a imagem de uma página, atualize a medida ali.
 
 ## Painel: checagem dupla (Access + JWT)
@@ -468,9 +480,8 @@ citarem o mesmo pedido no WhatsApp.
    (`max-age=31536000; includeSubDomains`, sem `preload`) antes de qualquer `preload`.
 7. **Observar a CSP:** deixar a Report-Only rodando ~7 dias em produção (logs `[csp]`) antes de trocar para
    "valendo" (Etapa 25 do plano — ainda não feita).
-8. **Decisões de texto ainda abertas** (nada foi escrito sobre elas): unidade do preço, duração, capacidade e
-   incluso da pescaria; número de paradas do Adventure; água inclusa x levar;
-   "Hymbé Vila" x "Hymbé, na praia"; destino da página `/cameras`; dados dos passeios sob consulta; CEP para o JSON-LD; fotos em paisagem
+8. **Decisões de texto ainda abertas** (nada foi escrito sobre elas): número de paradas do Adventure; água inclusa x levar;
+   nome real do restaurante do almoço; quais pousadas aceitam o voucher; destino da página `/cameras`; dados dos passeios sob consulta; CEP para o JSON-LD; fotos em paisagem
    (1200×630) para a pré-visualização de `/passeios/boat`.
 9. **City tour Paraty (05/11/2026): sem duração, horários, ponto de encontro, idiomas, capacidade, inclusões,
    ingressos nem política de sinal/cancelamento definidos ainda.** Hoje é um plano `soWhatsApp`/`horarioCombinado`

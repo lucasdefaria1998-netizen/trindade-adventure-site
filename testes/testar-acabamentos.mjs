@@ -1,4 +1,4 @@
-// Auditoria 16/11 (P1.3): no navegador, o motion.js e a galeria da pescaria ficam fora da carga.
+// Auditoria 16/11 (P1.3): no navegador, o motion.js fica fora da carga (a galeria da pescaria saiu com a página em 17/11, #24).
 //
 //   FERRAMENTAS=<pasta com node_modules/puppeteer-core> node testes/testar-acabamentos.mjs http://127.0.0.1:8795
 //
@@ -6,8 +6,7 @@
 //   - com prefers-reduced-motion, o motion.js nunca é pedido, nem com rolagem ou clique; o botão diz que o
 //     sistema reduziu o movimento e o topo ainda muda ao rolar (is-scrolled, que ficou no app.js);
 //   - sem a preferência, o motion.js não é pedido antes do evento load e chega na primeira interação;
-//   - o botão "Pausar animações" funciona antes do motion.js chegar e a escolha vale depois que ele chega;
-//   - pescaria-galeria.js só é pedido na /pescaria, e lá a galeria funciona (próxima foto).
+//   - o botão "Pausar animações" funciona antes do motion.js chegar e a escolha vale depois que ele chega.
 import { createRequire } from "node:module";
 
 const BASE = process.argv[2] || "http://127.0.0.1:8795";
@@ -68,20 +67,6 @@ try {
     checar("P1.3 pausar antes do motion.js chegar vale na hora e continua valendo depois",
       (antesDeChegar.pronto || (antesDeChegar.texto === "Ativar animações" && antesDeChegar.motion === "paused")) && depois.texto === "Ativar animações" && depois.motion === "paused", JSON.stringify({ antesDeChegar, depois }));
     await pg.evaluate(() => { document.getElementById("btnMovimento").click(); localStorage.removeItem("trindade.motion"); });
-    checar("P1.3 a página inicial não pede pescaria-galeria.js", pediu("pescaria-galeria.js").length === 0);
-    await pg.close();
-  }
-  {
-    const { pg, pediu } = await abrir("/pescaria");
-    await pg.waitForFunction(() => [...document.scripts].some(s => s.src.includes("/pescaria-galeria.js")), { timeout: 5000 }).catch(() => {});
-    await espera(800);
-    checar("P1.3 /pescaria pede pescaria-galeria.js uma vez", pediu("pescaria-galeria.js").length === 1, pediu("pescaria-galeria.js").length);
-    const contagem = await pg.evaluate(async () => {
-      document.querySelector("[data-fg-next]").click();
-      await new Promise(r => setTimeout(r, 100));
-      return document.querySelector("[data-fg-count]").textContent;
-    });
-    checar("P1.3 /pescaria: a galeria funciona (próxima foto → 2 / 4)", contagem.trim() === "2 / 4", contagem);
     await pg.close();
   }
   // P1.2: só com o CSS crítico (estilo.css ainda não chegou), nenhuma rota fica mais larga que a tela do celular.
@@ -89,7 +74,7 @@ try {
   for (const w of [360, 412]) {
     const largas = [];
     for (const rota of ["/", "/passeios", "/passeios/essencial", "/passeios/adventure", "/passeios/boat", "/passeios/juatinga", "/reservar", "/contato",
-      "/city-tour-paraty", "/pescaria", "/historia", "/cameras", "/termos-do-passeio", "/politica-de-privacidade", "/creditos-das-fotos", "/rota-que-nao-existe"]) {
+      "/city-tour-paraty", "/pousadas", "/historia", "/cameras", "/termos-do-passeio", "/politica-de-privacidade", "/creditos-das-fotos", "/rota-que-nao-existe"]) {
       const pg = await navegador.newPage();
       await pg.setViewport({ width: w, height: 800, isMobile: true, hasTouch: true });
       await pg.setRequestInterception(true);

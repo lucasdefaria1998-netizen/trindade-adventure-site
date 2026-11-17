@@ -50,7 +50,17 @@
        Com número, entra também no JSON-LD da empresa (identifier "Cadastur").
      logo, instagram, googleMeuNegocio: o servidor põe no JSON-LD da empresa (logo em URL
        absoluta; sameAs só com os perfis preenchidos). googleMeuNegocio fica vazio até
-       existir o link do perfil no Google — vazio = fora do sameAs. -->
+       existir o link do perfil no Google — vazio = fora do sameAs.
+     parceiros (#24, 17/11/2026):
+       restaurante.nome: o restaurante do almoço do Adventure e do Boat. Hoje é um nome
+         FICTÍCIO de propósito ("Restaurante Exemplo"), no lugar do restaurante anterior. Para
+         trocar pelo restaurante real, mude só aqui: o servidor escreve o nome em todo
+         elemento com data-restaurante-nome. restaurante.instagram: só o usuário, sem @
+         (vazio = o link do Instagram não aparece). restaurante.provisorio: true mostra o selo
+         "Nome provisório" — mude para false junto com o nome real.
+       pousadasAtivas: lista dos data-pousada="…" que podem aparecer em /pousadas. Só entra
+         pousada com autorização por escrito de que o voucher vale lá. Fora da lista, o
+         servidor tira o cartão do HTML; lista vazia = aviso "em breve". -->
 <script type="application/json" id="site-config">
 {
   "origem": "https://trindadeadventury.com.br",
@@ -105,7 +115,7 @@
         "plano": "adventure"
       },
       "titulo": "Passeio Adventure em Trindade | Trindade Adventure",
-      "descricao": "Snorkel na piscina natural, Cachoeira da Pedra que Engole e almoço no Restaurante Hymbé. Cerca de 6 horas, R$ 150 por pessoa. Veja o roteiro e reserve.",
+      "descricao": "Snorkel na piscina natural, Cachoeira da Pedra que Engole e almoço na praia. Cerca de 6 horas, R$ 150 por pessoa. Veja o roteiro e reserve.",
       "imagem": "/assets/og-adventure-praia-meio.jpg",
       "imagemAlt": "Praia do Meio, em Trindade, com a ponta de pedras e o morro coberto de mata"
     },
@@ -148,10 +158,10 @@
       "titulo": "Reservar passeio em Trindade | Trindade Adventure",
       "descricao": "Escolha o passeio, a data e o horário e envie o pedido de reserva pelo WhatsApp. A vaga é confirmada pela equipe da Trindade Adventure."
     },
-    "/pescaria": {
-      "secao": "pescaria",
-      "titulo": "Pescaria em alto mar em Trindade | Trindade Adventure",
-      "descricao": "Pescaria em alto mar saindo de Trindade, Paraty, com guia experiente e valor fixo de R$ 500. Veja fotos, peixes da costa e fale com a equipe pelo WhatsApp."
+    "/pousadas": {
+      "secao": "pousadas",
+      "titulo": "Pousadas parceiras em Trindade | Trindade Adventure",
+      "descricao": "Pousadas parceiras em Trindade, Paraty, onde o voucher de R$ 60 por pessoa dos passeios Trindade Adventure e Trindade Boat também vale."
     },
     "/historia": {
       "secao": "historia",
@@ -205,6 +215,14 @@
     "logo": "/apple-touch-icon.png",
     "instagram": "https://www.instagram.com/trindadeadventure/",
     "googleMeuNegocio": ""
+  },
+  "parceiros": {
+    "restaurante": {
+      "nome": "Restaurante Exemplo",
+      "provisorio": true,
+      "instagram": ""
+    },
+    "pousadasAtivas": []
   }
 }
 </script>
@@ -222,7 +240,7 @@
 
 <!-- CSS crítico: só as regras que pintam a primeira tela das rotas, gerado do estilo.css por
      scripts/css-critico.mjs (rode de novo quando o estilo.css mudar; a CSP libera por hash). -->
-<style id="css-critico">:root{--green-900:#062a16;--green-800:#0a4526;--green-700:#0d6b38;--green-400:#35b06a;--green-200:#a9d6ba;--lima:#d5efad;--areia:#F5F1E8;--areia-2:#EFE9DC;--papel:#FFFFFF;--tinta:#1B1A17;--tinta-2:#3D3A33;--apagado:#5C574C;--linha:#DDD5C3;--ponto:#8A8170;--placeholder:#E7E0D0;--mata:#0B4F3A;--mata-escura:#083B2B;--mar:#1F6F8B;--barro:#9A3B12;--barro-soft:#F3E3D3;--wa-icone:#0E7A4A;--wa-fundo:#25D366;--wa-icone-fundo:#0B2E1A;--bg:var(--areia);--surface:var(--papel);--surface-2:var(--areia-2);--ink:var(--tinta);--ink-2:var(--tinta-2);--muted:var(--apagado);--line:var(--linha);--line-2:#B9AE8E;--accent:var(--mata);--accent-hover:var(--mata-escura);--accent-ink:#FFFFFF;--accent-soft:#E3ECE6;--gold:var(--barro);--gold-soft:var(--barro-soft);--agua:var(--mar);--ok:#0d6b38;--warn:#7d6019;--bad:#8f3524;--sombra:0 4px 12px rgb(0 0 0 / .2);--logo-green:var(--mata);--logo-sand:#6f6449;--font:"Archivo",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;--serifa:"Oswald","Arial Narrow","Roboto Condensed",Impact,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--wrap:1240px;--gutter:clamp(16px,4vw,32px);--r-lg:6px;--r:6px;--r-sm:6px;--espaco-bloco:clamp(72px,9vw,120px);--ease:cubic-bezier(.16,1,.3,1);--topo:72px}@font-face{font-family:Oswald;src:url(/assets/fontes/oswald-600-latin-pt.woff2) format("woff2");font-weight:600;font-style:normal;font-display:optional;unicode-range:U+0020-007E,U+00A0-00FF,U+0152-0153,U+2013-2014,U+2018-201E,U+2022,U+2026,U+20AC,U+2190-2193}:root:root,:root[data-theme]{--bg:#0F1613;--surface:#17211C;--surface-2:#131C18;--areia:#0F1613;--areia-2:#131C18;--papel:#17211C;--tinta:#F2EEE5;--tinta-2:#DDD8CB;--apagado:#BDB6A6;--linha:#2A3A32;--ponto:#8A9A8E;--placeholder:#1C2822;--mata:#5FB894;--mata-escura:#7CC9A8;--mar:#8FC3D6;--barro:#E3A07A;--barro-soft:#2A2018;--wa-icone:#5FB894;--ink:#F2EEE5;--ink-2:#DDD8CB;--muted:#BDB6A6;--line:#2A3A32;--line-2:#3F5A4C;--accent:#5FB894;--accent-hover:#7CC9A8;--accent-ink:#0F1613;--accent-soft:#1D3329;--gold:#E3A07A;--gold-soft:#2A2018;--agua:#8FC3D6;--ok:#6FCB95;--warn:#D9B46E;--bad:#E7A08C;--sombra:0 4px 12px rgb(0 0 0 / .45);--logo-green:#5FB894;--logo-sand:#C9B98F;color-scheme:dark}#btnTema{display:none}*,*:before,*:after{box-sizing:border-box}[hidden]{display:none!important}html{-webkit-text-size-adjust:100%;scroll-padding-top:calc(var(--topo) + 16px);scrollbar-color:var(--line-2) transparent}body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.6 var(--font);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}h1{margin:0;font-family:var(--serifa);font-weight:500;line-height:1.15;letter-spacing:-.01em;text-wrap:balance}p,ul{margin:0}p{text-wrap:pretty}img{display:block;max-width:100%}a{color:var(--accent);text-underline-offset:3px;text-decoration-thickness:1px}button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}::selection{background:var(--accent);color:var(--accent-ink)}.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.num{font-variant-numeric:tabular-nums}.ico{width:16px;height:16px;flex:none}.pular{position:absolute;left:-9999px;top:0;z-index:100;background:var(--accent);color:var(--accent-ink);padding:12px 18px;border-radius:0 0 var(--r-sm) 0;font-weight:600}.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:11px 20px;border-radius:var(--r);border:1px solid transparent;font-size:15px;font-weight:600;line-height:1.2;text-align:center;text-decoration:none;white-space:nowrap;transition:background-color .2s,border-color .2s,color .2s}.btn .ico{width:18px;height:18px}.btn-claro{background:var(--accent);color:var(--accent-ink)}.btn-contorno-claro{border-color:var(--line-2);color:var(--ink)}.link-seta{display:inline-flex;align-items:center;gap:6px;font-size:15px;font-weight:500;text-decoration:none;color:var(--accent);white-space:nowrap}.link-seta .ico{transition:transform .3s var(--ease)}#climaBar{background:var(--bg);border-bottom:1px solid var(--line);min-height:40px}.clima-faixa{max-width:var(--wrap);margin:0 auto;padding:8px var(--gutter);display:flex;align-items:center;gap:6px 18px;font-size:13px;line-height:1.3;color:var(--ink-2);overflow:hidden;white-space:nowrap}.clima-agora{display:inline-flex;align-items:center;gap:6px;color:var(--accent)}.clima-agora b{font-size:14.5px;font-weight:600;color:var(--ink)}.clima-agora span{color:var(--ink-2)}.clima-local{color:var(--muted)!important}.clima-onda{display:inline-flex;align-items:center;gap:5px;color:var(--muted)}.clima-onda b{font-weight:600;color:var(--ink)}.clima-meta{margin-left:auto;display:inline-flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}.clima-acao{color:var(--accent);text-decoration:underline;text-underline-offset:2px;font-size:13px;min-height:24px}.clima-skeleton{max-width:var(--wrap);margin:0 auto;padding:13px var(--gutter);display:flex;gap:14px;min-height:40px;box-sizing:border-box}.clima-skeleton span:not(.sr){display:block;height:14px;width:120px;border-radius:7px;background:var(--line)}.clima-skeleton span:nth-child(3){width:220px}@media(max-width:720px){.clima-faixa{gap:5px 12px;font-size:13px}}@media(max-width:720px){.clima-onda,.clima-local{display:none}}@media(max-width:720px){.clima-skeleton span:nth-child(3){display:none}}.topbar{position:sticky;top:0;z-index:40;background:var(--bg);border-bottom:1px solid transparent;transition:border-color .3s}.topbar-in{max-width:var(--wrap);margin:0 auto;padding:12px var(--gutter);display:flex;align-items:center;gap:12px;min-height:var(--topo)}.brand{display:flex;align-items:center;flex:none;margin-right:auto;text-decoration:none;border-radius:8px}.wordmark{display:block;width:164px;height:auto}.nav{display:flex;align-items:center;gap:2px}.nav a{padding:9px 14px;border-radius:var(--r);font-size:14.5px;font-weight:500;color:var(--ink-2);text-decoration:none;white-space:nowrap;transition:background-color .2s,color .2s}.nav a[aria-current=page]{color:var(--ink);background:var(--accent-soft)}.nav .nav-cta{margin-left:8px;background:var(--accent);color:var(--accent-ink)}.nav .so-menu{display:none}.icon-btn{width:44px;height:44px;border-radius:var(--r);display:grid;place-items:center;color:var(--ink-2);flex:none}.menu-toggle{display:none;align-items:center;gap:10px;min-height:44px;padding:0 16px;border-radius:var(--r);border:1px solid var(--line-2);font-size:14.5px;font-weight:500}.menu-toggle-icone{position:relative;width:16px;height:10px}.menu-toggle-icone i{position:absolute;left:0;right:0;height:1.6px;border-radius:2px;background:currentColor;transition:transform .35s var(--ease),top .35s var(--ease)}.menu-toggle-icone i:first-child{top:0}.menu-toggle-icone i:last-child{top:8.4px}.menu-fundo{position:fixed;top:0;right:0;bottom:0;left:0;z-index:35;background:#03120b6b}@media(max-width:1040px){.js .menu-toggle{display:inline-flex}}@media(max-width:1040px){.js .nav{display:none;position:absolute;top:100%;left:0;right:0;flex-direction:column;align-items:stretch;gap:0;max-height:calc(100dvh - var(--topo));overflow-y:auto;overscroll-behavior:contain;padding:8px var(--gutter) 24px;background:var(--bg);border-bottom:1px solid var(--line);box-shadow:var(--sombra)}}@media(max-width:1040px){.js .nav a,.js .nav .so-menu{display:flex;align-items:center;min-height:54px;padding:0 4px;border-radius:0;border-bottom:1px solid var(--line);font-size:18px;color:var(--ink)}}@media(max-width:1040px){.js .nav a[aria-current=page]{background:none;color:var(--accent)}}@media(max-width:1040px){.js .nav .nav-cta{order:10;justify-content:center;margin:20px 0 0;border:0;border-radius:var(--r);min-height:52px;background:var(--accent);color:var(--accent-ink)}}@media(max-width:720px){:root{--topo:64px}}@media(max-width:720px){.wordmark{width:136px}}@media(max-width:720px){.topbar-in{gap:6px}}.tabbar{display:none}@media(max-width:720px){:root{--tabbar-h:65px}}@media(max-width:720px){body{padding-bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom))}}@media(max-width:720px){html{scroll-padding-bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 12px)}}@media(max-width:720px){.tabbar{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;bottom:0;left:0;right:0;z-index:30;background:var(--bg);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom))}}@media(max-width:720px){.tabbar a{display:flex;flex-direction:column;align-items:center;gap:3px;min-height:52px;justify-content:center;border-radius:14px;font-size:13px;font-weight:500;color:var(--ink-2);text-decoration:none}}@media(max-width:720px){.tabbar svg{width:22px;height:22px}}@media(max-width:720px){.tabbar a[aria-current=page]{color:var(--accent);background:var(--accent-soft)}}main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutter) 0;min-height:60vh}.hero{display:grid;grid-template-columns:1fr;gap:28px}.hero-foto{border-radius:0;overflow:hidden;background:var(--placeholder)}.hero-foto img{width:100%;height:100%;object-fit:cover;object-position:center 85%;aspect-ratio:4/5}.hero-texto{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;max-width:620px}.hero-titulo{font-family:var(--serifa);font-size:clamp(40px,6vw,64px);font-weight:500;letter-spacing:-.01em;line-height:1.05;color:var(--ink)}.hero-lede{margin-top:18px;max-width:46ch;font-size:clamp(16px,1.35vw,18px);line-height:1.65;color:var(--ink-2)}.hero-acoes{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}@media(min-width:900px){.hero{grid-template-columns:5fr 7fr;align-items:center;gap:40px}}@media(min-width:900px){.hero-foto{order:2;border-radius:var(--r);height:560px}}@media(min-width:900px){.hero-foto img{aspect-ratio:auto;object-position:center 82%}}@media(min-width:900px){.hero-texto{order:1}}@media(max-width:899px){.hero-acoes .btn{flex:1 1 auto}}.sprite-oculto{position:absolute}.galeria-seta{position:absolute;top:50%;translate:0 -50%;width:44px;height:44px;border-radius:var(--r);display:grid;place-items:center;background:#ffffffeb;color:#1b1a17;border:1px solid #DDD5C3}.galeria-ant{left:8px}.galeria-seta:disabled{display:none}@media(hover:hover)and (pointer:fine){.galeria-seta{opacity:0;transition:opacity .15s}}#modalTermos{width:min(720px,calc(100vw - 24px));max-height:min(88dvh,860px);margin:auto;padding:0;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);color:var(--ink)}#modalTermos::backdrop{background:#0617109e}.wa-flutuante{display:none}@media(max-width:760px){.wa-flutuante{display:flex;align-items:center;justify-content:center;position:fixed;right:16px;bottom:calc(var(--tabbar-h,0px) + env(safe-area-inset-bottom) + 16px);z-index:28;width:52px;height:52px;border-radius:50%;background:var(--wa-fundo);color:var(--wa-icone-fundo);box-shadow:var(--sombra)}}@media(max-width:760px){.wa-flutuante .ico{width:26px;height:26px}}@media(max-width:760px){#reservar{padding-bottom:78px}}.fg-lightbox{width:min(1100px,94vw);max-width:94vw;height:min(900px,94dvh);max-height:94dvh;padding:0;border:0;border-radius:var(--r-lg);background:#071b15;color:#f4f0e6;overflow:hidden}.fg-lightbox::backdrop{background:#010a08e6}@media(max-width:600px){.fg-lightbox{width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;border-radius:0}}html[data-motion=running] .hero-foto img{animation:assentar 1.6s var(--ease) both}html[data-motion=running] .secao:not([hidden]){animation:chegar .45s var(--ease)}@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}@media(hover:hover){.btn{transition:background-color .25s,border-color .25s,color .25s}}body{overflow-x:clip}h1{font-family:var(--serifa);font-weight:600;text-transform:uppercase;letter-spacing:.01em;line-height:1.05}@media(min-width:1041px){.nav a{font-size:13px;letter-spacing:.1em;text-transform:uppercase;padding:9px 12px}}@media(min-width:1041px){.nav a[aria-current=page]{background:none;box-shadow:inset 0 -2px 0 var(--barro);border-radius:0}}@media(min-width:1041px){.nav .nav-cta{letter-spacing:.1em}}html[data-rota-atual=inicio] .topbar:not(.is-scrolled){background:transparent;border-bottom-color:#f2eee52e}html[data-rota-atual=inicio] .topbar:not(.is-scrolled) .nav a:not(.nav-cta){color:#f2eee5}#inicio>.hero{position:relative;isolation:isolate;display:flex;flex-direction:column;gap:0;width:100vw;margin-left:calc(50% - 50vw);margin-top:calc(-1 * var(--topo) - clamp(12px,2vw,24px));min-height:calc(100svh - 40px);padding-top:calc(var(--topo) + clamp(40px,8vh,96px));overflow:hidden;color:#f2eee5}#inicio>.hero .hero-foto{position:absolute;top:0;right:0;bottom:0;left:0;z-index:-2;height:auto;margin:0;border-radius:0;background:#1c2822;order:0}#inicio>.hero .hero-foto img{width:100%;height:100%;aspect-ratio:auto;object-fit:cover;object-position:center 55%}#inicio>.hero:before{content:"";position:absolute;top:0;right:0;bottom:0;left:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,#080c0a9e,#080c0a26 30%,#080c0a40 58%,#0f1613f0),linear-gradient(90deg,rgb(8 12 10 / .72) 0%,rgb(8 12 10 / .66) 40%,rgb(8 12 10 / .42) 55%,rgb(8 12 10 / .08) 75%,transparent 100%)}#inicio>.hero .hero-texto{order:0;width:100%;max-width:var(--wrap);margin:auto auto 0;padding:0 var(--gutter);display:block}#inicio>.hero .hero-titulo{font:600 clamp(60px,10vw,140px)/.9 var(--serifa);text-transform:uppercase;letter-spacing:.005em;color:#f7f4ec;text-shadow:0 2px 24px rgb(0 0 0 / .35)}.hero-pre{display:block;margin-bottom:14px;font:600 14px/1.3 var(--font);letter-spacing:.18em;color:#e8e3d6;text-shadow:0 1px 8px rgb(0 0 0 / .5)}.hero-grande{display:block}#inicio>.hero .hero-lede{margin-top:22px;max-width:52ch;font-size:14px;line-height:1.7;letter-spacing:.08em;text-transform:uppercase;color:#e8e3d6;text-shadow:0 1px 8px rgb(0 0 0 / .5)}#inicio>.hero .hero-acoes{margin-top:28px}.hero-colunas{list-style:none;width:100%;max-width:var(--wrap);margin:clamp(40px,7vh,80px) auto 0;padding:0 var(--gutter) clamp(24px,4vh,40px);display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.hero-colunas li{display:flex;flex-direction:column;gap:6px;padding:16px 18px;border:1px solid rgb(242 238 229 / .32);background:#0f161359}.hero-colunas li:first-child{box-shadow:inset 0 -2px 0 var(--barro)}.hero-coluna-titulo{font:600 16px/1.2 var(--serifa);letter-spacing:.06em;text-transform:uppercase;color:#f7f4ec}.hero-colunas p:not(.hero-coluna-titulo){font-size:15px;line-height:1.5;color:#ddd8cb}.hero-colunas .link-seta{margin-top:auto;padding-top:4px;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#f2eee5}@media(max-width:860px){.hero-colunas{grid-template-columns:1fr;gap:8px}}@media(max-width:860px){.hero-colunas li{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 12px;padding:12px 14px}}@media(max-width:860px){.hero-colunas p:not(.hero-coluna-titulo){grid-column:1}}@media(max-width:860px){.hero-colunas .link-seta{grid-column:2;grid-row:1 / span 2;margin:0;padding:0;min-height:44px}}@media(max-width:640px){#inicio>.hero{min-height:calc(100svh - 40px);padding-top:calc(var(--topo) + 28svh)}}@media(max-width:640px){#inicio>.hero .hero-foto{bottom:auto;height:66svh;-webkit-mask-image:linear-gradient(180deg,#000 72%,transparent 100%);mask-image:linear-gradient(180deg,#000 72%,transparent 100%)}}@media(max-width:640px){#inicio>.hero .hero-foto img{object-position:left center}}@media(max-width:640px){#inicio>.hero:before{background:linear-gradient(180deg,rgb(8 12 10 / .72) 0,rgb(8 12 10 / .3) 120px,rgb(8 12 10 / .2) 22%,rgb(8 12 10 / .66) 34%,rgb(8 12 10 / .78) 48%,var(--bg) 60%)}}@media(max-width:640px){#inicio>.hero .hero-titulo{font-size:clamp(56px,17vw,84px)}}@media(max-width:640px){.hero-pre{font-size:13px}}@media(max-width:640px){#inicio>.hero .hero-lede{font-size:13px}}@media(max-width:640px){#inicio>.hero .hero-acoes .btn{flex:1 1 100%}}.fileira-indicador{display:none;position:relative;height:2px;max-width:280px;margin:24px auto 0;background:var(--line);overflow:hidden}@media(prefers-reduced-motion:reduce){html[data-motion] .hero-foto img{animation:none}}:root{--vidro-blur:blur(22px) saturate(180%);--vidro-blur-leve:blur(12px) saturate(150%);--vidro-fundo:rgb(255 255 255 / .1);--vidro-fundo-hover:rgb(255 255 255 / .18);--vidro-fundo-forte:rgb(18 27 22 / .55);--vidro-fundo-escuro:rgb(10 16 13 / .42);--vidro-verde:rgb(95 184 148 / .84);--vidro-verde-hover:rgb(124 201 168 / .9);--vidro-borda:rgb(255 255 255 / .24);--vidro-brilho:inset 0 1px 0 rgb(255 255 255 / .36),inset 0 -1px 0 rgb(255 255 255 / .06);--vidro-sombra:0 10px 28px -14px rgb(0 0 0 / .6)}@media(prefers-reduced-transparency:reduce){:root{--vidro-blur:none;--vidro-blur-leve:none;--vidro-fundo:#1F2B25;--vidro-fundo-hover:#27362E;--vidro-fundo-forte:#131C18;--vidro-fundo-escuro:#101814;--vidro-verde:#5FB894;--vidro-verde-hover:#7CC9A8}}@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){:root{--vidro-fundo:#1F2B25;--vidro-fundo-hover:#27362E;--vidro-fundo-forte:#131C18;--vidro-fundo-escuro:#101814;--vidro-verde:#5FB894;--vidro-verde-hover:#7CC9A8}}.btn{border-radius:999px}.btn-contorno-claro{background:var(--vidro-fundo);border-color:var(--vidro-borda);color:var(--ink);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);box-shadow:var(--vidro-brilho),var(--vidro-sombra)}.btn-claro,.nav .nav-cta{background:linear-gradient(180deg,#ffffff52,#fff0 55%),var(--vidro-verde);border-color:#ffffff61;color:var(--accent-ink);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);box-shadow:var(--vidro-brilho),0 10px 26px -12px #5fb894a6}.topbar{background:transparent;border-bottom-color:transparent}.topbar:before{content:"";position:absolute;top:0;right:0;bottom:0;left:0;z-index:-1;pointer-events:none;background:var(--vidro-fundo-forte);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);border-bottom:1px solid rgb(255 255 255 / .12);box-shadow:inset 0 1px #ffffff14,0 12px 30px -22px #000c}html[data-rota-atual=inicio] .topbar:not(.is-scrolled):before{background:#ffffff0d;-webkit-backdrop-filter:var(--vidro-blur-leve);backdrop-filter:var(--vidro-blur-leve);border-bottom-color:#ffffff29}@media(min-width:1041px){.nav a{border-radius:999px}}.menu-toggle{border-radius:999px;background:var(--vidro-fundo);border-color:var(--vidro-borda);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);box-shadow:var(--vidro-brilho)}@media(max-width:1040px){.js .nav{background:#121b16b3;-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);border:1px solid var(--vidro-borda);border-top:0;border-radius:0 0 24px 24px;box-shadow:var(--vidro-brilho),0 24px 40px -24px #000000b3}}@media(max-width:1040px){.js .nav .nav-cta{border-radius:999px}}#climaBar{background:#0f1613c7;-webkit-backdrop-filter:var(--vidro-blur-leve);backdrop-filter:var(--vidro-blur-leve);border-bottom-color:#ffffff14}.hero-colunas li{border-radius:18px;border-color:var(--vidro-borda);background:var(--vidro-fundo);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);box-shadow:var(--vidro-brilho),var(--vidro-sombra)}.hero-colunas li:first-child{box-shadow:var(--vidro-brilho),var(--vidro-sombra),inset 0 -2px 0 var(--barro)}#inicio>.hero .hero-grande:last-child{padding-bottom:.08em}#inicio>.hero .hero-lede{max-width:none;margin-top:26px;font-size:clamp(15px,1.5vw,20px);letter-spacing:.16em}@media(max-width:640px){#inicio>.hero .hero-titulo{font-size:clamp(44px,13.4vw,70px)}}@media(max-width:640px){#inicio>.hero .hero-lede{margin-top:22px;font-size:14px;letter-spacing:.14em}}.galeria-seta{border-radius:50%;background:var(--vidro-fundo-escuro);border:1px solid rgb(255 255 255 / .34);color:#fff;-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);box-shadow:var(--vidro-brilho),0 6px 16px -8px #000000b3}.wa-flutuante{box-shadow:var(--vidro-brilho),var(--sombra);border:1px solid rgb(255 255 255 / .35)}@media(max-width:720px){:root{--tabbar-h:78px}}@media(max-width:720px){.tabbar{left:12px;right:12px;bottom:calc(8px + env(safe-area-inset-bottom));padding:6px;border-radius:30px;background:var(--vidro-fundo-forte);border:1px solid var(--vidro-borda);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);box-shadow:var(--vidro-brilho),0 18px 40px -16px #000000bf}}@media(max-width:720px){.tabbar a{border-radius:24px}}@media(max-width:720px){.tabbar a[aria-current=page]{background:#ffffff24;box-shadow:var(--vidro-brilho)}}:root:root,:root[data-theme]{--r-lg:24px;--r:16px;--r-sm:12px;--surface:rgb(255 255 255 / .055);--surface-2:rgb(255 255 255 / .035);--line:rgb(255 255 255 / .11);--line-2:rgb(255 255 255 / .22);--vidro-aresta:inset 0 1px 0 rgb(255 255 255 / .12),inset 0 0 0 1px rgb(255 255 255 / .02);--vidro-profundo:0 28px 50px -34px rgb(0 0 0 / .75)}@media(prefers-reduced-transparency:reduce){:root:root,:root[data-theme]{--surface:#17211C;--surface-2:#131C18;--line:#2A3A32;--line-2:#3F5A4C}}body:before{content:"";position:fixed;top:0;right:0;bottom:0;left:0;z-index:-1;pointer-events:none;background:radial-gradient(62vw 54vh at 8% 6%,rgb(70 170 132 / .17),transparent 70%),radial-gradient(54vw 52vh at 96% 34%,rgb(48 124 160 / .15),transparent 70%),radial-gradient(70vw 60vh at 46% 108%,rgb(196 148 96 / .11),transparent 70%)}@media(prefers-reduced-transparency:reduce){body:before{display:none}}#modalTermos{background:#141e19d6;border-color:var(--vidro-borda);border-radius:var(--r-lg);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);box-shadow:var(--vidro-brilho),0 40px 80px -30px #000c}#modalTermos::backdrop{background:#040a088c;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}.btn-contorno-claro,.btn-claro{-webkit-backdrop-filter:none;backdrop-filter:none}#inicio>.hero .btn,.nav .nav-cta{-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur)}.btn{position:relative;overflow:hidden}.btn-claro:after{content:"";position:absolute;top:0;right:0;bottom:0;left:0;pointer-events:none;background:linear-gradient(115deg,transparent 32%,rgb(255 255 255 / .38) 48%,transparent 64%);transform:translate(-130%)}html[data-motion=running] .btn{transition:transform .28s cubic-bezier(.3,1.5,.5,1),background-color .25s,border-color .25s,box-shadow .3s}.tabbar a{transition:background-color .25s,color .2s,transform .28s cubic-bezier(.3,1.5,.5,1)}.fileira-controles .fileira-indicador{margin:0;flex:0 1 280px}.fileira-seta{width:44px;height:44px;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:var(--vidro-fundo-escuro);border:1px solid rgb(255 255 255 / .34);color:#fff;cursor:pointer;-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);transition:background-color .2s,opacity .2s}.fileira-seta:disabled{opacity:.35;cursor:default}.fileira-seta[hidden]{display:none}@keyframes assentar{0%{transform:scale(1.06)}to{transform:none}}@keyframes chegar{0%{opacity:.4;transform:translateY(8px)}to{opacity:1;transform:none}}</style>
+<style id="css-critico">:root{--green-900:#062a16;--green-800:#0a4526;--green-700:#0d6b38;--green-400:#35b06a;--green-200:#a9d6ba;--lima:#d5efad;--areia:#F5F1E8;--areia-2:#EFE9DC;--papel:#FFFFFF;--tinta:#1B1A17;--tinta-2:#3D3A33;--apagado:#5C574C;--linha:#DDD5C3;--ponto:#8A8170;--placeholder:#E7E0D0;--mata:#0B4F3A;--mata-escura:#083B2B;--mar:#1F6F8B;--barro:#9A3B12;--barro-soft:#F3E3D3;--wa-icone:#0E7A4A;--wa-fundo:#25D366;--wa-icone-fundo:#0B2E1A;--bg:var(--areia);--surface:var(--papel);--surface-2:var(--areia-2);--ink:var(--tinta);--ink-2:var(--tinta-2);--muted:var(--apagado);--line:var(--linha);--line-2:#B9AE8E;--accent:var(--mata);--accent-hover:var(--mata-escura);--accent-ink:#FFFFFF;--accent-soft:#E3ECE6;--gold:var(--barro);--gold-soft:var(--barro-soft);--agua:var(--mar);--ok:#0d6b38;--warn:#7d6019;--bad:#8f3524;--sombra:0 4px 12px rgb(0 0 0 / .2);--logo-green:var(--mata);--logo-sand:#6f6449;--font:"Archivo",ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;--serifa:"Oswald","Arial Narrow","Roboto Condensed",Impact,sans-serif;--mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;--wrap:1240px;--gutter:clamp(16px,4vw,32px);--r-lg:6px;--r:6px;--r-sm:6px;--espaco-bloco:clamp(72px,9vw,120px);--ease:cubic-bezier(.16,1,.3,1);--topo:72px}@font-face{font-family:Oswald;src:url(/assets/fontes/oswald-600-latin-pt.woff2) format("woff2");font-weight:600;font-style:normal;font-display:optional;unicode-range:U+0020-007E,U+00A0-00FF,U+0152-0153,U+2013-2014,U+2018-201E,U+2022,U+2026,U+20AC,U+2190-2193}:root:root,:root[data-theme]{--bg:#0F1613;--surface:#17211C;--surface-2:#131C18;--areia:#0F1613;--areia-2:#131C18;--papel:#17211C;--tinta:#F2EEE5;--tinta-2:#DDD8CB;--apagado:#BDB6A6;--linha:#2A3A32;--ponto:#8A9A8E;--placeholder:#1C2822;--mata:#5FB894;--mata-escura:#7CC9A8;--mar:#8FC3D6;--barro:#E3A07A;--barro-soft:#2A2018;--wa-icone:#5FB894;--ink:#F2EEE5;--ink-2:#DDD8CB;--muted:#BDB6A6;--line:#2A3A32;--line-2:#3F5A4C;--accent:#5FB894;--accent-hover:#7CC9A8;--accent-ink:#0F1613;--accent-soft:#1D3329;--gold:#E3A07A;--gold-soft:#2A2018;--agua:#8FC3D6;--ok:#6FCB95;--warn:#D9B46E;--bad:#E7A08C;--sombra:0 4px 12px rgb(0 0 0 / .45);--logo-green:#5FB894;--logo-sand:#C9B98F;color-scheme:dark}#btnTema{display:none}*,*:before,*:after{box-sizing:border-box}[hidden]{display:none!important}html{-webkit-text-size-adjust:100%;scroll-padding-top:calc(var(--topo) + 16px);scrollbar-color:var(--line-2) transparent}body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.6 var(--font);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}h1{margin:0;font-family:var(--serifa);font-weight:500;line-height:1.15;letter-spacing:-.01em;text-wrap:balance}p,ul{margin:0}p{text-wrap:pretty}img{display:block;max-width:100%}a{color:var(--accent);text-underline-offset:3px;text-decoration-thickness:1px}button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0}::selection{background:var(--accent);color:var(--accent-ink)}.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}.num{font-variant-numeric:tabular-nums}.ico{width:16px;height:16px;flex:none}.pular{position:absolute;left:-9999px;top:0;z-index:100;background:var(--accent);color:var(--accent-ink);padding:12px 18px;border-radius:0 0 var(--r-sm) 0;font-weight:600}.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:11px 20px;border-radius:var(--r);border:1px solid transparent;font-size:15px;font-weight:600;line-height:1.2;text-align:center;text-decoration:none;white-space:nowrap;transition:background-color .2s,border-color .2s,color .2s}.btn .ico{width:18px;height:18px}.btn-claro{background:var(--accent);color:var(--accent-ink)}.btn-contorno-claro{border-color:var(--line-2);color:var(--ink)}.link-seta{display:inline-flex;align-items:center;gap:6px;font-size:15px;font-weight:500;text-decoration:none;color:var(--accent);white-space:nowrap}.link-seta .ico{transition:transform .3s var(--ease)}#climaBar{background:var(--bg);border-bottom:1px solid var(--line);min-height:40px}.clima-faixa{max-width:var(--wrap);margin:0 auto;padding:8px var(--gutter);display:flex;align-items:center;gap:6px 18px;font-size:13px;line-height:1.3;color:var(--ink-2);overflow:hidden;white-space:nowrap}.clima-agora{display:inline-flex;align-items:center;gap:6px;color:var(--accent)}.clima-agora b{font-size:14.5px;font-weight:600;color:var(--ink)}.clima-agora span{color:var(--ink-2)}.clima-local{color:var(--muted)!important}.clima-onda{display:inline-flex;align-items:center;gap:5px;color:var(--muted)}.clima-onda b{font-weight:600;color:var(--ink)}.clima-meta{margin-left:auto;display:inline-flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}.clima-acao{color:var(--accent);text-decoration:underline;text-underline-offset:2px;font-size:13px;min-height:24px}.clima-skeleton{max-width:var(--wrap);margin:0 auto;padding:13px var(--gutter);display:flex;gap:14px;min-height:40px;box-sizing:border-box}.clima-skeleton span:not(.sr){display:block;height:14px;width:120px;border-radius:7px;background:var(--line)}.clima-skeleton span:nth-child(3){width:220px}@media(max-width:720px){.clima-faixa{gap:5px 12px;font-size:13px}}@media(max-width:720px){.clima-onda,.clima-local{display:none}}@media(max-width:720px){.clima-skeleton span:nth-child(3){display:none}}.topbar{position:sticky;top:0;z-index:40;background:var(--bg);border-bottom:1px solid transparent;transition:border-color .3s}.topbar-in{max-width:var(--wrap);margin:0 auto;padding:12px var(--gutter);display:flex;align-items:center;gap:12px;min-height:var(--topo)}.brand{display:flex;align-items:center;flex:none;margin-right:auto;text-decoration:none;border-radius:8px}.wordmark{display:block;width:164px;height:auto}.nav{display:flex;align-items:center;gap:2px}.nav a{padding:9px 14px;border-radius:var(--r);font-size:14.5px;font-weight:500;color:var(--ink-2);text-decoration:none;white-space:nowrap;transition:background-color .2s,color .2s}.nav a[aria-current=page]{color:var(--ink);background:var(--accent-soft)}.nav .nav-cta{margin-left:8px;background:var(--accent);color:var(--accent-ink)}.nav .so-menu{display:none}.icon-btn{width:44px;height:44px;border-radius:var(--r);display:grid;place-items:center;color:var(--ink-2);flex:none}.menu-toggle{display:none;align-items:center;gap:10px;min-height:44px;padding:0 16px;border-radius:var(--r);border:1px solid var(--line-2);font-size:14.5px;font-weight:500}.menu-toggle-icone{position:relative;width:16px;height:10px}.menu-toggle-icone i{position:absolute;left:0;right:0;height:1.6px;border-radius:2px;background:currentColor;transition:transform .35s var(--ease),top .35s var(--ease)}.menu-toggle-icone i:first-child{top:0}.menu-toggle-icone i:last-child{top:8.4px}.menu-fundo{position:fixed;top:0;right:0;bottom:0;left:0;z-index:35;background:#03120b6b}@media(max-width:1040px){.js .menu-toggle{display:inline-flex}}@media(max-width:1040px){.js .nav{display:none;position:absolute;top:100%;left:0;right:0;flex-direction:column;align-items:stretch;gap:0;max-height:calc(100dvh - var(--topo));overflow-y:auto;overscroll-behavior:contain;padding:8px var(--gutter) 24px;background:var(--bg);border-bottom:1px solid var(--line);box-shadow:var(--sombra)}}@media(max-width:1040px){.js .nav a,.js .nav .so-menu{display:flex;align-items:center;min-height:54px;padding:0 4px;border-radius:0;border-bottom:1px solid var(--line);font-size:18px;color:var(--ink)}}@media(max-width:1040px){.js .nav a[aria-current=page]{background:none;color:var(--accent)}}@media(max-width:1040px){.js .nav .nav-cta{order:10;justify-content:center;margin:20px 0 0;border:0;border-radius:var(--r);min-height:52px;background:var(--accent);color:var(--accent-ink)}}@media(max-width:720px){:root{--topo:64px}}@media(max-width:720px){.wordmark{width:136px}}@media(max-width:720px){.topbar-in{gap:6px}}.tabbar{display:none}@media(max-width:720px){:root{--tabbar-h:65px}}@media(max-width:720px){body{padding-bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom))}}@media(max-width:720px){html{scroll-padding-bottom:calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 12px)}}@media(max-width:720px){.tabbar{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;bottom:0;left:0;right:0;z-index:30;background:var(--bg);border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom))}}@media(max-width:720px){.tabbar a{display:flex;flex-direction:column;align-items:center;gap:3px;min-height:52px;justify-content:center;border-radius:14px;font-size:13px;font-weight:500;color:var(--ink-2);text-decoration:none}}@media(max-width:720px){.tabbar svg{width:22px;height:22px}}@media(max-width:720px){.tabbar a[aria-current=page]{color:var(--accent);background:var(--accent-soft)}}main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutter) 0;min-height:60vh}.hero{display:grid;grid-template-columns:1fr;gap:28px}.hero-foto{border-radius:0;overflow:hidden;background:var(--placeholder)}.hero-foto img{width:100%;height:100%;object-fit:cover;object-position:center 85%;aspect-ratio:4/5}.hero-texto{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;max-width:620px}.hero-titulo{font-family:var(--serifa);font-size:clamp(40px,6vw,64px);font-weight:500;letter-spacing:-.01em;line-height:1.05;color:var(--ink)}.hero-lede{margin-top:18px;max-width:46ch;font-size:clamp(16px,1.35vw,18px);line-height:1.65;color:var(--ink-2)}.hero-acoes{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}@media(min-width:900px){.hero{grid-template-columns:5fr 7fr;align-items:center;gap:40px}}@media(min-width:900px){.hero-foto{order:2;border-radius:var(--r);height:560px}}@media(min-width:900px){.hero-foto img{aspect-ratio:auto;object-position:center 82%}}@media(min-width:900px){.hero-texto{order:1}}@media(max-width:899px){.hero-acoes .btn{flex:1 1 auto}}.sprite-oculto{position:absolute}.galeria-seta{position:absolute;top:50%;translate:0 -50%;width:44px;height:44px;border-radius:var(--r);display:grid;place-items:center;background:#ffffffeb;color:#1b1a17;border:1px solid #DDD5C3}.galeria-ant{left:8px}.galeria-seta:disabled{display:none}@media(hover:hover)and (pointer:fine){.galeria-seta{opacity:0;transition:opacity .15s}}#modalTermos{width:min(720px,calc(100vw - 24px));max-height:min(88dvh,860px);margin:auto;padding:0;border:1px solid var(--line);border-radius:var(--r-lg);background:var(--surface);color:var(--ink)}#modalTermos::backdrop{background:#0617109e}.wa-flutuante{display:none}@media(max-width:760px){.wa-flutuante{display:flex;align-items:center;justify-content:center;position:fixed;right:16px;bottom:calc(var(--tabbar-h,0px) + env(safe-area-inset-bottom) + 16px);z-index:28;width:52px;height:52px;border-radius:50%;background:var(--wa-fundo);color:var(--wa-icone-fundo);box-shadow:var(--sombra)}}@media(max-width:760px){.wa-flutuante .ico{width:26px;height:26px}}@media(max-width:760px){#reservar{padding-bottom:78px}}html[data-motion=running] .hero-foto img{animation:assentar 1.6s var(--ease) both}html[data-motion=running] .secao:not([hidden]){animation:chegar .45s var(--ease)}@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}@media(hover:hover){.btn{transition:background-color .25s,border-color .25s,color .25s}}body{overflow-x:clip}h1{font-family:var(--serifa);font-weight:600;text-transform:uppercase;letter-spacing:.01em;line-height:1.05}@media(min-width:1041px){.nav a{font-size:13px;letter-spacing:.1em;text-transform:uppercase;padding:9px 12px}}@media(min-width:1041px){.nav a[aria-current=page]{background:none;box-shadow:inset 0 -2px 0 var(--barro);border-radius:0}}@media(min-width:1041px){.nav .nav-cta{letter-spacing:.1em}}html[data-rota-atual=inicio] .topbar:not(.is-scrolled){background:transparent;border-bottom-color:#f2eee52e}html[data-rota-atual=inicio] .topbar:not(.is-scrolled) .nav a:not(.nav-cta){color:#f2eee5}#inicio>.hero{position:relative;isolation:isolate;display:flex;flex-direction:column;gap:0;width:100vw;margin-left:calc(50% - 50vw);margin-top:calc(-1 * var(--topo) - clamp(12px,2vw,24px));min-height:calc(100svh - 40px);padding-top:calc(var(--topo) + clamp(40px,8vh,96px));overflow:hidden;color:#f2eee5}#inicio>.hero .hero-foto{position:absolute;top:0;right:0;bottom:0;left:0;z-index:-2;height:auto;margin:0;border-radius:0;background:#1c2822;order:0}#inicio>.hero .hero-foto img{width:100%;height:100%;aspect-ratio:auto;object-fit:cover;object-position:center 55%}#inicio>.hero:before{content:"";position:absolute;top:0;right:0;bottom:0;left:0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,#080c0a9e,#080c0a26 30%,#080c0a40 58%,#0f1613f0),linear-gradient(90deg,rgb(8 12 10 / .72) 0%,rgb(8 12 10 / .66) 40%,rgb(8 12 10 / .42) 55%,rgb(8 12 10 / .08) 75%,transparent 100%)}#inicio>.hero .hero-texto{order:0;width:100%;max-width:var(--wrap);margin:auto auto 0;padding:0 var(--gutter);display:block}#inicio>.hero .hero-titulo{font:600 clamp(60px,10vw,140px)/.9 var(--serifa);text-transform:uppercase;letter-spacing:.005em;color:#f7f4ec;text-shadow:0 2px 24px rgb(0 0 0 / .35)}.hero-pre{display:block;margin-bottom:14px;font:600 14px/1.3 var(--font);letter-spacing:.18em;color:#e8e3d6;text-shadow:0 1px 8px rgb(0 0 0 / .5)}.hero-grande{display:block}#inicio>.hero .hero-lede{margin-top:22px;max-width:52ch;font-size:14px;line-height:1.7;letter-spacing:.08em;text-transform:uppercase;color:#e8e3d6;text-shadow:0 1px 8px rgb(0 0 0 / .5)}#inicio>.hero .hero-acoes{margin-top:28px}.hero-colunas{list-style:none;width:100%;max-width:var(--wrap);margin:clamp(40px,7vh,80px) auto 0;padding:0 var(--gutter) clamp(24px,4vh,40px);display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.hero-colunas li{display:flex;flex-direction:column;gap:6px;padding:16px 18px;border:1px solid rgb(242 238 229 / .32);background:#0f161359}.hero-colunas li:first-child{box-shadow:inset 0 -2px 0 var(--barro)}.hero-coluna-titulo{font:600 16px/1.2 var(--serifa);letter-spacing:.06em;text-transform:uppercase;color:#f7f4ec}.hero-colunas p:not(.hero-coluna-titulo){font-size:15px;line-height:1.5;color:#ddd8cb}.hero-colunas .link-seta{margin-top:auto;padding-top:4px;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:#f2eee5}@media(max-width:860px){.hero-colunas{grid-template-columns:1fr;gap:8px}}@media(max-width:860px){.hero-colunas li{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 12px;padding:12px 14px}}@media(max-width:860px){.hero-colunas p:not(.hero-coluna-titulo){grid-column:1}}@media(max-width:860px){.hero-colunas .link-seta{grid-column:2;grid-row:1 / span 2;margin:0;padding:0;min-height:44px}}@media(max-width:640px){#inicio>.hero{min-height:calc(100svh - 40px);padding-top:calc(var(--topo) + 28svh)}}@media(max-width:640px){#inicio>.hero .hero-foto{bottom:auto;height:66svh;-webkit-mask-image:linear-gradient(180deg,#000 72%,transparent 100%);mask-image:linear-gradient(180deg,#000 72%,transparent 100%)}}@media(max-width:640px){#inicio>.hero .hero-foto img{object-position:left center}}@media(max-width:640px){#inicio>.hero:before{background:linear-gradient(180deg,rgb(8 12 10 / .72) 0,rgb(8 12 10 / .3) 120px,rgb(8 12 10 / .2) 22%,rgb(8 12 10 / .66) 34%,rgb(8 12 10 / .78) 48%,var(--bg) 60%)}}@media(max-width:640px){#inicio>.hero .hero-titulo{font-size:clamp(56px,17vw,84px)}}@media(max-width:640px){.hero-pre{font-size:13px}}@media(max-width:640px){#inicio>.hero .hero-lede{font-size:13px}}@media(max-width:640px){#inicio>.hero .hero-acoes .btn{flex:1 1 100%}}.fileira-indicador{display:none;position:relative;height:2px;max-width:280px;margin:24px auto 0;background:var(--line);overflow:hidden}@media(prefers-reduced-motion:reduce){html[data-motion] .hero-foto img{animation:none}}:root{--vidro-blur:blur(22px) saturate(180%);--vidro-blur-leve:blur(12px) saturate(150%);--vidro-fundo:rgb(255 255 255 / .1);--vidro-fundo-hover:rgb(255 255 255 / .18);--vidro-fundo-forte:rgb(18 27 22 / .55);--vidro-fundo-escuro:rgb(10 16 13 / .42);--vidro-verde:rgb(95 184 148 / .84);--vidro-verde-hover:rgb(124 201 168 / .9);--vidro-borda:rgb(255 255 255 / .24);--vidro-brilho:inset 0 1px 0 rgb(255 255 255 / .36),inset 0 -1px 0 rgb(255 255 255 / .06);--vidro-sombra:0 10px 28px -14px rgb(0 0 0 / .6)}@media(prefers-reduced-transparency:reduce){:root{--vidro-blur:none;--vidro-blur-leve:none;--vidro-fundo:#1F2B25;--vidro-fundo-hover:#27362E;--vidro-fundo-forte:#131C18;--vidro-fundo-escuro:#101814;--vidro-verde:#5FB894;--vidro-verde-hover:#7CC9A8}}@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){:root{--vidro-fundo:#1F2B25;--vidro-fundo-hover:#27362E;--vidro-fundo-forte:#131C18;--vidro-fundo-escuro:#101814;--vidro-verde:#5FB894;--vidro-verde-hover:#7CC9A8}}.btn{border-radius:999px}.btn-contorno-claro{background:var(--vidro-fundo);border-color:var(--vidro-borda);color:var(--ink);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);box-shadow:var(--vidro-brilho),var(--vidro-sombra)}.btn-claro,.nav .nav-cta{background:linear-gradient(180deg,#ffffff52,#fff0 55%),var(--vidro-verde);border-color:#ffffff61;color:var(--accent-ink);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);box-shadow:var(--vidro-brilho),0 10px 26px -12px #5fb894a6}.topbar{background:transparent;border-bottom-color:transparent}.topbar:before{content:"";position:absolute;top:0;right:0;bottom:0;left:0;z-index:-1;pointer-events:none;background:var(--vidro-fundo-forte);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);border-bottom:1px solid rgb(255 255 255 / .12);box-shadow:inset 0 1px #ffffff14,0 12px 30px -22px #000c}html[data-rota-atual=inicio] .topbar:not(.is-scrolled):before{background:#ffffff0d;-webkit-backdrop-filter:var(--vidro-blur-leve);backdrop-filter:var(--vidro-blur-leve);border-bottom-color:#ffffff29}@media(min-width:1041px){.nav a{border-radius:999px}}.menu-toggle{border-radius:999px;background:var(--vidro-fundo);border-color:var(--vidro-borda);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);box-shadow:var(--vidro-brilho)}@media(max-width:1040px){.js .nav{background:#121b16b3;-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);border:1px solid var(--vidro-borda);border-top:0;border-radius:0 0 24px 24px;box-shadow:var(--vidro-brilho),0 24px 40px -24px #000000b3}}@media(max-width:1040px){.js .nav .nav-cta{border-radius:999px}}#climaBar{background:#0f1613c7;-webkit-backdrop-filter:var(--vidro-blur-leve);backdrop-filter:var(--vidro-blur-leve);border-bottom-color:#ffffff14}.hero-colunas li{border-radius:18px;border-color:var(--vidro-borda);background:var(--vidro-fundo);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);box-shadow:var(--vidro-brilho),var(--vidro-sombra)}.hero-colunas li:first-child{box-shadow:var(--vidro-brilho),var(--vidro-sombra),inset 0 -2px 0 var(--barro)}#inicio>.hero .hero-grande:last-child{padding-bottom:.08em}#inicio>.hero .hero-lede{max-width:none;margin-top:26px;font-size:clamp(15px,1.5vw,20px);letter-spacing:.16em}@media(max-width:640px){#inicio>.hero .hero-titulo{font-size:clamp(44px,13.4vw,70px)}}@media(max-width:640px){#inicio>.hero .hero-lede{margin-top:22px;font-size:14px;letter-spacing:.14em}}.galeria-seta{border-radius:50%;background:var(--vidro-fundo-escuro);border:1px solid rgb(255 255 255 / .34);color:#fff;-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);box-shadow:var(--vidro-brilho),0 6px 16px -8px #000000b3}.wa-flutuante{box-shadow:var(--vidro-brilho),var(--sombra);border:1px solid rgb(255 255 255 / .35)}@media(max-width:720px){:root{--tabbar-h:78px}}@media(max-width:720px){.tabbar{left:12px;right:12px;bottom:calc(8px + env(safe-area-inset-bottom));padding:6px;border-radius:30px;background:var(--vidro-fundo-forte);border:1px solid var(--vidro-borda);-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);box-shadow:var(--vidro-brilho),0 18px 40px -16px #000000bf}}@media(max-width:720px){.tabbar a{border-radius:24px}}@media(max-width:720px){.tabbar a[aria-current=page]{background:#ffffff24;box-shadow:var(--vidro-brilho)}}:root:root,:root[data-theme]{--r-lg:24px;--r:16px;--r-sm:12px;--surface:rgb(255 255 255 / .055);--surface-2:rgb(255 255 255 / .035);--line:rgb(255 255 255 / .11);--line-2:rgb(255 255 255 / .22);--vidro-aresta:inset 0 1px 0 rgb(255 255 255 / .12),inset 0 0 0 1px rgb(255 255 255 / .02);--vidro-profundo:0 28px 50px -34px rgb(0 0 0 / .75)}@media(prefers-reduced-transparency:reduce){:root:root,:root[data-theme]{--surface:#17211C;--surface-2:#131C18;--line:#2A3A32;--line-2:#3F5A4C}}body:before{content:"";position:fixed;top:0;right:0;bottom:0;left:0;z-index:-1;pointer-events:none;background:radial-gradient(62vw 54vh at 8% 6%,rgb(70 170 132 / .17),transparent 70%),radial-gradient(54vw 52vh at 96% 34%,rgb(48 124 160 / .15),transparent 70%),radial-gradient(70vw 60vh at 46% 108%,rgb(196 148 96 / .11),transparent 70%)}@media(prefers-reduced-transparency:reduce){body:before{display:none}}#modalTermos{background:#141e19d6;border-color:var(--vidro-borda);border-radius:var(--r-lg);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);box-shadow:var(--vidro-brilho),0 40px 80px -30px #000c}#modalTermos::backdrop{background:#040a088c;-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}.btn-contorno-claro,.btn-claro{-webkit-backdrop-filter:none;backdrop-filter:none}#inicio>.hero .btn,.nav .nav-cta{-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur)}.btn{position:relative;overflow:hidden}.btn-claro:after{content:"";position:absolute;top:0;right:0;bottom:0;left:0;pointer-events:none;background:linear-gradient(115deg,transparent 32%,rgb(255 255 255 / .38) 48%,transparent 64%);transform:translate(-130%)}html[data-motion=running] .btn{transition:transform .28s cubic-bezier(.3,1.5,.5,1),background-color .25s,border-color .25s,box-shadow .3s}.tabbar a{transition:background-color .25s,color .2s,transform .28s cubic-bezier(.3,1.5,.5,1)}.fileira-controles .fileira-indicador{margin:0;flex:0 1 280px}.fileira-seta{width:44px;height:44px;flex:none;display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:var(--vidro-fundo-escuro);border:1px solid rgb(255 255 255 / .34);color:#fff;cursor:pointer;-webkit-backdrop-filter:var(--vidro-blur);backdrop-filter:var(--vidro-blur);transition:background-color .2s,opacity .2s}.fileira-seta:disabled{opacity:.35;cursor:default}.fileira-seta[hidden]{display:none}@keyframes assentar{0%{transform:scale(1.06)}to{transform:none}}@keyframes chegar{0%{opacity:.4;transform:translateY(8px)}to{opacity:1;transform:none}}</style>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -231,8 +249,8 @@
      (defer) troca para "all". Sem JavaScript, o <noscript> carrega do jeito normal. Até a fonte
      carregar, o texto aparece na fonte do sistema, com métricas parecidas. -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap" media="print" data-async>
-<link rel="stylesheet" href="/estilo.min.css?v=20261116-p26" media="print" data-async>
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap"><link rel="stylesheet" href="/estilo.min.css?v=20261116-p26"></noscript>
+<link rel="stylesheet" href="/estilo.min.css?v=20261117-24" media="print" data-async>
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap"><link rel="stylesheet" href="/estilo.min.css?v=20261117-24"></noscript>
 <script src="/boot.js?v=20261116-p12" defer></script>
 <link rel="preload" as="image" href="/assets/otim/hero-cachadaco-retrato-480.webp" imagesrcset="/assets/otim/hero-cachadaco-retrato-480.webp 480w, /assets/otim/hero-cachadaco-retrato-640.webp 640w, /assets/otim/hero-cachadaco-retrato-840.webp 840w" imagesizes="100vw" media="(max-width: 640px)" fetchpriority="high">
 <link rel="preload" as="image" href="/assets/otim/hero-cachadaco-960.webp" imagesrcset="/assets/otim/hero-cachadaco-480.webp 480w, /assets/otim/hero-cachadaco-640.webp 640w, /assets/otim/hero-cachadaco-960.webp 960w, /assets/otim/hero-cachadaco-1280.webp 1280w, /assets/otim/hero-cachadaco-1600.webp 1600w" imagesizes="100vw" media="(min-width: 641px)" fetchpriority="high">
@@ -257,7 +275,7 @@
   "telephone": "+5524992073621",
   "email": "contato@trindadeadventury.com.br",
   "taxID": "64.565.826/0001-80",
-  "priceRange": "R$ 80 - R$ 500",
+  "priceRange": "R$ 80 - R$ 400",
   "currenciesAccepted": "BRL",
   "address": {
     "@type": "PostalAddress",
@@ -275,25 +293,21 @@
       "price": "80", "priceCurrency": "BRL" },
     { "@type": "Offer", "name": "Trindade Adventure",
       "url": "https://trindadeadventury.com.br/passeios/adventure",
-      "description": "Roteiro completo com mergulho de snorkel na piscina natural, retorno pela Pedra que Engole, água mineral inclusa e almoço no Restaurante Hymbé. Cerca de 6 horas.",
+      "description": "Roteiro completo com mergulho de snorkel na piscina natural, retorno pela Pedra que Engole, água mineral inclusa e almoço num restaurante parceiro na praia. Cerca de 6 horas.",
       "price": "150", "priceCurrency": "BRL" },
     { "@type": "Offer", "name": "Trindade Boat",
       "url": "https://trindadeadventury.com.br/passeios/boat",
-      "description": "Trilha e passeio de barco por cinco paradas na costa da Trindade, com mergulho de snorkel na piscina natural, água mineral inclusa e almoço no Restaurante Hymbé. Cerca de 8 horas.",
+      "description": "Trilha e passeio de barco por cinco paradas na costa da Trindade, com mergulho de snorkel na piscina natural, água mineral inclusa e almoço num restaurante parceiro na praia. Cerca de 8 horas.",
       "price": "400", "priceCurrency": "BRL" },
     { "@type": "Offer", "name": "City tour Paraty",
       "url": "https://trindadeadventury.com.br/city-tour-paraty",
       "description": "Tour pelos museus e por todo o centro histórico de Paraty.",
-      "price": "200", "priceCurrency": "BRL" },
-    { "@type": "Offer", "name": "Fishing Experience — pescaria em alto mar",
-      "url": "https://trindadeadventury.com.br/pescaria",
-      "description": "Saída de barco de Trindade para pescaria em alto mar, com acompanhamento de um guia experiente. Valor fixo.",
-      "price": "500", "priceCurrency": "BRL" }
+      "price": "200", "priceCurrency": "BRL" }
   ]
 }
 </script>
 </head>
-<body data-js-motion="/motion.js?v=20261116-p13" data-js-galeria="/pescaria-galeria.js?v=20261116-p13">
+<body data-js-motion="/motion.js?v=20261116-p13">
 <a class="pular" href="#conteudo">Pular para o conteúdo</a>
 
 <!-- Ícones desenhados uma vez e reaproveitados em toda a página. -->
@@ -363,7 +377,7 @@
     <nav class="nav" id="menuPrincipal" aria-label="Navegação principal">
       <a class="so-menu" href="/" data-rota="inicio">Início</a>
       <a href="/passeios" data-rota="passeios">Passeios</a>
-      <a href="/pescaria" data-rota="pescaria">Pescaria</a>
+      <a href="/pousadas" data-rota="pousadas">Pousadas</a>
       <a href="/historia" data-rota="historia">História</a>
       <a href="/contato" data-rota="contato">Contato</a>
       <a class="nav-cta" href="/reservar" data-rota="reservar">Reservar</a>
@@ -487,17 +501,14 @@
       <article class="card-passeio card-destaque" id="card-adventure">
         <div class="galeria" data-galeria>
           <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos do Trindade Adventure">
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 4">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 3">
               <img src="/assets/otim/lugar-praia-meio-sem-texto-480.webp" srcset="/assets/otim/lugar-praia-meio-sem-texto-480.webp 480w, /assets/otim/lugar-praia-meio-sem-texto-640.webp 640w, /assets/otim/lugar-praia-meio-sem-texto-960.webp 960w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, 338px" width="960" height="636" alt="Praia do Meio, em Trindade, com a ponta de pedras e o morro coberto de mata" loading="lazy" decoding="async">
             </figure>
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 4">
-              <img src="/assets/otim/restaurante-hymbe-3-recorte-480.webp" srcset="/assets/otim/restaurante-hymbe-3-recorte-480.webp 480w, /assets/otim/restaurante-hymbe-3-recorte-640.webp 640w, /assets/otim/restaurante-hymbe-3-recorte-720.webp 720w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, 338px" width="720" height="893" alt="Vista aérea da praia em frente ao restaurante Hymbé" loading="lazy" decoding="async">
-            </figure>
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 4">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 3">
               <img src="/assets/otim/drive-cardume-agua-rasa-480.webp" srcset="/assets/otim/drive-cardume-agua-rasa-480.webp 480w, /assets/otim/drive-cardume-agua-rasa-640.webp 640w, /assets/otim/drive-cardume-agua-rasa-743.webp 743w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, 338px" width="743" height="929" alt="Cardume de peixes listrados na água rasa e transparente" loading="lazy" decoding="async">
             </figure>
             <!-- FOTO PROVISÓRIA (teste) -->
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="4 de 4">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 3">
               <img src="/assets/otim/drive-praia-aerea-turquesa-480.webp" srcset="/assets/otim/drive-praia-aerea-turquesa-480.webp 480w, /assets/otim/drive-praia-aerea-turquesa-640.webp 640w, /assets/otim/drive-praia-aerea-turquesa-960.webp 960w, /assets/otim/drive-praia-aerea-turquesa-1280.webp 1280w, /assets/otim/drive-praia-aerea-turquesa-1600.webp 1600w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, 338px" width="1600" height="900" alt="Vista aérea de praia com mar azul-turquesa, grandes pedras na água e mata nos morros" loading="lazy" decoding="async">
             </figure>
           </div>
@@ -505,8 +516,8 @@
           <button type="button" class="galeria-seta galeria-prox" data-galeria-prox aria-label="Próxima foto"><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
         </div>
         <div class="galeria-indicador" aria-hidden="true">
-          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i><i></i></span>
-          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 4</span>
+          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i></span>
+          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 3</span>
         </div>
         <div class="card-corpo">
           <p class="card-chamada">Mais completo</p>
@@ -528,16 +539,13 @@
       <article class="card-passeio" id="card-boat">
         <div class="galeria" data-galeria>
           <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos do Trindade Boat">
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 4">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 3">
               <img src="/assets/otim/foto-praia-galhetas-recorte-480.webp" srcset="/assets/otim/foto-praia-galhetas-recorte-480.webp 480w, /assets/otim/foto-praia-galhetas-recorte-640.webp 640w, /assets/otim/foto-praia-galhetas-recorte-720.webp 720w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 45vw, 338px" width="720" height="494" alt="Praia das Galhetas, em Trindade: água transparente sobre a areia dourada, com uma grande pedra na beira" loading="lazy" decoding="async">
             </figure>
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 4">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 3">
               <img src="/assets/otim/foto-piscina-galhetas-recorte-480.webp" srcset="/assets/otim/foto-piscina-galhetas-recorte-480.webp 480w, /assets/otim/foto-piscina-galhetas-recorte-640.webp 640w, /assets/otim/foto-piscina-galhetas-recorte-820.webp 820w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 45vw, 338px" width="820" height="462" alt="Piscina natural das Galhetas, em Trindade: pessoas nadando na água transparente entre pedras de granito" loading="lazy" decoding="async">
             </figure>
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 4">
-              <img src="/assets/otim/restaurante-hymbe-1-recorte-480.webp" srcset="/assets/otim/restaurante-hymbe-1-recorte-480.webp 480w, /assets/otim/restaurante-hymbe-1-recorte-640.webp 640w, /assets/otim/restaurante-hymbe-1-recorte-720.webp 720w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 45vw, 338px" width="720" height="955" alt="Guarda-sóis do restaurante Hymbé na praia" loading="lazy" decoding="async">
-            </figure>
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="4 de 4">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 3">
               <img src="/assets/otim/drive-barco-chegando-praia-480.webp" srcset="/assets/otim/drive-barco-chegando-praia-480.webp 480w, /assets/otim/drive-barco-chegando-praia-640.webp 640w, /assets/otim/drive-barco-chegando-praia-1011.webp 1011w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 45vw, 338px" width="1011" height="683" alt="Proa de barco chegando a uma praia de água verde-azulada cercada de mata" loading="lazy" decoding="async">
             </figure>
           </div>
@@ -545,8 +553,8 @@
           <button type="button" class="galeria-seta galeria-prox" data-galeria-prox aria-label="Próxima foto"><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
         </div>
         <div class="galeria-indicador" aria-hidden="true">
-          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i><i></i></span>
-          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 4</span>
+          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i></span>
+          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 3</span>
         </div>
         <div class="card-corpo">
           <h3>Trindade Boat</h3>
@@ -686,42 +694,6 @@
           </div>
         </div>
       </article>
-
-      <article class="card-passeio card-consulta" id="card-pescaria">
-        <div class="galeria" data-galeria>
-          <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos do Fishing Experience">
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 3">
-              <img src="/assets/otim/foto-pesca-peixe-480.webp" srcset="/assets/otim/foto-pesca-peixe-480.webp 480w, /assets/otim/foto-pesca-peixe-640.webp 640w, /assets/otim/foto-pesca-peixe-960.webp 960w, /assets/otim/foto-pesca-peixe-1120.webp 1120w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 45vw, 338px" width="1120" height="2000" alt="Peixe vermelho segurado sobre o mar" loading="lazy" decoding="async">
-            </figure>
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 3">
-              <img src="/assets/otim/foto-pesca-tainha-480.webp" srcset="/assets/otim/foto-pesca-tainha-480.webp 480w, /assets/otim/foto-pesca-tainha-640.webp 640w, /assets/otim/foto-pesca-tainha-960.webp 960w, /assets/otim/foto-pesca-tainha-1152.webp 1152w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 45vw, 338px" width="1152" height="1140" alt="Rede de pesca da tainha no mar, com a vila de Trindade ao fundo" loading="lazy" decoding="async">
-            </figure>
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 3">
-              <img src="/assets/otim/foto-pesca-redes-480.webp" srcset="/assets/otim/foto-pesca-redes-480.webp 480w, /assets/otim/foto-pesca-redes-640.webp 640w, /assets/otim/foto-pesca-redes-960.webp 960w, /assets/otim/foto-pesca-redes-1120.webp 1120w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 45vw, 338px" width="1120" height="1800" alt="Pescadores recolhendo a rede de um barco" loading="lazy" decoding="async">
-            </figure>
-          </div>
-          <button type="button" class="galeria-seta galeria-ant" data-galeria-ant aria-label="Foto anterior" disabled><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
-          <button type="button" class="galeria-seta galeria-prox" data-galeria-prox aria-label="Próxima foto"><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
-        </div>
-        <div class="galeria-indicador" aria-hidden="true">
-          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i></span>
-          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 3</span>
-        </div>
-        <div class="card-corpo">
-          <h3>Fishing Experience</h3>
-          <p class="card-preco"><b>R$ 500</b><span>valor fixo</span></p>
-          <ul class="lista-check card-inclusos">
-            <li>Guia experiente</li>
-            <li>Valor fixo de R$ 500</li>
-            <li>Consulte os detalhes e a data com a equipe</li>
-          </ul>
-          <p class="card-garantia">Data e detalhes combinados com a equipe pelo WhatsApp</p>
-          <div class="card-acoes">
-            <a class="btn btn-primario" href="https://wa.me/5524992073621" data-wa="Olá! Quero informações sobre o passeio Fishing Experience. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar</a>
-            <a class="btn btn-wa" href="/pescaria">Ver detalhes</a>
-          </div>
-        </div>
-      </article>
     </div>
     <div class="fileira-controles">
       <button type="button" class="fileira-seta fileira-ant" data-fileira-ant aria-label="Passeios anteriores" hidden><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
@@ -806,7 +778,7 @@
   <nav class="bloco links-home" aria-label="Mais sobre Trindade">
     <a class="link-seta" href="/historia#titulo-lugares">Praias e lugares<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
     <a class="link-seta" href="/historia">História de Trindade<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
-    <a class="link-seta" href="/pescaria">Pescaria<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
+    <a class="link-seta" href="/pousadas">Pousadas parceiras<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
     <a class="link-seta" href="/passeios/adventure">Um dia completo no Adventure<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
   </nav>
 </section>
@@ -894,17 +866,14 @@
       <div class="roteiro-resumo">
         <div class="galeria" data-galeria>
           <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos do Trindade Adventure">
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 4">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 3">
               <img data-hero src="/assets/otim/lugar-praia-meio-sem-texto-480.webp" srcset="/assets/otim/lugar-praia-meio-sem-texto-480.webp 480w, /assets/otim/lugar-praia-meio-sem-texto-640.webp 640w, /assets/otim/lugar-praia-meio-sem-texto-960.webp 960w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, (max-width: 1350px) 51vw, 634px" width="960" height="636" alt="Praia do Meio, em Trindade, com a ponta de pedras e o morro coberto de mata" loading="lazy" decoding="async">
             </figure>
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 4">
-              <img src="/assets/otim/restaurante-hymbe-3-recorte-480.webp" srcset="/assets/otim/restaurante-hymbe-3-recorte-480.webp 480w, /assets/otim/restaurante-hymbe-3-recorte-640.webp 640w, /assets/otim/restaurante-hymbe-3-recorte-720.webp 720w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, (max-width: 1350px) 51vw, 634px" width="720" height="893" alt="Vista aérea da praia em frente ao restaurante Hymbé" loading="lazy" decoding="async">
-            </figure>
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 4">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 3">
               <img src="/assets/otim/drive-cardume-agua-rasa-480.webp" srcset="/assets/otim/drive-cardume-agua-rasa-480.webp 480w, /assets/otim/drive-cardume-agua-rasa-640.webp 640w, /assets/otim/drive-cardume-agua-rasa-743.webp 743w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, (max-width: 1350px) 51vw, 634px" width="743" height="929" alt="Cardume de peixes listrados na água rasa e transparente" loading="lazy" decoding="async">
             </figure>
             <!-- FOTO PROVISÓRIA (teste) -->
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="4 de 4">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 3">
               <img src="/assets/otim/drive-praia-aerea-turquesa-480.webp" srcset="/assets/otim/drive-praia-aerea-turquesa-480.webp 480w, /assets/otim/drive-praia-aerea-turquesa-640.webp 640w, /assets/otim/drive-praia-aerea-turquesa-960.webp 960w, /assets/otim/drive-praia-aerea-turquesa-1280.webp 1280w, /assets/otim/drive-praia-aerea-turquesa-1600.webp 1600w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, (max-width: 1350px) 51vw, 634px" width="1600" height="900" alt="Vista aérea de praia com mar azul-turquesa, grandes pedras na água e mata nos morros" loading="lazy" decoding="async">
             </figure>
           </div>
@@ -912,14 +881,14 @@
           <button type="button" class="galeria-seta galeria-prox" data-galeria-prox aria-label="Próxima foto"><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
         </div>
         <div class="galeria-indicador" aria-hidden="true">
-          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i><i></i></span>
-          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 4</span>
+          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i></span>
+          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 3</span>
         </div>
         <div class="roteiro-info">
           <div class="roteiro-titulo"><h2 data-titulo-foco>Trindade Adventure</h2><p class="tour-preco"><b>R$ 150</b><span>por pessoa</span></p></div>
           <p class="roteiro-meta">≈ 6h · saídas <span data-faixa-horarios="adventure" data-formato="hhmm">de 08:00 às 12:00</span></p>
-          <p>Roteiro completo com snorkel na piscina natural, retorno pela Pedra que Engole e almoço no Restaurante Hymbé.</p>
-          <p class="nota nota-ouro"><b>Voucher de R$ 60 por pessoa</b> para usar no Restaurante Hymbé, na praia — já incluso no valor.</p>
+          <p>Roteiro completo com snorkel na piscina natural, retorno pela Pedra que Engole e almoço no <span data-restaurante-nome>Restaurante Exemplo</span>.</p>
+          <p class="nota nota-ouro"><b>Voucher de R$ 60 por pessoa</b> para usar no almoço no <span data-restaurante-nome>Restaurante Exemplo</span>, na praia, ou nas <a class="link-texto" href="/pousadas">pousadas parceiras</a> — já incluso no valor.</p>
           <div class="incluso">
             <div><h3>Incluso</h3><ul class="lista-check">
               <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Acompanhamento de guia local</li>
@@ -952,7 +921,7 @@
           <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-praia"/></svg></span><div><h4>2. Praia do Cachadaço <span class="pill">≈ 40 min</span></h4><p>Primeira parada do roteiro, pela trilha da Mata Atlântica.</p></div></li>
           <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-mergulho"/></svg></span><div><h4>3. Piscina Natural do Cachadaço <span class="pill">≈ 1h30</span></h4><p>Snorkel na piscina de granito — o ponto alto do roteiro.</p></div></li>
           <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-pedra"/></svg></span><div><h4>4. Cachoeira da Pedra que Engole <span class="pill">≈ 40 min</span></h4><p>Retorno pelo Rio dos Codós até o escorrega natural entre as pedras.</p></div></li>
-          <li><span class="ponto ponto-ouro"><svg class="ico-parada" aria-hidden="true"><use href="#i-almoco"/></svg></span><div><h4>5. Restaurante Hymbé <span class="pill">Almoço</span></h4><p>Almoço na praia, com voucher de R$ 60 por pessoa já incluso no pacote.</p></div></li>
+          <li><span class="ponto ponto-ouro"><svg class="ico-parada" aria-hidden="true"><use href="#i-almoco"/></svg></span><div><h4>5. <span data-restaurante-nome>Restaurante Exemplo</span> <span class="pill">Almoço</span></h4><p>Almoço na praia, com voucher de R$ 60 por pessoa já incluso no pacote.</p></div></li>
         </ol>
         <p class="nota">O guia pode inverter a ordem das paradas conforme a maré e a condição do mar no dia.</p>
       </div>
@@ -964,16 +933,13 @@
       <div class="roteiro-resumo">
         <div class="galeria" data-galeria>
           <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos do Trindade Boat">
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 4">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 3">
               <img data-hero src="/assets/otim/foto-piscina-galhetas-recorte-480.webp" srcset="/assets/otim/foto-piscina-galhetas-recorte-480.webp 480w, /assets/otim/foto-piscina-galhetas-recorte-640.webp 640w, /assets/otim/foto-piscina-galhetas-recorte-820.webp 820w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, (max-width: 1350px) 51vw, 634px" width="820" height="462" alt="Piscina natural das Galhetas, em Trindade: pessoas nadando na água transparente entre pedras de granito" loading="lazy" decoding="async">
             </figure>
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 4">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 3">
               <img src="/assets/otim/foto-praia-galhetas-recorte-480.webp" srcset="/assets/otim/foto-praia-galhetas-recorte-480.webp 480w, /assets/otim/foto-praia-galhetas-recorte-640.webp 640w, /assets/otim/foto-praia-galhetas-recorte-720.webp 720w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, (max-width: 1350px) 51vw, 634px" width="720" height="494" alt="Praia das Galhetas, em Trindade: água transparente sobre a areia dourada, com uma grande pedra na beira" loading="lazy" decoding="async">
             </figure>
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 4">
-              <img src="/assets/otim/restaurante-hymbe-1-recorte-480.webp" srcset="/assets/otim/restaurante-hymbe-1-recorte-480.webp 480w, /assets/otim/restaurante-hymbe-1-recorte-640.webp 640w, /assets/otim/restaurante-hymbe-1-recorte-720.webp 720w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, (max-width: 1350px) 51vw, 634px" width="720" height="955" alt="Guarda-sóis do restaurante Hymbé na praia" loading="lazy" decoding="async">
-            </figure>
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="4 de 4">
+            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 3">
               <img src="/assets/otim/drive-barco-chegando-praia-480.webp" srcset="/assets/otim/drive-barco-chegando-praia-480.webp 480w, /assets/otim/drive-barco-chegando-praia-640.webp 640w, /assets/otim/drive-barco-chegando-praia-1011.webp 1011w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, (max-width: 1350px) 51vw, 634px" width="1011" height="683" alt="Proa de barco chegando a uma praia de água verde-azulada cercada de mata" loading="lazy" decoding="async">
             </figure>
           </div>
@@ -981,14 +947,14 @@
           <button type="button" class="galeria-seta galeria-prox" data-galeria-prox aria-label="Próxima foto"><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
         </div>
         <div class="galeria-indicador" aria-hidden="true">
-          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i><i></i></span>
-          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 4</span>
+          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i></span>
+          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 3</span>
         </div>
         <div class="roteiro-info">
           <div class="roteiro-titulo"><h2 data-titulo-foco>Trindade Boat</h2><p class="tour-preco"><b>R$ 400</b><span>por pessoa</span></p></div>
           <p class="roteiro-meta">≈ 8h · encontro às 8h30 ou às 11h (saída 20 min depois)</p>
-          <p>Trilha pela Trindade e passeio de barco por cinco paradas na costa da Trindade, com almoço no Restaurante Hymbé.</p>
-          <p class="nota nota-ouro"><b>Voucher de R$ 60 por pessoa</b> para usar no Restaurante Hymbé, na praia — já incluso no valor.</p>
+          <p>Trilha pela Trindade e passeio de barco por cinco paradas na costa da Trindade, com almoço no <span data-restaurante-nome>Restaurante Exemplo</span>.</p>
+          <p class="nota nota-ouro"><b>Voucher de R$ 60 por pessoa</b> para usar no almoço no <span data-restaurante-nome>Restaurante Exemplo</span>, na praia, ou nas <a class="link-texto" href="/pousadas">pousadas parceiras</a> — já incluso no valor.</p>
           <div class="incluso">
             <div><h3>Incluso</h3><ul class="lista-check">
               <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Acompanhamento de guia local</li>
@@ -1023,7 +989,7 @@
           <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-praia"/></svg></span><div><h4>4. Praia do Sono <span class="pill">Parada 3</span></h4><p>Comunidade caiçara e 1 km de areia. Parada mais longa do dia.</p></div></li>
           <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-onda"/></svg></span><div><h4>5. Praia dos Antigos <span class="pill">Parada 4</span></h4><p>400 m de areia e água esverdeada, dentro de área de proteção ambiental.</p></div></li>
           <li><span class="ponto"><svg class="ico-parada" aria-hidden="true"><use href="#i-praia"/></svg></span><div><h4>6. Praia dos Antiguinhos <span class="pill">Parada 5</span></h4><p>Praia de 60 m, a 700 m dos Antigos. A mais reservada do roteiro.</p></div></li>
-          <li><span class="ponto ponto-ouro"><svg class="ico-parada" aria-hidden="true"><use href="#i-almoco"/></svg></span><div><h4>7. Restaurante Hymbé <span class="pill">Almoço</span></h4><p>Almoço na praia, com voucher de R$ 60 por pessoa já incluso no pacote.</p></div></li>
+          <li><span class="ponto ponto-ouro"><svg class="ico-parada" aria-hidden="true"><use href="#i-almoco"/></svg></span><div><h4>7. <span data-restaurante-nome>Restaurante Exemplo</span> <span class="pill">Almoço</span></h4><p>Almoço na praia, com voucher de R$ 60 por pessoa já incluso no pacote.</p></div></li>
         </ol>
         <p class="nota">O barco só sai com condição de mar favorável. Se o mar virar, a operação remarca sem custo.</p>
       </div>
@@ -1035,7 +1001,7 @@
       <h2 id="titulo-city-tour-roteiros">City tour Paraty</h2>
       <p>Tour pelos museus e por todo o centro histórico de Paraty.</p>
     </header>
-    <div class="pescaria-grid">
+    <div class="oferta-grid">
       <div class="city-tour-galeria-col">
         <div class="galeria" data-galeria>
           <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos do City tour Paraty">
@@ -1063,10 +1029,10 @@
           <span class="galeria-contador num"><b data-galeria-atual>1</b> / 5</span>
         </div>
       </div>
-      <div class="pescaria-info">
+      <div class="oferta-info">
         <p>Tour pelos museus e por todo o centro histórico de Paraty.</p>
-        <div class="pescaria-preco"><span>Por pessoa</span><strong>R$ 200</strong></div>
-        <p class="pescaria-dica">Data, horário e ponto de encontro são combinados pela equipe pelo WhatsApp.</p>
+        <div class="oferta-preco"><span>Por pessoa</span><strong>R$ 200</strong></div>
+        <p class="oferta-dica">Data, horário e ponto de encontro são combinados pela equipe pelo WhatsApp.</p>
         <ul class="selos-passeio">
           <li><svg class="ico" aria-hidden="true"><use href="#i-selo-guia"/></svg><span>Guia local</span></li>
           <li><svg class="ico" aria-hidden="true"><use href="#i-selo-seguranca"/></svg><span>Orientações de segurança</span></li>
@@ -1121,39 +1087,6 @@
           <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Dia inteiro de aventura</li>
         </ul>
         <a class="btn btn-primario" href="https://wa.me/5524992073621" data-wa="Olá! Quero informações sobre o passeio Mamanguá Adventure. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar no WhatsApp</a>
-      </article>
-
-      <article class="consulta" id="consulta-fishing">
-        <div class="galeria galeria-32" data-galeria>
-          <div class="galeria-trilho" tabindex="0" role="region" aria-roledescription="carrossel" aria-label="Fotos do Fishing Experience">
-            <!-- FOTO PROVISÓRIA (teste) -->
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="1 de 3">
-              <img src="/assets/otim/foto-pesca-peixe-480.webp" srcset="/assets/otim/foto-pesca-peixe-480.webp 480w, /assets/otim/foto-pesca-peixe-640.webp 640w, /assets/otim/foto-pesca-peixe-960.webp 960w, /assets/otim/foto-pesca-peixe-1120.webp 1120w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, (max-width: 1350px) 47vw, 576px" width="1120" height="2000" alt="Peixe vermelho segurado sobre o mar" loading="lazy" decoding="async">
-            </figure>
-            <!-- FOTO PROVISÓRIA (teste) -->
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="2 de 3">
-              <img src="/assets/otim/foto-pesca-tainha-480.webp" srcset="/assets/otim/foto-pesca-tainha-480.webp 480w, /assets/otim/foto-pesca-tainha-640.webp 640w, /assets/otim/foto-pesca-tainha-960.webp 960w, /assets/otim/foto-pesca-tainha-1152.webp 1152w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, (max-width: 1350px) 47vw, 576px" width="1152" height="1140" alt="Rede de pesca da tainha no mar, com a vila de Trindade ao fundo" loading="lazy" decoding="async">
-            </figure>
-            <!-- FOTO PROVISÓRIA (teste) -->
-            <figure class="galeria-slide" aria-roledescription="slide" aria-label="3 de 3">
-              <img src="/assets/otim/foto-pesca-redes-480.webp" srcset="/assets/otim/foto-pesca-redes-480.webp 480w, /assets/otim/foto-pesca-redes-640.webp 640w, /assets/otim/foto-pesca-redes-960.webp 960w, /assets/otim/foto-pesca-redes-1120.webp 1120w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, (max-width: 1350px) 47vw, 576px" width="1120" height="1800" alt="Pescadores recolhendo a rede de um barco" loading="lazy" decoding="async">
-            </figure>
-          </div>
-          <button type="button" class="galeria-seta galeria-ant" data-galeria-ant aria-label="Foto anterior" disabled><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
-          <button type="button" class="galeria-seta galeria-prox" data-galeria-prox aria-label="Próxima foto"><svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></button>
-        </div>
-        <div class="galeria-indicador" aria-hidden="true">
-          <span class="galeria-pontos"><i class="ativo"></i><i></i><i></i></span>
-          <span class="galeria-contador num"><b data-galeria-atual>1</b> / 3</span>
-        </div>
-        <div class="consulta-topo"><div><h3>Fishing Experience</h3><p class="consulta-sub">Pescaria em alto mar · pesca embarcada</p></div><p class="tour-preco"><b>R$ 500</b><span>valor fixo</span></p></div>
-        <p>Saída de barco de Trindade para uma experiência de pescaria em alto mar, com acompanhamento de um guia experiente.</p>
-        <ul class="lista-check">
-          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Guia experiente</li>
-          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Valor fixo de R$ 500</li>
-          <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Consulte os detalhes e a data com a equipe</li>
-        </ul>
-        <div class="consulta-acoes"><a class="btn btn-primario" href="https://wa.me/5524992073621" data-wa="Olá! Quero informações sobre o passeio Fishing Experience. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar no WhatsApp</a><a class="btn btn-secundario" href="/pescaria">Página da pescaria</a></div>
       </article>
 
       <article class="consulta" id="consulta-saco-bravo">
@@ -1234,13 +1167,16 @@
     </div>
   </section>
 
-  <section class="bloco" aria-labelledby="titulo-hymbe">
+  <!-- Restaurante do almoço: o nome vem de site-config → parceiros.restaurante (o servidor
+       escreve em cada [data-restaurante-nome]). "Restaurante Exemplo" é provisório de propósito. -->
+  <section class="bloco" aria-labelledby="titulo-restaurante">
     <div class="restaurante">
-      <div class="thumb media" id="fotoRestauranteHymbe"></div>
+      <div class="thumb media media-vazia" role="img" aria-label="Fotos do restaurante em breve"><span>Fotos em breve</span></div>
       <div class="restaurante-texto">
-        <h2 id="titulo-hymbe">Restaurante Hymbé, na praia</h2>
-        <p>O voucher de R$ 60 por pessoa dos roteiros Adventure e Boat vale aqui: mesas na areia, guarda-sóis e deck com vista para o mar, à beira da praia em Trindade.</p>
-        <a class="link-seta" href="https://instagram.com/hymberestaurantepraia" target="_blank" rel="noopener">Instagram @hymberestaurantepraia<svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a>
+        <span class="pill" data-restaurante-provisorio>Nome provisório</span>
+        <h2 id="titulo-restaurante"><span data-restaurante-nome>Restaurante Exemplo</span>, na praia</h2>
+        <p>O voucher de R$ 60 por pessoa dos roteiros Adventure e Boat vale no almoço aqui, à beira da praia em Trindade, ou nas <a class="link-texto" href="/pousadas">pousadas parceiras</a>.</p>
+        <a class="link-seta" data-restaurante-instagram hidden href="https://instagram.com/" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-externo"/></svg></a>
       </div>
     </div>
   </section>
@@ -1288,11 +1224,10 @@
         <legend class="sr">Passeio</legend>
         <h2 class="passo-titulo"><span>1</span>Escolha o passeio</h2>
         <div class="planos-opcoes" id="escolhaPlano"></div>
-        <p class="passo-extra">Mamanguá Adventure, Saco Bravo Adventure, Costa da Juatinga e Fishing Experience são combinados pelo WhatsApp:
+        <p class="passo-extra">Mamanguá Adventure, Saco Bravo Adventure e Costa da Juatinga são combinados pelo WhatsApp:
           <a href="https://wa.me/5524992073621" data-wa="Olá! Quero informações sobre o passeio Mamanguá Adventure. Data: ___ · Pessoas: ___" target="_blank" rel="noopener">Mamanguá</a>,
-          <a href="https://wa.me/5524992073621" data-wa="Olá! Quero informações sobre o passeio Saco Bravo Adventure. Data: ___ · Pessoas: ___" target="_blank" rel="noopener">Saco Bravo</a>,
-          <a href="https://wa.me/5524992073621" data-wa="Olá! Quero informações sobre o passeio Costa da Juatinga. Data: ___ · Pessoas: ___" target="_blank" rel="noopener">Juatinga</a> e
-          <a href="https://wa.me/5524992073621" data-wa="Olá! Quero informações sobre o passeio Fishing Experience. Data: ___ · Pessoas: ___" target="_blank" rel="noopener">Fishing</a>.</p>
+          <a href="https://wa.me/5524992073621" data-wa="Olá! Quero informações sobre o passeio Saco Bravo Adventure. Data: ___ · Pessoas: ___" target="_blank" rel="noopener">Saco Bravo</a> e
+          <a href="https://wa.me/5524992073621" data-wa="Olá! Quero informações sobre o passeio Costa da Juatinga. Data: ___ · Pessoas: ___" target="_blank" rel="noopener">Juatinga</a>.</p>
       </fieldset>
 
       <fieldset class="passo" id="passoData">
@@ -1448,15 +1383,15 @@
     <a class="link-seta" href="/passeios">Todos os passeios<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
   </header>
 
-  <div class="pescaria-grid">
+  <div class="oferta-grid">
     <figure class="city-tour-capa">
       <img data-hero src="/assets/otim/paraty-centro-historico-praca-960.webp" srcset="/assets/otim/paraty-centro-historico-praca-480.webp 480w, /assets/otim/paraty-centro-historico-praca-640.webp 640w, /assets/otim/paraty-centro-historico-praca-960.webp 960w, /assets/otim/paraty-centro-historico-praca-1280.webp 1280w" sizes="(max-width: 360px) 328px, (max-width: 412px) 92vw, (max-width: 1024px) 93vw, (max-width: 1350px) 54vw, 662px" width="1280" height="481" alt="Panorama do centro histórico de Paraty, com praça e casario colonial" loading="lazy" decoding="async" data-lcp>
     </figure>
 
-    <div class="pescaria-info">
+    <div class="oferta-info">
       <p>Tour pelos museus e por todo o centro histórico de Paraty.</p>
-      <div class="pescaria-preco"><span>Por pessoa</span><strong>R$ 200</strong></div>
-      <p class="pescaria-dica">Data, horário e ponto de encontro são combinados pela equipe pelo WhatsApp.</p>
+      <div class="oferta-preco"><span>Por pessoa</span><strong>R$ 200</strong></div>
+      <p class="oferta-dica">Data, horário e ponto de encontro são combinados pela equipe pelo WhatsApp.</p>
       <ul class="selos-passeio">
         <li><svg class="ico" aria-hidden="true"><use href="#i-selo-guia"/></svg><span>Guia local</span></li>
         <li><svg class="ico" aria-hidden="true"><use href="#i-selo-seguranca"/></svg><span>Orientações de segurança</span></li>
@@ -1521,67 +1456,53 @@
   </div>
 </section>
 
-<!-- ======================= PESCARIA ======================= -->
-<section class="secao" id="pescaria" data-secao="pescaria" aria-labelledby="titulo-pescaria">
+<!-- ======================= POUSADAS ======================= -->
+<!-- Cada pousada é um <article data-pousada="slug">. O servidor (_worker.js) remove do HTML
+     as que não estão em site-config → parceiros.pousadasAtivas: só entra quem autorizou por
+     escrito e confirmou que aceita o voucher. Com a lista vazia, aparece o aviso [data-pousadas-vazio]. -->
+<section class="secao" id="pousadas" data-secao="pousadas" aria-labelledby="titulo-pousadas">
   <header class="pagina-cabeca pagina-cabeca-linha">
     <div>
-      <h1 data-titulo id="titulo-pescaria">Pescaria em Alto Mar</h1>
-      <p>Uma experiência no mar de Trindade, com o acompanhamento de um guia experiente.</p>
+      <h1 data-titulo id="titulo-pousadas">Pousadas parceiras</h1>
+      <p>O voucher de R$ 60 por pessoa dos passeios Trindade Adventure e Trindade Boat também vale nas pousadas parceiras.</p>
     </div>
     <a class="link-seta" href="/passeios">Todos os passeios<svg class="ico" aria-hidden="true"><use href="#i-seta"/></svg></a>
   </header>
 
-  <div class="pescaria-grid">
-    <div class="fishing-gallery" id="fishingGallery" role="region" aria-roledescription="carrossel" aria-label="Pesca artesanal em Trindade">
-      <div class="fg-stage" tabindex="0" aria-label="Galeria de fotos. Use as setas para navegar.">
-        <div class="fg-slide is-active" data-fg-slide="0" aria-hidden="false"><img data-hero class="fg-photo" src="/assets/otim/foto-pesca-peixe-640.webp" srcset="/assets/otim/foto-pesca-peixe-480.webp 480w, /assets/otim/foto-pesca-peixe-640.webp 640w, /assets/otim/foto-pesca-peixe-960.webp 960w, /assets/otim/foto-pesca-peixe-1120.webp 1120w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, (max-width: 1350px) 54vw, 660px" width="1120" height="2000" alt="Peixe vermelho segurado sobre o mar" loading="lazy" decoding="async"></div>
-        <div class="fg-slide" data-fg-slide="1" aria-hidden="true"><img class="fg-photo" src="/assets/otim/foto-pesca-cavalas-recorte-514.webp" srcset="/assets/otim/foto-pesca-cavalas-recorte-514.webp 514w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, (max-width: 1350px) 54vw, 660px" width="514" height="1000" alt="Cavalas enfileiradas, em fotografia em preto e branco" loading="lazy" decoding="async"></div>
-        <div class="fg-slide" data-fg-slide="2" aria-hidden="true"><img class="fg-photo" src="/assets/otim/foto-pesca-tainha-640.webp" srcset="/assets/otim/foto-pesca-tainha-480.webp 480w, /assets/otim/foto-pesca-tainha-640.webp 640w, /assets/otim/foto-pesca-tainha-960.webp 960w, /assets/otim/foto-pesca-tainha-1152.webp 1152w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, (max-width: 1350px) 54vw, 660px" width="1152" height="1140" alt="Rede de pesca da tainha no mar, com a vila de Trindade ao fundo" loading="lazy" decoding="async"></div>
-        <div class="fg-slide" data-fg-slide="3" aria-hidden="true"><img class="fg-photo" src="/assets/otim/foto-pesca-redes-640.webp" srcset="/assets/otim/foto-pesca-redes-480.webp 480w, /assets/otim/foto-pesca-redes-640.webp 640w, /assets/otim/foto-pesca-redes-960.webp 960w, /assets/otim/foto-pesca-redes-1120.webp 1120w" sizes="(max-width: 360px) 326px, (max-width: 760px) 92vw, (max-width: 1024px) 93vw, (max-width: 1350px) 54vw, 660px" width="1120" height="1800" alt="Pescadores recolhendo a rede de um barco" loading="lazy" decoding="async"></div>
-        <span class="fg-counter" data-fg-count aria-hidden="true">1 / 4</span>
-        <button class="fg-expand" type="button" data-fg-open aria-label="Ampliar foto em tela cheia"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M9 3H3v6m12-6h6v6M3 15v6h6m12-6v6h-6"/></svg><span>Ampliar</span></button>
-        <div class="fg-arrows"><button class="fg-arrow" type="button" data-fg-prev aria-label="Foto anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><button class="fg-arrow" type="button" data-fg-next aria-label="Próxima foto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button></div>
-      </div>
-      <div class="fg-caption" aria-live="polite" aria-atomic="true"><h2 data-fg-title>Peixe em destaque</h2><p data-fg-caption>Registro de peixe enviado pela equipe.</p></div>
-      <div class="fg-thumbs" aria-label="Escolher uma fotografia">
-        <button type="button" class="fg-thumb" data-fg-select="0" aria-label="Ver foto 1: Peixe em destaque" aria-pressed="true"><img src="/assets/foto-pesca-peixe-480.webp" width="480" height="857" alt="" loading="lazy" decoding="async"></button>
-        <button type="button" class="fg-thumb" data-fg-select="1" aria-label="Ver foto 2: Cavalas" aria-pressed="false"><img src="/assets/foto-pesca-cavalas-recorte-480.webp" width="480" height="934" alt="" loading="lazy" decoding="async"></button>
-        <button type="button" class="fg-thumb" data-fg-select="2" aria-label="Ver foto 3: Pesca da tainha" aria-pressed="false"><img src="/assets/foto-pesca-tainha-480.webp" width="480" height="475" alt="" loading="lazy" decoding="async"></button>
-        <button type="button" class="fg-thumb" data-fg-select="3" aria-label="Ver foto 4: Pescadores e redes" aria-pressed="false"><img src="/assets/foto-pesca-redes-480.webp" width="480" height="771" alt="" loading="lazy" decoding="async"></button>
-      </div>
-      <p class="fg-nota">Registros da pesca artesanal e da cultura caiçara de Trindade, enviados pela equipe. Não são fotos do passeio Fishing Experience.</p>
-    </div>
-
-    <div class="pescaria-info">
-      <h2>O horizonte espera por você.</h2>
-      <p>Viva uma experiência de pescaria em alto mar com o acompanhamento de um guia experiente, em Trindade.</p>
-      <div class="pescaria-preco"><span>Valor fixo</span><strong>R$ 500</strong></div>
-      <p class="pescaria-dica">Converse com a equipe para combinar a data e conhecer os detalhes do passeio.</p>
-      <a class="btn btn-primario btn-largo" href="https://wa.me/5524992073621" data-wa="Olá! Quero informações sobre a Pescaria em Alto Mar, com guia experiente e valor fixo de R$ 500. Data: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Consultar pescaria no WhatsApp</a>
-    </div>
+  <div class="caixa voucher-regra">
+    <h2>Como funciona o voucher</h2>
+    <ul class="lista-check">
+      <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>Vem com os passeios Trindade Adventure e Trindade Boat: R$ 60 por pessoa, já incluso no valor.</li>
+      <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Vale no almoço do <span data-restaurante-nome>Restaurante Exemplo</span>, na praia, ou numa das pousadas parceiras desta página.</span></li>
+      <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg>As condições de cada pousada são confirmadas com a equipe pelo WhatsApp antes de usar.</li>
+    </ul>
   </div>
 
-  <section class="bloco peixes-costa" aria-labelledby="titulo-peixes">
-    <header class="cabeca">
-      <h2 id="titulo-peixes">Peixes da costa de Trindade</h2>
-      <p>Águas abertas, praias e costões fazem parte do cenário da pesca local. Conheça seis peixes documentados em estudos sobre a comunidade de Trindade e a região de Paraty.</p>
-    </header>
-    <div class="peixes-grid">
-      <article class="peixe-card"><span class="peixe-habitat">Mar aberto</span><h3>Cavala</h3><i class="peixe-cientifico">Scomberomorus cavalla</i><p>Peixe de águas abertas, citado entre os mais consumidos pelos pescadores de Trindade, Praia do Sono e Ponta Negra.</p><a href="#fonte-pesca-diagnostico" data-fish-source="fonte-pesca-diagnostico">Referência</a></article>
-      <article class="peixe-card"><span class="peixe-habitat">Águas costeiras</span><h3>Sororoca</h3><i class="peixe-cientifico">Scomberomorus brasiliensis</i><p>Tem corpo alongado e manchas amareladas nos flancos. Vive junto a ilhas, costões e praias; aparece nos registros pesqueiros de Trindade.</p><a href="#fonte-pesca-panorama" data-fish-source="fonte-pesca-panorama">Referência</a></article>
-      <article class="peixe-card"><span class="peixe-habitat">Corpo prateado</span><h3>Peixe-espada</h3><i class="peixe-cientifico">Trichiurus lepturus</i><p>O corpo comprido, achatado e brilhante lembra uma fita de prata. A espécie foi registrada nos desembarques da comunidade.</p><a href="#fonte-pesca-panorama" data-fish-source="fonte-pesca-panorama">Referência</a></article>
-      <article class="peixe-card"><span class="peixe-habitat">Tradição caiçara</span><h3>Tainha</h3><i class="peixe-cientifico">Mugil spp.</i><p>Registrada na pesca local, faz parte da cultura pesqueira do litoral. A tainha Mugil liza utiliza estuários e lagoas costeiras durante seu crescimento.</p><a href="#fonte-pesca-tainha" data-fish-source="fonte-pesca-tainha">Referência</a></article>
-      <article class="peixe-card"><span class="peixe-habitat">Registro local</span><h3>Anchova</h3><i class="peixe-cientifico">Pomatomus saltatrix</i><p>Também conhecida como enchova. Está entre os peixes identificados em desembarques de Trindade no estudo que comparou comunidades pesqueiras de Paraty.</p><a href="#fonte-pesca-estudo" data-fish-source="fonte-pesca-estudo">Referência</a></article>
-      <article class="peixe-card"><span class="peixe-habitat">Registro local</span><h3>Bonito-pintado</h3><i class="peixe-cientifico">Euthynnus alletteratus</i><p>O bonito registrado no levantamento de Trindade pertence a esta espécie. Nomes populares podem designar peixes diferentes de uma região para outra.</p><a href="#fonte-pesca-estudo" data-fish-source="fonte-pesca-estudo">Referência</a></article>
-    </div>
-    <p class="nota-rodape">A presença varia com a época e as condições do mar; os registros não garantem captura em um passeio. As fotografias da galeria registram a pesca artesanal local.</p>
-    <details class="fontes"><summary>Fontes e pesquisa sobre a região</summary><ul>
-      <li id="fonte-pesca-estudo"><a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC3824866/" target="_blank" rel="noopener">Pesquisa sobre desembarques em Trindade, Praia Grande e Tarituba (2013), tabela 4</a> — ocorrência local das espécies.</li>
-      <li id="fonte-pesca-diagnostico"><a href="https://www.gov.br/icmbio/pt-br/assuntos/biodiversidade/unidade-de-conservacao/unidades-de-biomas/marinho/lista-de-ucs/esec-de-tamoios/arquivos/IBIO_2009_Sntese_do_Diagnstico_Socioambiental_das_Comunidades_de_Pescadores_Artesanais_da_BIG.pdf" target="_blank" rel="noopener">Diagnóstico socioambiental da pesca artesanal na Baía da Ilha Grande (2009), disponível no ICMBio</a> — cavala e comunidades de Paraty.</li>
-      <li id="fonte-pesca-panorama"><a href="https://www.gov.br/mpa/pt-br/assuntos/pesca-amadora-e-esportiva/PANORAMAPESCAAMADORAEESPORTIVA_site2_compressed.pdf" target="_blank" rel="noopener">Ministério da Pesca e Aquicultura — Panorama da Pesca Amadora e Esportiva no Brasil</a> — características do peixe-espada e da sororoca.</li>
-      <li id="fonte-pesca-tainha"><a href="https://www.pesca.sp.gov.br/blog/ip-na-midia-16/como-criar-tainha-ii-7779" target="_blank" rel="noopener">Instituto de Pesca de São Paulo — biologia da tainha</a> — uso de estuários e lagoas costeiras.</li>
-    </ul><p>Pesquisa consultada em 24/09/2026. Os estudos locais são registros históricos da pesca, não uma medição da abundância atual.</p></details>
-  </section>
+  <h2 class="sr">Pousadas onde o voucher vale</h2>
+  <div class="pousadas">
+    <article class="parceira" data-pousada="casa-de-madeira">
+      <div class="thumb media"><img src="/assets/otim/pousada-madeira-1-720.webp" srcset="/assets/otim/pousada-madeira-1-480.webp 480w, /assets/otim/pousada-madeira-1-640.webp 640w, /assets/otim/pousada-madeira-1-720.webp 720w" sizes="(max-width: 760px) 92vw, 420px" width="720" height="704" alt="Casa de Madeira Trindade, com varanda e quintal verde" loading="lazy" decoding="async"></div>
+      <div class="parceira-corpo">
+        <div class="parceira-tags"><span class="pill">Voucher vale aqui</span></div>
+        <h3>Casa de Madeira Trindade</h3>
+        <p class="parceira-local">Trindade · Paraty · RJ</p>
+        <p>Casa de madeira com varanda, rede e um quintal verde onde o café da manhã é servido. Charme caiçara, perto das trilhas.</p>
+        <ul class="comodidades"><li>Café da manhã</li><li>Quintal</li><li>Rede</li></ul>
+        <div class="parceira-rodape">
+          <div><b>Diária sob consulta</b><span>Direto com a pousada</span></div>
+          <div class="parceira-acoes">
+            <a class="btn btn-secundario btn-sm" href="https://instagram.com/demadeiratrindade" target="_blank" rel="noopener" aria-label="Instagram da Casa de Madeira Trindade (abre em nova aba)">Instagram</a>
+            <a class="btn btn-primario btn-sm" href="https://wa.me/5524987873576" data-wa="Olá! Quero informações sobre a Casa de Madeira Trindade. Vim pelo site Trindade Adventure. Datas: ___ · Pessoas: ___" data-wa-numero="5524987873576" target="_blank" rel="noopener" aria-label="Falar com a Casa de Madeira Trindade no WhatsApp (abre em nova aba)"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Falar</a>
+          </div>
+        </div>
+      </div>
+    </article>
+  </div>
+
+  <div class="caixa" data-pousadas-vazio>
+    <p>Estamos fechando as primeiras pousadas parceiras. Quer saber onde o voucher já vale? Fale com a equipe.</p>
+    <a class="btn btn-primario" href="https://wa.me/5524992073621" data-wa="Olá! Em quais pousadas parceiras o voucher do passeio vale? Datas: ___ · Pessoas: ___" target="_blank" rel="noopener"><svg class="ico" aria-hidden="true"><use href="#i-wa"/></svg>Perguntar no WhatsApp</a>
+  </div>
 </section>
 
 <!-- ======================= HISTÓRIA ======================= -->
@@ -1715,7 +1636,7 @@
     <p data-pagamento="whatsapp">A vaga só fica garantida depois do pagamento do sinal de 30% via Pix e da confirmação da equipe pelo WhatsApp. Cada reserva tem até 15 pessoas. Se o horário escolhido lotar, a equipe avisa e sugere outra opção.</p><template data-pagamento="online"><p>A vaga fica garantida com o pagamento pelo site, por Pix: sinal de 30% ou o valor total; para o mesmo dia, só o valor total. O código da reserva sai logo depois do pagamento. Cada reserva tem até 15 pessoas. Se o pagamento for confirmado quando o horário já tiver lotado, a equipe entra em contato para você escolher entre reagendar ou receber o valor de volta.</p></template>
 
     <h2>3. Valores e pagamento</h2>
-    <p data-pagamento="whatsapp">Os valores por pessoa são os informados na página de cada passeio. Crianças até 12 anos não pagam; a partir de 13 anos pagam o valor cheio. No Trindade Adventure e no Trindade Boat, o valor já inclui um voucher de R$ 60 por pagante para o almoço no Restaurante Hymbé. Para confirmar a reserva, é pago um sinal de 30% do valor via Pix, combinado pelo WhatsApp. Não há pagamento pelo site. Os outros 70% são pagos no dia do passeio.</p><template data-pagamento="online"><p>Os valores por pessoa são os informados na página de cada passeio. Crianças até 12 anos não pagam; a partir de 13 anos pagam o valor cheio. No Trindade Adventure e no Trindade Boat, o valor já inclui um voucher de R$ 60 por pagante para o almoço no Restaurante Hymbé. O pagamento pelo site é só por Pix: sinal de 30% do total de quem paga (voucher incluído) ou 100%; para o mesmo dia, só 100%. Cartão, só na maquininha, no local. Os outros 70% são pagos no dia do passeio. A reserva não é cancelada se o saldo não for pago online.</p></template>
+    <p data-pagamento="whatsapp">Os valores por pessoa são os informados na página de cada passeio. Crianças até 12 anos não pagam; a partir de 13 anos pagam o valor cheio. No Trindade Adventure e no Trindade Boat, o valor já inclui um voucher de R$ 60 por pagante para usar no almoço no <span data-restaurante-nome>Restaurante Exemplo</span>, na praia, ou nas <a href="/pousadas">pousadas parceiras</a>. Para confirmar a reserva, é pago um sinal de 30% do valor via Pix, combinado pelo WhatsApp. Não há pagamento pelo site. Os outros 70% são pagos no dia do passeio.</p><template data-pagamento="online"><p>Os valores por pessoa são os informados na página de cada passeio. Crianças até 12 anos não pagam; a partir de 13 anos pagam o valor cheio. No Trindade Adventure e no Trindade Boat, o valor já inclui um voucher de R$ 60 por pagante para usar no almoço no <span data-restaurante-nome>Restaurante Exemplo</span>, na praia, ou nas <a href="/pousadas">pousadas parceiras</a>. O pagamento pelo site é só por Pix: sinal de 30% do total de quem paga (voucher incluído) ou 100%; para o mesmo dia, só 100%. Cartão, só na maquininha, no local. Os outros 70% são pagos no dia do passeio. A reserva não é cancelada se o saldo não for pago online.</p></template>
 
     <h2>4. Horário e ponto de encontro</h2>
     <p>A concentração é no horário reservado, na Praia do Meio, junto à placa das trilhas. A saída acontece 20 minutos depois — a reserva das 08:00 sai às 08:20. O Trindade Boat tem encontro às 8h30 ou às 11h (saída 20 min depois). Chegue 15 minutos antes.</p>
@@ -1744,7 +1665,7 @@
     <p>Confira nome, WhatsApp e número de pessoas antes de enviar: é por eles que a equipe confirma a reserva. Os dados são tratados como descrito na <a class="link-texto" href="/politica-de-privacidade">Política de Privacidade</a>.</p>
 
     <h2>11. Passeios sob consulta</h2>
-    <p>Mamanguá Adventure, Saco Bravo Adventure, Costa da Juatinga e Fishing Experience não têm agenda aberta no site. Data, detalhes, valores e condições são combinados com a equipe pelo WhatsApp.</p>
+    <p>Mamanguá Adventure, Saco Bravo Adventure e Costa da Juatinga não têm agenda aberta no site. Data, detalhes, valores e condições são combinados com a equipe pelo WhatsApp.</p>
 
     <h2>12. Contato</h2>
     <p>Dúvidas sobre estes termos ou sobre a sua reserva: <a class="link-texto" href="https://wa.me/5524992073621" data-wa="Olá! Tenho uma dúvida sobre os Termos do Passeio da Trindade Adventure." target="_blank" rel="noopener">WhatsApp (24) 99207-3621</a> ou pelo e-mail <a class="link-texto" href="/cdn-cgi/l/email-protection#b7c4c2c7d8c5c3d2f7c3c5ded9d3d6d3d2d6d3c1d2d9c3c2c5ce99d4d8da99d5c5"><span class="__cf_email__" data-cfemail="542721243b2620311420263d3a30353031353022313a2021262d7a373b397a3626">[email&#160;protected]</span></a>.</p>
@@ -1793,7 +1714,7 @@
     <p>Modificação feita nas oito fotos: só redimensionamento e conversão para WebP (480, 960 e 1280 px), sem corte nem edição de cor. As fotos de Paul R. Burley e Rejane Sarmento são CC BY-SA 4.0: versões editadas (recortadas) permanecem sob a mesma licença.</p>
 
     <h2>Outras fotos do site</h2>
-    <p>Todas as outras fotos são da equipe Trindade Adventure ou de parceiros (Restaurante Hymbé).</p>
+    <p>Todas as outras fotos são da equipe Trindade Adventure ou das pousadas parceiras, que autorizaram o uso.</p>
   </article>
 </section>
 
@@ -1816,7 +1737,6 @@
         <li><a href="/passeios/adventure">Trindade Adventure</a></li>
         <li><a href="/passeios/boat">Trindade Boat</a></li>
         <li><a href="/city-tour-paraty">City tour Paraty</a></li>
-        <li><a href="/pescaria">Pescaria em Alto Mar</a></li>
         <li><a href="/passeios#sob-consulta">Passeios sob consulta</a></li>
       </ul>
     </div>
@@ -1824,6 +1744,7 @@
       <h2>Trindade</h2>
       <ul>
         <li><a href="/historia">História de Trindade</a></li>
+        <li><a href="/pousadas">Pousadas parceiras</a></li>
         <li><a href="/creditos-das-fotos">Créditos das fotos</a></li>
       </ul>
     </div>
@@ -1856,20 +1777,6 @@
   <a href="/contato" data-rota="contato"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v12H8l-4 4z"/></svg>Contato</a>
 </nav>
 
-<dialog class="fg-lightbox" id="fishingLightbox" aria-labelledby="fgLightTitle">
-  <div class="fg-light-inner">
-    <header class="fg-light-header"><h2 id="fgLightTitle">Peixe em destaque</h2><button class="fg-close" type="button" data-fg-close aria-label="Fechar galeria">Fechar <span aria-hidden="true">×</span></button></header>
-    <div class="fg-light-stage" tabindex="0" aria-label="Fotografia ampliada. Use as setas para navegar.">
-      <div class="fg-slide is-active" data-fg-slide="0" aria-hidden="false"><img class="fg-photo" src="/assets/otim/foto-pesca-peixe-640.webp" srcset="/assets/otim/foto-pesca-peixe-480.webp 480w, /assets/otim/foto-pesca-peixe-640.webp 640w, /assets/otim/foto-pesca-peixe-960.webp 960w, /assets/otim/foto-pesca-peixe-1120.webp 1120w" sizes="(max-width: 860px) 100vw, 900px" width="1120" height="2000" alt="Peixe vermelho segurado sobre o mar" loading="lazy" decoding="async"></div>
-      <div class="fg-slide" data-fg-slide="1" aria-hidden="true"><img class="fg-photo" src="/assets/foto-pesca-cavalas-recorte-514.webp" width="514" height="1000" alt="Cavalas enfileiradas, em fotografia em preto e branco" loading="lazy" decoding="async"></div>
-      <div class="fg-slide" data-fg-slide="2" aria-hidden="true"><img class="fg-photo" src="/assets/otim/foto-pesca-tainha-640.webp" srcset="/assets/otim/foto-pesca-tainha-480.webp 480w, /assets/otim/foto-pesca-tainha-640.webp 640w, /assets/otim/foto-pesca-tainha-960.webp 960w, /assets/otim/foto-pesca-tainha-1152.webp 1152w" sizes="(max-width: 860px) 100vw, 900px" width="1152" height="1140" alt="Rede de pesca da tainha no mar, com a vila de Trindade ao fundo" loading="lazy" decoding="async"></div>
-      <div class="fg-slide" data-fg-slide="3" aria-hidden="true"><img class="fg-photo" src="/assets/otim/foto-pesca-redes-640.webp" srcset="/assets/otim/foto-pesca-redes-480.webp 480w, /assets/otim/foto-pesca-redes-640.webp 640w, /assets/otim/foto-pesca-redes-960.webp 960w, /assets/otim/foto-pesca-redes-1120.webp 1120w" sizes="(max-width: 860px) 100vw, 900px" width="1120" height="1800" alt="Pescadores recolhendo a rede de um barco" loading="lazy" decoding="async"></div>
-      <div class="fg-arrows"><button class="fg-arrow" type="button" data-fg-prev aria-label="Foto anterior"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button><button class="fg-arrow" type="button" data-fg-next aria-label="Próxima foto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></button></div>
-    </div>
-    <footer class="fg-light-footer"><p data-fg-light-caption>Registro de peixe enviado pela equipe.</p><span data-fg-count>1 / 4</span></footer>
-  </div>
-</dialog>
-
 <dialog id="modalTermos" aria-modal="true" aria-labelledby="tituloModalTermos">
   <div class="modal-termos">
     <header class="modal-cabeca">
@@ -1883,7 +1790,7 @@
 
 <!-- Leaflet é servido pelo próprio site e só carrega quando o mapa se aproxima
      da tela. Se ainda assim faltar, o app.js mostra a lista de pontos. -->
-<script src="/app.min.js?v=20261116-p26" defer></script>
-<!-- motion.js e pescaria-galeria.js: o app.js carrega sob demanda (endereços no data-js-* do <body>). -->
+<script src="/app.min.js?v=20261117-24" defer></script>
+<!-- motion.js: o app.js carrega sob demanda (endereço no data-js-motion do <body>). -->
 </body>
 </html>

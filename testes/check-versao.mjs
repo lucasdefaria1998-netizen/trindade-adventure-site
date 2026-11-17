@@ -15,7 +15,7 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
-const ARQUIVOS = ["boot.js", "app.min.js", "motion.js", "pescaria-galeria.js", "estilo.min.css"];
+const ARQUIVOS = ["boot.js", "app.min.js", "motion.js", "estilo.min.css"];
 // O index.html carrega as cópias minificadas (P2.6); o código se escreve na fonte ao lado. A primeira linha da cópia
 // traz o sha256 da fonte de onde saiu: se a fonte mudou e ninguém rodou scripts/minificar.mjs, falha aqui.
 const GERADOS = { "app.min.js": "app.js", "estilo.min.css": "estilo.css" };

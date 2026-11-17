@@ -415,9 +415,9 @@ const normalizarCaminho = c => (c.length > 1 ? c.replace(/\/+$/, "") : c) || "/"
 // Endereços que mudaram de lugar (o servidor responde 301; aqui vale para a navegação sem recarregar
 // e para links antigos com "#/"). Mesma tabela do _worker.js (REDIRECIONAMENTOS).
 const REDIRECIONAMENTOS = {
-  "/passeios/fishing": "/pescaria",
+  "/pescaria": "/passeios",
+  "/passeios/fishing": "/passeios",
   "/voo-de-parapente": "/passeios",
-  "/pousadas": "/passeios",
 };
 const ehPaginaDoSite = c => {
   const n = normalizarCaminho(c);
@@ -634,8 +634,7 @@ function rolarAte(el) {
 
 /* Acabamentos fora do caminho crítico (auditoria 16/11, P1.3). O motion.js (revelação ao rolar, botão
    de pausa) só chega na primeira interação ou quando o navegador fica ocioso depois da carga, e nem
-   chega com movimento reduzido pelo sistema. A galeria da pescaria só chega quando ela (ou a lista de
-   fontes dos peixes) se aproxima da tela. Os endereços com ?v= ficam no <body> do index.html. O que
+   chega com movimento reduzido pelo sistema. O endereço com ?v= fica no <body> do index.html. O que
    precisa valer desde o primeiro instante — o topo que muda ao rolar e o rótulo do botão — fica aqui. */
 function carregarScript(src) {
   if (!src || document.querySelector(`script[src="${src}"]`)) return;
@@ -690,18 +689,6 @@ function ligarAcabamentos() {
     if (document.readyState === "complete") ocioso();
     else window.addEventListener("load", ocioso, { once: true });
   }
-
-  // Galeria da pescaria: só na rota que a tem, quando ela aparece (seção escondida nunca cruza a tela).
-  const srcGaleria = document.body.dataset.jsGaleria;
-  const alvos = [$("#fishingGallery"), $('a[href^="#fonte-"]')].filter(Boolean);
-  if (!srcGaleria || !alvos.length) return;
-  if (!("IntersectionObserver" in window)) { carregarScript(srcGaleria); return; }
-  const io = new IntersectionObserver(entradas => {
-    if (!entradas.some(e => e.isIntersecting)) return;
-    io.disconnect();
-    carregarScript(srcGaleria);
-  }, { rootMargin: "300px 0px" });
-  alvos.forEach(a => io.observe(a));
 }
 
 window.addEventListener("popstate", () => aplicarRota(true));
@@ -2173,7 +2160,7 @@ function cenaCamera(tipo) {
    relativa e recorte (a classe .media do site já dá isso) — por isso o HTML
    daqui não traz wrapper próprio, só as imagens e os controles.
    ========================================================================== */
-const FOTOS_RESPONSIVAS = {"/assets/costa-trindade.jpg":{"src":"/assets/costa-trindade-720.webp","srcset":"/assets/costa-trindade-480.webp 480w, /assets/costa-trindade-720.webp 720w","width":720,"height":896},"/assets/og-v2.jpg":{"src":"/assets/og-v2-1200.webp","srcset":"/assets/og-v2-480.webp 480w, /assets/og-v2-800.webp 800w, /assets/og-v2-1200.webp 1200w","width":1200,"height":630},"/assets/piscina-v2.jpg":{"src":"/assets/piscina-v2-1155.webp","srcset":"/assets/piscina-v2-480.webp 480w, /assets/piscina-v2-800.webp 800w, /assets/piscina-v2-1155.webp 1155w","width":1155,"height":768},"/assets/praia-v2.jpg":{"src":"/assets/praia-v2-712.webp","srcset":"/assets/praia-v2-480.webp 480w, /assets/praia-v2-712.webp 712w","width":712,"height":473},"/assets/restaurante-hymbe-1-recorte.jpg":{"src":"/assets/restaurante-hymbe-1-recorte-720.webp","srcset":"/assets/restaurante-hymbe-1-recorte-480.webp 480w, /assets/restaurante-hymbe-1-recorte-720.webp 720w","width":720,"height":955},"/assets/restaurante-hymbe-2-recorte.jpg":{"src":"/assets/restaurante-hymbe-2-recorte-600.webp","srcset":"/assets/restaurante-hymbe-2-recorte-480.webp 480w, /assets/restaurante-hymbe-2-recorte-600.webp 600w","width":600,"height":440},"/assets/restaurante-hymbe-3-recorte.jpg":{"src":"/assets/restaurante-hymbe-3-recorte-720.webp","srcset":"/assets/restaurante-hymbe-3-recorte-480.webp 480w, /assets/restaurante-hymbe-3-recorte-720.webp 720w","width":720,"height":893},"/assets/restaurante-hymbe-4-recorte.jpg":{"src":"/assets/restaurante-hymbe-4-recorte-625.webp","srcset":"/assets/restaurante-hymbe-4-recorte-480.webp 480w, /assets/restaurante-hymbe-4-recorte-625.webp 625w","width":625,"height":512},"/assets/restaurante-hymbe-5-recorte.jpg":{"src":"/assets/restaurante-hymbe-5-recorte-605.webp","srcset":"/assets/restaurante-hymbe-5-recorte-480.webp 480w, /assets/restaurante-hymbe-5-recorte-605.webp 605w","width":605,"height":472},"/assets/trilha-v2.jpg":{"src":"/assets/trilha-v2-1024.webp","srcset":"/assets/trilha-v2-480.webp 480w, /assets/trilha-v2-800.webp 800w, /assets/trilha-v2-1024.webp 1024w","width":1024,"height":768},"/assets/vista-trindade-1.jpg":{"src":"/assets/vista-trindade-1-720.webp","srcset":"/assets/vista-trindade-1-480.webp 480w, /assets/vista-trindade-1-720.webp 720w","width":720,"height":1301},"/assets/vista-trindade-2.jpg":{"src":"/assets/vista-trindade-2-720.webp","srcset":"/assets/vista-trindade-2-480.webp 480w, /assets/vista-trindade-2-720.webp 720w","width":720,"height":1072},"/assets/vista-trindade-3.jpg":{"src":"/assets/vista-trindade-3-720.webp","srcset":"/assets/vista-trindade-3-480.webp 480w, /assets/vista-trindade-3-720.webp 720w","width":720,"height":1253},"/assets/vista-trindade-4.jpg":{"src":"/assets/vista-trindade-4-720.webp","srcset":"/assets/vista-trindade-4-480.webp 480w, /assets/vista-trindade-4-720.webp 720w","width":720,"height":1256}};
+const FOTOS_RESPONSIVAS = {"/assets/costa-trindade.jpg":{"src":"/assets/costa-trindade-720.webp","srcset":"/assets/costa-trindade-480.webp 480w, /assets/costa-trindade-720.webp 720w","width":720,"height":896},"/assets/og-v2.jpg":{"src":"/assets/og-v2-1200.webp","srcset":"/assets/og-v2-480.webp 480w, /assets/og-v2-800.webp 800w, /assets/og-v2-1200.webp 1200w","width":1200,"height":630},"/assets/piscina-v2.jpg":{"src":"/assets/piscina-v2-1155.webp","srcset":"/assets/piscina-v2-480.webp 480w, /assets/piscina-v2-800.webp 800w, /assets/piscina-v2-1155.webp 1155w","width":1155,"height":768},"/assets/praia-v2.jpg":{"src":"/assets/praia-v2-712.webp","srcset":"/assets/praia-v2-480.webp 480w, /assets/praia-v2-712.webp 712w","width":712,"height":473},"/assets/trilha-v2.jpg":{"src":"/assets/trilha-v2-1024.webp","srcset":"/assets/trilha-v2-480.webp 480w, /assets/trilha-v2-800.webp 800w, /assets/trilha-v2-1024.webp 1024w","width":1024,"height":768},"/assets/vista-trindade-1.jpg":{"src":"/assets/vista-trindade-1-720.webp","srcset":"/assets/vista-trindade-1-480.webp 480w, /assets/vista-trindade-1-720.webp 720w","width":720,"height":1301},"/assets/vista-trindade-2.jpg":{"src":"/assets/vista-trindade-2-720.webp","srcset":"/assets/vista-trindade-2-480.webp 480w, /assets/vista-trindade-2-720.webp 720w","width":720,"height":1072},"/assets/vista-trindade-3.jpg":{"src":"/assets/vista-trindade-3-720.webp","srcset":"/assets/vista-trindade-3-480.webp 480w, /assets/vista-trindade-3-720.webp 720w","width":720,"height":1253},"/assets/vista-trindade-4.jpg":{"src":"/assets/vista-trindade-4-720.webp","srcset":"/assets/vista-trindade-4-480.webp 480w, /assets/vista-trindade-4-720.webp 720w","width":720,"height":1256}};
 function miniGaleriaHTML(fotos) {
   if (!fotos || !fotos.length) return "";
   const imgs = fotos.map((f, i) =>
@@ -2404,19 +2391,6 @@ function iniciar() {
   mostrarDadosDaEmpresa();
   pintarFaixasDeHorarios();
   $("#ano").textContent = String(new Date().getFullYear());
-
-  // Fotos reais dos parceiros que já enviaram — o resto (ainda sem foto)
-  // continua com o espaço reservado ilustrado.
-  const fotoRestauranteHymbe = $("#fotoRestauranteHymbe");
-  if (fotoRestauranteHymbe) {
-    fotoRestauranteHymbe.innerHTML = miniGaleriaHTML([
-      { src: "/assets/restaurante-hymbe-2-recorte.jpg", alt: "Espreguiçadeiras do restaurante Hymbé na areia da praia" },
-      { src: "/assets/restaurante-hymbe-5-recorte.jpg", alt: "Deck do restaurante Hymbé ao entardecer" },
-      { src: "/assets/restaurante-hymbe-4-recorte.jpg", alt: "Placa de boas-vindas do restaurante Hymbé" },
-      { src: "/assets/restaurante-hymbe-1-recorte.jpg", alt: "Guarda-sóis do restaurante Hymbé na praia" },
-      { src: "/assets/restaurante-hymbe-3-recorte.jpg", alt: "Vista aérea da praia em frente ao restaurante Hymbé" }
-    ]);
-  }
 
   ligarMiniGalerias();
   ligarTrilhoPasseios();
