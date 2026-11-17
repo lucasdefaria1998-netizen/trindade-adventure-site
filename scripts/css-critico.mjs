@@ -150,7 +150,11 @@ for (const it of itens) {
   if (it.tipo === "fonte") { secoes.forEach(s => partes[s].push({ midias: it.midias, texto: it.texto })); continue; }
   if (it.tipo !== "regra") continue;
   for (const s of secoes) {
-    const fica = it.seletores.filter(sel => (casouEm.get(sel) || []).some(vale => vale["#secao"] === s && it.midias.every(m => vale[m])));
+    // Basta o seletor ter casado na primeira tela em alguma largura da seção, valendo ou não a @media da regra
+    // naquela hora: a @media vai junto e decide no navegador. Exigir a @media ativa deixava de fora a versão de
+    // celular de um elemento que só aparece na primeira tela do desktop (o rodapé da /contato, curta): no celular
+    // ele saía com a grade do desktop, alargava a página e a .tabbar pulava quando o estilo.css chegava (CLS).
+    const fica = it.seletores.filter(sel => (casouEm.get(sel) || []).some(vale => vale["#secao"] === s));
     if (!fica.length) continue;
     partes[s].push({ midias: it.midias, texto: fica.join(",") + "{" + it.corpo + "}" });
     nomesAnim(it.corpo).forEach(n => anim[s].add(n));

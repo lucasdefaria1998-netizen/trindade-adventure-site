@@ -84,6 +84,24 @@ try {
     checar("P1.3 /pescaria: a galeria funciona (próxima foto → 2 / 4)", contagem.trim() === "2 / 4", contagem);
     await pg.close();
   }
+  // P1.2: só com o CSS crítico (estilo.css ainda não chegou), nenhuma rota fica mais larga que a tela do celular.
+  // Se ficar, a página "encolhe" e tudo pula quando o estilo.css chega (foi o rodapé da /contato: CLS 0,067).
+  for (const w of [360, 412]) {
+    const largas = [];
+    for (const rota of ["/", "/passeios", "/passeios/essencial", "/passeios/adventure", "/passeios/boat", "/passeios/juatinga", "/reservar", "/contato",
+      "/city-tour-paraty", "/pescaria", "/historia", "/cameras", "/termos-do-passeio", "/politica-de-privacidade", "/creditos-das-fotos", "/rota-que-nao-existe"]) {
+      const pg = await navegador.newPage();
+      await pg.setViewport({ width: w, height: 800, isMobile: true, hasTouch: true });
+      await pg.setRequestInterception(true);
+      pg.on("request", q => (/\/estilo(\.min)?\.css|fonts\.g|open-meteo/.test(q.url()) ? q.abort() : q.continue()));
+      await pg.goto(BASE + rota, { waitUntil: "load" });
+      await espera(300);
+      const larg = await pg.evaluate(() => document.documentElement.scrollWidth);
+      if (larg > w) largas.push(`${rota} ${larg}px`);
+      await pg.close();
+    }
+    checar(`P1.2 só com o CSS crítico, nenhuma rota passa de ${w}px de largura no celular`, !largas.length, largas.join(", "));
+  }
 } finally { await navegador.close(); }
 
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);
