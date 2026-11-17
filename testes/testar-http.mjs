@@ -5,7 +5,7 @@
 //
 // Os testes de POST /api/reservas só rodam contra localhost — gravam reservas
 // de teste no banco D1 LOCAL. Contra produção, eles são pulados.
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 const BASE = (process.argv[2] || "http://localhost:8788").replace(/\/$/, "");
 const LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(BASE);
@@ -22,6 +22,25 @@ function checar(nome, ok, detalhe) {
 }
 const pegar = (caminho, opts) => fetch(BASE + caminho, { redirect: "manual", ...opts });
 const attr = (doc, re) => (doc.match(re) || [])[1];
+// Auditoria 16/11 (P1.4): o src de cada foto passou para a variação otimizada em /assets/otim/, a de menor
+// largura igual ou maior que a do arquivo antigo (é a regra de scripts/imagens-variantes.mjs). Dado o nome
+// antigo ("lugar-x-480"), devolve o src novo equivalente.
+const OTIM = (() => { try { return readdirSync(new URL("../site/assets/otim/", import.meta.url)); } catch { return []; } })();
+function srcOtim(nome) {
+  const [, fam, w] = nome.match(/^(.*)-(\d{3,4})$/) || [];
+  const larg = OTIM.map(n => n.startsWith(fam + "-") && n.slice(fam.length + 1).match(/^(\d{3,4})\.webp$/)).filter(Boolean).map(m => +m[1]).sort((a, b) => a - b);
+  if (!fam || !larg.length) return null;
+  return `/assets/otim/${fam}-${larg.find(x => x >= +w) || larg[larg.length - 1]}.webp`;
+}
+// Posição (a partir de `desde`) do src="…" da foto, pelo nome antigo ou pela variação otimizada equivalente.
+function posFoto(doc, nome, desde = 0) {
+  const novo = srcOtim(nome);
+  const achados = [doc.indexOf(`src="/assets/${nome}.webp"`, desde), novo ? doc.indexOf(`src="${novo}"`, desde) : -1].filter(i => i >= 0);
+  return achados.length ? Math.min(...achados) : -1;
+}
+// Os sizes medidos (P1.4) deixaram as tags de foto mais longas; para medir "logo depois de" no HTML, conta-se
+// o texto sem os valores de srcset/sizes.
+const semSrcset = doc => doc.replace(/\s(?:srcset|sizes)="[^"]*"/g, "");
 const metaDe = doc => ({
   titulo: attr(doc, /<title>([^<]*)<\/title>/),
   descricao: attr(doc, /<meta name="description" content="([^"]*)"/),
@@ -440,7 +459,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("CITYTOUR /city-tour-paraty → 200", ct.status === 200, ct.status);
   checar("CITYTOUR página com o nome, a descrição-base e R$ 200", ctDoc.includes("City tour Paraty") && ctDoc.includes("Tour pelos museus e por todo o centro histórico de Paraty.") && ctDoc.includes("R$ 200"));
   checar("CITYTOUR botões de reserva e detalhe apontam para os endereços certos", ctDoc.includes('data-wa="Olá! Quero agendar o City tour Paraty'));
-  const ctImgs = [...ctDoc.matchAll(/\ssrc="(\/assets\/paraty-[A-Za-z0-9_.\-]+\.webp)"/g)].map(m => m[1]);
+  const ctImgs = [...ctDoc.matchAll(/\ssrc="(\/assets\/(?:otim\/)?paraty-[A-Za-z0-9_.\-]+\.webp)"/g)].map(m => m[1]);
   // 09/11/2026: + 3 fotos do centro histórico à noite (Wikimedia, Leandro Neumann Ciuffo, CC BY 2.0), pedido do Lucas.
   checar("CITYTOUR página cita as 5 fotos aprovadas + 3 da noite (09/11)", new Set(ctImgs.map(s => s.replace(/-\d+\.webp$/, ""))).size === 8, ctImgs.join(", "));
   let imgsQuebradas = [];
@@ -494,8 +513,9 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     ["lugar-igreja-centro-paraty-480", "lugar-igreja-centro-paraty-698", 'class="lugares-fotos"', "centro histórico de Paraty"]
   ];
   for (const [src, maior, bloco, lugar] of fotos) {
-    const b = doc.indexOf(bloco), i = b < 0 ? -1 : doc.indexOf(`src="/assets/${src}.webp"`, b);
-    const tag = i < 0 ? "" : doc.slice(doc.lastIndexOf("<img", i), doc.indexOf(">", i) + 1);
+    // 16/11 (P1.4): o src pode ser a variação otimizada da mesma foto (/assets/otim/<foto>-<largura>.webp)
+    const docPos = semSrcset(doc), b = docPos.indexOf(bloco), i = b < 0 ? -1 : posFoto(docPos, src, b);
+    const tag = i < 0 ? "" : docPos.slice(docPos.lastIndexOf("<img", i), docPos.indexOf(">", i) + 1);
     checar(`FOTOS-LUCAS ${src}: no lugar certo (${bloco})`, i > 0 && b > 0 && i - b < 4000, `${i} ${b}`);
     const alt = (tag.match(/alt="([^"]*)"/) || [])[1] || "";
     checar(`FOTOS-LUCAS ${src}: alt cita ${lugar}`, alt.includes(lugar), alt);
@@ -890,7 +910,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 
   // Nenhuma foto repetida entre as seções da home (hero e cartões). Só o src= conta —
   // o srcset do mesmo <img> cita de novo o arquivo do próprio src= (outro tamanho), não é repetição.
-  const todasFotos = [...docHome.matchAll(/\ssrc="(\/assets\/[A-Za-z0-9_.\-]+\.webp)"/g)].map(m => m[1]);
+  const todasFotos = [...docHome.matchAll(/\ssrc="(\/assets\/(?:otim\/)?[A-Za-z0-9_.\-]+\.webp)"/g)].map(m => m[1]);
   const repetidas = todasFotos.filter((s, i) => todasFotos.indexOf(s) !== i);
   checar("E26 nenhuma foto repetida na home", repetidas.length === 0, [...new Set(repetidas)].join(", "));
 
@@ -982,7 +1002,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     const doc = await (await pegar(rota)).text();
     const i = doc.indexOf("<img data-hero", doc.indexOf(bloco));
     const tag = i < 0 ? "" : doc.slice(i, doc.indexOf(">", i) + 1);
-    checar(`P0 ${rota}: capa ${foto} sem lazy e com fetchpriority=high`, tag.includes(`/assets/${foto}.webp"`) && !tag.includes('loading="lazy"') && tag.includes('fetchpriority="high"'), tag.slice(0, 120));
+    checar(`P0 ${rota}: capa ${foto} sem lazy e com fetchpriority=high`, posFoto(tag, foto) >= 0 && !tag.includes('loading="lazy"') && tag.includes('fetchpriority="high"'), tag.slice(0, 120));
     const altas = (doc.match(/<img [^>]*fetchpriority="high"[^>]*>/g) || []);
     checar(`P0 ${rota}: só uma <img> com fetchpriority=high`, altas.length === 1, altas.map(t => at(t, "src")).join(" "));
     const outras = (doc.match(/<img data-hero[^>]*>/g) || []).filter(t => t !== tag);
@@ -1125,6 +1145,61 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     j["@type"] === "TravelAgency" && j["@id"] === SITE.origem + "/#empresa" && j.aggregateRating["@type"] === "AggregateRating" && j.aggregateRating.ratingValue === "4.5" &&
     j.aggregateRating.reviewCount === "2" && j.aggregateRating.bestRating === "5" && j.review.length === 2 &&
     j.review.every(r => r["@type"] === "Review" && r.author.name && r.reviewRating.ratingValue && r.datePublished && r.reviewBody), JSON.stringify(j.aggregateRating));
+}
+
+// ---------- AUDITORIA 16/11 — P1.4: fotos em tamanho de exibição (variações em /assets/otim/, originais intactos) ----------
+{
+  const { readdirSync, statSync, existsSync } = await import("node:fs");
+  const dirAssets = new URL("../site/assets/", import.meta.url), dirOtim = new URL("otim/", dirAssets);
+  const larguraWebp = b => { // cabeçalho RIFF/WEBP: VP8 (com perdas), VP8L (sem perdas) ou VP8X (estendido)
+    const tipo = b.toString("ascii", 12, 16);
+    if (tipo === "VP8 ") return (b[26] | (b[27] << 8)) & 0x3fff;
+    if (tipo === "VP8L") return 1 + (b[21] | ((b[22] & 0x3f) << 8));
+    if (tipo === "VP8X") return 1 + (b[24] | (b[25] << 8) | (b[26] << 16));
+    return NaN;
+  };
+  const html = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
+  const tags = html.match(/<(?:img|source|link)\b[^>]*\b(?:srcset|imagesrcset)="[^"]*\/assets\/[^"]*\.webp[^"]*"[^>]*>/g) || [];
+  const at = (t, n) => (t.match(new RegExp(`\\s${n}="([^"]*)"`)) || [])[1] || "";
+  const forasOtim = [], larguraErrada = [], semArquivo = [], srcFora = [], semSizes = [];
+  for (const t of tags) {
+    const lista = at(t, "srcset") || at(t, "imagesrcset");
+    const cands = lista.split(",").map(c => c.trim().split(/\s+/));
+    for (const [url, desc] of cands) {
+      if (!url.startsWith("/assets/otim/")) { forasOtim.push(url); continue; }
+      const arq = new URL(url.slice("/assets/otim/".length), dirOtim);
+      if (!existsSync(arq)) { semArquivo.push(url); continue; }
+      if (larguraWebp(readFileSync(arq)) + "w" !== desc) larguraErrada.push(`${url} ${desc} (${larguraWebp(readFileSync(arq))})`);
+    }
+    const src = at(t, "src") || at(t, "href");
+    if (src && !cands.some(([u]) => u === src)) srcFora.push(src);
+    if (t.startsWith("<img") && !at(t, "sizes")) semSizes.push(at(t, "src"));
+  }
+  checar("P1.4 index.html tem fotos com srcset", tags.length > 50, tags.length);
+  checar("P1.4 todo srcset/imagesrcset de foto aponta para /assets/otim/", forasOtim.length === 0, [...new Set(forasOtim)].slice(0, 5).join(", "));
+  checar("P1.4 cada variação do srcset existe em site/assets/otim/", semArquivo.length === 0, semArquivo.slice(0, 5).join(", "));
+  checar("P1.4 o descritor de largura (NNNw) bate com a largura real do arquivo", larguraErrada.length === 0, larguraErrada.slice(0, 5).join(", "));
+  checar("P1.4 src/href de cada foto é uma das variações do próprio srcset", srcFora.length === 0, srcFora.slice(0, 5).join(", "));
+  checar("P1.4 toda <img> com srcset tem sizes", semSizes.length === 0, semSizes.slice(0, 5).join(", "));
+  // originais intactos: cada família otimizada ainda tem os arquivos de origem em site/assets/, e nenhuma
+  // variação nova é maior que o maior original da família
+  const variacoes = readdirSync(dirOtim).filter(n => n.endsWith(".webp"));
+  const originais = readdirSync(dirAssets).filter(n => n.endsWith(".webp"));
+  const familias = [...new Set(variacoes.map(n => n.replace(/-\d{3,4}\.webp$/, "")))];
+  const semOriginal = familias.filter(f => !originais.some(n => new RegExp(`^${f}-\\d{3,4}\\.webp$`).test(n)));
+  checar("P1.4 os originais continuam em site/assets/ ao lado das variações", familias.length > 30 && semOriginal.length === 0, semOriginal.join(", "));
+  const maiores = familias.flatMap(f => {
+    const tam = n => statSync(new URL(n, dirAssets)).size;
+    const maiorOriginal = Math.max(...originais.filter(n => new RegExp(`^${f}-\\d{3,4}\\.webp$`).test(n)).map(tam));
+    return variacoes.filter(n => n.startsWith(f + "-") && /^\d{3,4}\.webp$/.test(n.slice(f.length + 1)) && statSync(new URL(n, dirOtim)).size > maiorOriginal);
+  });
+  checar("P1.4 nenhuma variação é maior (em bytes) que o maior original da família", maiores.length === 0, maiores.join(", "));
+  // variações usadas no celular (até 640 px de largura) leves: nenhuma acima de 100 KiB
+  const pesadas = variacoes.filter(n => +n.match(/-(\d{3,4})\.webp$/)[1] <= 640 && statSync(new URL(n, dirOtim)).size > 100 * 1024);
+  checar("P1.4 variações de até 640 px com no máximo 100 KiB", pesadas.length === 0, pesadas.join(", "));
+  // servidas como as outras fotos: image/webp com cache imutável
+  const r = await pegar("/assets/otim/" + variacoes[0]);
+  checar("P1.4 /assets/otim/* sai como image/webp com cache imutável", r.status === 200 && r.headers.get("content-type") === "image/webp" && (r.headers.get("cache-control") || "").includes("immutable"), `${r.status} ${r.headers.get("content-type")} ${r.headers.get("cache-control")}`);
 }
 
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);
