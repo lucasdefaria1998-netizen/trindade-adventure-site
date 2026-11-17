@@ -570,6 +570,7 @@ function aplicarRota(rolarTopo) {
     if (nome === "passeios") mostrarRoteiro(plano);
     if (nome === "reservar") { reserva.plano = plano; desenharReserva(); }
   }
+  priorizarCapa(nome);
 
   // Um evento só por sessão: entrar e sair da aba de reserva várias vezes não
   // deveria inflar o "abriram reserva" do funil no painel.
@@ -689,7 +690,15 @@ function mostrarRoteiro(id) {
     b.tabIndex = ativo ? 0 : -1;
   });
   $$(".painel-roteiro").forEach(p => { p.hidden = p.id !== "roteiro-" + id; });
+  priorizarCapa("passeios");
   window.dispatchEvent(new Event("trindade:panel"));
+}
+
+/* A capa da página aberta (<img data-hero> fora de painel escondido) baixa já, com prioridade alta — o
+   mesmo que o _worker.js faz na primeira carga. As outras capas continuam lazy. */
+function priorizarCapa(nome) {
+  const capa = $$('[data-secao="' + nome + '"] img[data-hero]').find(i => !i.closest("[hidden]"));
+  if (capa) { capa.loading = "eager"; capa.fetchPriority = "high"; }
 }
 
 $$("[data-aba]").forEach(b => {

@@ -483,7 +483,39 @@ async function servirPagina(request, env, url) {
   if (!pagina) h.set("cache-control", SEM_CACHE);
 
   const resposta = new Response(html, { status: pagina ? 200 : 404, headers: h });
-  return aplicarMetadados(resposta, meta, !pagina, env, { secao: (pagina || site.naoEncontrada).secao, foco: (pagina && pagina.foco) || null, empresa: textoDaEmpresa(site.negocio), jsonld: jsonLdDaPagina(site, url.pathname, pagina, meta) });
+  const secao = (pagina || site.naoEncontrada).secao, foco = (pagina && pagina.foco) || null;
+  return aplicarMetadados(resposta, meta, !pagina, env, { secao, foco, hero: heroDaRota(html, secao, foco), empresa: textoDaEmpresa(site.negocio), jsonld: jsonLdDaPagina(site, url.pathname, pagina, meta) });
+}
+
+/* Foto de capa da rota (auditoria 16/11, P0). No index.html a capa de cada página leva <img data-hero> (início,
+   os três roteiros, city tour, pescaria). A da rota aberta é a primeira <img data-hero> da seção — em
+   /passeios/<plano>, a do painel do plano. Devolve a ordem dela entre todas as data-hero (o HTMLRewriter conta
+   na mesma ordem) e src/srcset/sizes para o preload. Dentro de <picture> (a abertura, com recorte vertical no
+   celular) o preload fica o do próprio index.html, um por media. Rota sem capa (reservar, contato…): null. */
+function heroDaRota(html, secao, foco) {
+  const marca = "<img data-hero ";
+  const ini = html.indexOf('data-secao="' + secao + '"');
+  if (ini < 0) return null;
+  const prox = html.indexOf(" data-secao=", ini + 1);
+  const fim = prox < 0 ? html.length : prox;
+  const desde = foco && foco.plano ? html.indexOf('id="roteiro-' + foco.plano + '"', ini) : ini;
+  const k = desde < 0 ? -1 : html.indexOf(marca, desde);
+  if (k < 0 || k > fim) return null;
+  const tag = html.slice(k, html.indexOf(">", k) + 1);
+  const at = n => (tag.match(new RegExp(" " + n + '="([^"]*)"')) || [])[1] || "";
+  const antes = html.slice(ini, k);
+  return {
+    ordem: html.slice(0, k).split(marca).length - 1,
+    emPicture: antes.lastIndexOf("<picture") > antes.lastIndexOf("</picture>"),
+    src: at("src"), srcset: at("srcset"), sizes: at("sizes")
+  };
+}
+
+function linkPreloadDaCapa(hero) {
+  const esc = s => String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
+  return '<link rel="preload" as="image" href="' + esc(hero.src) + '"' +
+    (hero.srcset ? ' imagesrcset="' + esc(hero.srcset) + '"' : "") +
+    (hero.sizes ? ' imagesizes="' + esc(hero.sizes) + '"' : "") + ' fetchpriority="high">';
 }
 
 /* JSON-LD próprio de cada rota, além do TravelAgency que já vem no index.html: BreadcrumbList nas rotas internas
@@ -582,10 +614,17 @@ function aplicarMetadados(resposta, m, naoEncontrada, env, rota) {
   }
 
   // A foto da abertura só existe na seção "inicio": nas outras rotas o preload gastaria banda (e
-  // disputaria o LCP) com uma imagem que fica escondida.
+  // disputaria o LCP) com uma imagem que fica escondida. No lugar do primeiro preload entra o da
+  // capa da rota, quando ela tem uma (P0 da auditoria de 16/11).
   if (rota.secao !== "inicio") {
-    rw = rw.on('link[rel="preload"][as="image"]', { element(el) { el.remove(); } });
+    const novo = rota.hero && !rota.hero.emPicture && rota.hero.src ? linkPreloadDaCapa(rota.hero) : "";
+    let primeiro = true;
+    rw = rw.on('link[rel="preload"][as="image"]', { element(el) {
+      if (primeiro && novo) el.replace(novo, { html: true }); else el.remove();
+      primeiro = false;
+    } });
   }
+  rw = prioridadeDasFotos(rw, rota);
 
   // Comentários HTML (notas de arquitetura: banco, rotas de API, worker…) ficam só no código-fonte, não vão para o visitante.
   rw = rw.onDocument({ comments(c) { c.remove(); } });
@@ -649,6 +688,23 @@ function reescreverSecoes(rw, rota) {
       } });
   }
   return rw;
+}
+
+/* Só a capa da rota aberta baixa na hora e com prioridade alta (eager + fetchpriority=high); as outras
+   capas (o index.html serve todas as páginas) ficam loading=lazy e sem prioridade. Antes, em
+   /passeios/essencial a foto do topo vinha lazy e era o LCP (7,9 s), e a capa do início — escondida —
+   ainda disputava a banda com fetchpriority=high. */
+function prioridadeDasFotos(rw, rota) {
+  const ordem = rota.hero ? rota.hero.ordem : -1;
+  let n = 0, secao = null;
+  const segundoPlano = el => { el.removeAttribute("fetchpriority"); el.setAttribute("loading", "lazy"); };
+  return rw
+    .on("[data-secao]", { element(el) { secao = el.getAttribute("data-secao"); } })
+    .on("img[data-hero]", { element(el) {
+      if (n++ === ordem) { el.removeAttribute("loading"); el.setAttribute("fetchpriority", "high"); }
+      else segundoPlano(el);
+    } })
+    .on("img[fetchpriority]:not([data-hero])", { element(el) { if (secao !== rota.secao) segundoPlano(el); } });
 }
 
 /* Um <h1> por página. O HTML traz o título de cada seção como <h1 data-titulo> (todas as seções vêm

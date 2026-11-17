@@ -385,9 +385,13 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 {
   const preloads = doc => (doc.match(/rel="preload" as="image"/g) || []).length;
   checar("E15 / mantém o preload da foto da abertura (≥ 1)", preloads(await (await pegar("/")).text()) >= 1);
+  // Auditoria 16/11 (P0): as rotas com capa própria ganham o preload da capa delas; nenhuma outra rota
+  // faz preload da foto da abertura (hero-cachadaco), e as rotas sem capa não fazem preload de imagem.
   for (const c of ["/historia", "/termos-do-passeio", "/passeios", "/passeios/boat", "/reservar", "/contato", "/city-tour-paraty", "/pescaria", "/nao-existe"]) {
     const r = await pegar(c); const doc = await r.text();
-    checar(`E15 ${c} não faz preload da foto da abertura`, preloads(doc) === 0, preloads(doc));
+    const daAbertura = (doc.match(/<link rel="preload" as="image"[^>]*hero-cachadaco[^>]*>/g) || []).length;
+    const temCapa = ["/passeios", "/passeios/boat", "/city-tour-paraty", "/pescaria"].includes(c);
+    checar(`E15 ${c} não faz preload da foto da abertura`, daAbertura === 0 && preloads(doc) === (temCapa ? 1 : 0), preloads(doc));
   }
   const app = readFileSync(new URL("../site/app.js", import.meta.url), "utf8");
   const iniciar = app.slice(app.indexOf("function iniciar()"));
@@ -936,6 +940,44 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   // City tour Paraty em /passeios (antes era o cartão do parapente, removido): já checado no bloco CITYTOUR acima.
 
   checar("E26 /creditos-das-fotos → 200 com a tabela de créditos", (await pegar("/creditos-das-fotos")).status === 200);
+}
+
+
+// ---------- AUDITORIA 16/11 — P0: capa de cada rota eager + fetchpriority=high + preload; as outras lazy ----------
+{
+  const at = (t, n) => (t.match(new RegExp(` ${n}="([^"]*)"`)) || [])[1];
+  const capas = [
+    ["/", 'id="inicio"', "hero-cachadaco-960"],
+    ["/passeios", 'id="roteiro-essencial"', "hero-piscina-natural-640"],
+    ["/passeios/essencial", 'id="roteiro-essencial"', "hero-piscina-natural-640"],
+    ["/passeios/adventure", 'id="roteiro-adventure"', "lugar-praia-meio-sem-texto-480"],
+    ["/passeios/boat", 'id="roteiro-boat"', "foto-piscina-galhetas-recorte-410"],
+    ["/city-tour-paraty", 'data-secao="city-tour-paraty"', "paraty-centro-historico-praca-960"],
+    ["/pescaria", 'id="fishingGallery"', "foto-pesca-peixe-560"]
+  ];
+  for (const [rota, bloco, foto] of capas) {
+    const doc = await (await pegar(rota)).text();
+    const i = doc.indexOf("<img data-hero", doc.indexOf(bloco));
+    const tag = i < 0 ? "" : doc.slice(i, doc.indexOf(">", i) + 1);
+    checar(`P0 ${rota}: capa ${foto} sem lazy e com fetchpriority=high`, tag.includes(`/assets/${foto}.webp"`) && !tag.includes('loading="lazy"') && tag.includes('fetchpriority="high"'), tag.slice(0, 120));
+    const altas = (doc.match(/<img [^>]*fetchpriority="high"[^>]*>/g) || []);
+    checar(`P0 ${rota}: só uma <img> com fetchpriority=high`, altas.length === 1, altas.map(t => at(t, "src")).join(" "));
+    const outras = (doc.match(/<img data-hero[^>]*>/g) || []).filter(t => t !== tag);
+    checar(`P0 ${rota}: as outras capas ficam lazy`, outras.length > 0 && outras.every(t => t.includes('loading="lazy"') && !t.includes("fetchpriority")));
+    if (rota !== "/") {
+      const pre = (doc.match(/<link rel="preload" as="image"[^>]*>/g) || []);
+      checar(`P0 ${rota}: um preload, com o src/srcset/sizes da capa`, pre.length === 1 && at(pre[0], "href") === at(tag, "src") && at(pre[0], "imagesrcset") === at(tag, "srcset") && at(pre[0], "imagesizes") === at(tag, "sizes") && pre[0].includes('fetchpriority="high"'), pre.join(" "));
+      const head = doc.slice(0, doc.indexOf("</head>"));
+      checar(`P0 ${rota}: o preload da capa está no <head>`, pre.length === 1 && head.includes(pre[0]));
+    }
+  }
+  for (const rota of ["/reservar", "/contato", "/historia", "/nao-existe"]) {
+    const doc = await (await pegar(rota)).text();
+    const capas = (doc.match(/<img data-hero[^>]*>/g) || []);
+    checar(`P0 ${rota}: sem capa própria, nenhuma capa com prioridade (todas lazy)`, capas.length === 6 && capas.every(t => t.includes('loading="lazy"') && !t.includes("fetchpriority")));
+  }
+  const app = readFileSync(new URL("../site/app.js", import.meta.url), "utf8");
+  checar("P0 app.js: navegação sem recarregar prioriza a capa da rota (priorizarCapa em aplicarRota e mostrarRoteiro)", /function priorizarCapa\(/.test(app) && (app.match(/priorizarCapa\(/g) || []).length >= 3);
 }
 
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);
