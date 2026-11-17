@@ -1,21 +1,10 @@
-/* Antes do primeiro desenho: marca o JavaScript, o tema e a preferência de movimento, para a
-   abertura não piscar nem animar quem pediu para parar. Vem sem defer, no <head>, antes do CSS.
-   Saiu do HTML (era um <script> inline) para a política de segurança de conteúdo poder valer
-   com script-src 'self', sem hash escrito à mão. */
+/* Folhas de estilo que não bloqueiam o primeiro desenho (auditoria 16/11, P1.2). O CSS crítico vem
+   inline no <head>; a fonte do Google e o estilo.css inteiro chegam com media="print" (o navegador
+   baixa sem segurar a pintura) e passam a valer aqui. Vem com defer: roda depois do HTML lido e antes
+   do app.js. Sem JavaScript, o <noscript> do index.html carrega as duas do jeito normal.
+   O que precisa rodar ANTES do primeiro desenho (classe .js, tema, preferência de movimento) saiu
+   daqui para o <script id="boot-inline"> do index.html, liberado na CSP por hash. */
 (function () {
-  var r = document.documentElement, p = false;
-  r.classList.add('js');
-  try {
-    p = localStorage.getItem('trindade.motion') === 'paused';
-    var t = localStorage.getItem('trindade.tema');
-    if (t === 'dark' || t === 'light') r.setAttribute('data-theme', t);
-  } catch (e) {}
-  r.setAttribute('data-motion', p || matchMedia('(prefers-reduced-motion: reduce)').matches ? 'paused' : 'running');
-
-  /* A fonte do Google chega como preload (não bloqueia o desenho) e vira folha de estilo quando
-     termina de baixar. Era um onload= no próprio <link>; o evento não borbulha, então escuta-se na captura. */
-  document.addEventListener('load', function (e) {
-    var l = e.target;
-    if (l && l.tagName === 'LINK' && l.rel === 'preload' && l.as === 'style') l.rel = 'stylesheet';
-  }, true);
+  var ls = document.querySelectorAll('link[rel="stylesheet"][data-async]');
+  for (var i = 0; i < ls.length; i++) ls[i].media = 'all';
 })();

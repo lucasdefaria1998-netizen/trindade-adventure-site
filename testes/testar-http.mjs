@@ -704,16 +704,23 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   for (const c of rotas) {
     const doc = await (await pegar(c)).text();
     const tags = [...doc.matchAll(/<script\b[^>]*>/g)].map(m => m[0]);
-    const inline = tags.filter(t => !/\ssrc=/.test(t) && !/type="application\/(json|ld\+json)"/.test(t));
+    // Auditoria 16/11 (P1.2): o único inline executável é o <script id="boot-inline">, liberado na CSP por hash (bloco P1.2).
+    const inline = tags.filter(t => !/\ssrc=/.test(t) && !/type="application\/(json|ld\+json)"/.test(t) && t !== '<script id="boot-inline">');
     checar(`E16 ${c}: nenhum <script> inline executável`, inline.length === 0, inline.join(" "));
     checar(`E16 ${c}: sem onload=/onclick=/onerror= e sem style="`, !/\son(load|click|error)=/i.test(doc) && !/\sstyle="/i.test(doc), (doc.match(/\s(onload|onclick|onerror|style)="[^"]{0,40}/i) || [""])[0]);
   }
   const home = await (await pegar("/")).text();
-  checar("E16 / carrega /boot.js?v= sem defer/async, antes do CSS", /<script src="\/boot\.js\?v=[^"]+"><\/script>/.test(home) && home.indexOf("/boot.js?v=") < home.indexOf('/estilo.css?v='));
-  checar("E16 / mantém o preload da fonte como <link rel=preload as=style> (ativado pelo boot.js)", /<link rel="preload" as="style" href="https:\/\/fonts\.googleapis\.com\/css2\?family=Archivo[^"]*">/.test(home));
-  const boot = await pegar("/boot.js?v=20261020-s16"); const bootJs = await boot.text();
-  checar("E16 /boot.js responde 200 como JavaScript com tema, movimento e ativação da fonte", boot.status === 200 && /javascript/.test(boot.headers.get("content-type") || "") &&
-    bootJs.includes("trindade.tema") && bootJs.includes("trindade.motion") && bootJs.includes("data-motion") && bootJs.includes("l.rel = 'stylesheet'"), boot.status);
+  // Auditoria 16/11 (P1.2): boot.js virou defer (só ativa as folhas assíncronas); tema, movimento e .js rodam no
+  // <script id="boot-inline">, antes do CSS. A fonte do Google não bloqueia (media="print" + data-async, <noscript>).
+  checar("E16 / carrega /boot.js?v= com defer", /<script src="\/boot\.js\?v=[^"]+" defer><\/script>/.test(home));
+  checar("E16 / boot-inline (tema, movimento, .js) vem antes de qualquer folha de estilo", home.indexOf('<script id="boot-inline">') > 0 && home.indexOf('<script id="boot-inline">') < home.indexOf('<style id="css-critico">') && home.indexOf('<style id="css-critico">') < home.indexOf('rel="stylesheet"'));
+  const bootInline = (home.match(/<script id="boot-inline">([\s\S]*?)<\/script>/) || [])[1] || "";
+  checar("E16 boot-inline tem tema, movimento e a classe js", ["trindade.tema", "trindade.motion", "data-motion", 'classList.add("js")'].every(s => bootInline.includes(s)));
+  checar("E16 / fonte Archivo sem bloquear: media=print + data-async, e <noscript> com a folha normal", /<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com\/css2\?family=Archivo[^"]*" media="print" data-async>/.test(home) && /<noscript><link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com\/css2\?family=Archivo/.test(home));
+  const vBoot = (home.match(/\/boot\.js\?v=([\w.-]+)/) || [])[1];
+  const boot = await pegar("/boot.js?v=" + vBoot); const bootJs = await boot.text();
+  checar("E16 /boot.js responde 200 como JavaScript e ativa as folhas data-async (media → all)", boot.status === 200 && /javascript/.test(boot.headers.get("content-type") || "") &&
+    bootJs.includes("data-async") && bootJs.includes(".media = 'all'"), boot.status);
   const app = readFileSync(new URL("../site/app.js", import.meta.url), "utf8");
   checar("E16 app.js: nenhum style= em template (valores dinâmicos pelo CSSOM)", !/style="/.test(app) && app.includes('style.setProperty("--capacity-ratio"') && app.includes("el.style.background = el.dataset.cor"));
   const css = readFileSync(new URL("../site/estilo.css", import.meta.url), "utf8");
@@ -722,7 +729,22 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 
 // ---------- ETAPA 18 — CSP em Report-Only (só HTML) ----------
 {
-  const esperada = ["default-src 'self'", "script-src 'self' https://challenges.cloudflare.com", "style-src 'self' https://fonts.googleapis.com", "style-src-attr 'none'",
+  // Auditoria 16/11 (P1.2): os blocos inline entram por hash (sha256 do texto exato servido). O CSS crítico muda
+  // por seção, então a style-src lista um hash por seção; cada página servida tem de bater com um deles.
+  const homeCsp = await (await pegar("/")).text();
+  const { createHash } = await import("node:crypto");
+  const hashTexto = t => "'sha256-" + createHash("sha256").update(t, "utf8").digest("base64") + "'";
+  const hashDe = (doc, re) => hashTexto((doc.match(re) || [, "(ausente)"])[1]);
+  const hScript = hashDe(homeCsp, /<script id="boot-inline">([\s\S]*?)<\/script>/);
+  const politicaHome = (await pegar("/")).headers.get("content-security-policy-report-only") || "";
+  const hEstilo = ((politicaHome.match(/style-src 'self' https:\/\/fonts\.googleapis\.com((?: 'sha256-[A-Za-z0-9+\/=]{44}')+)(;|$)/) || [])[1] || "").trim();
+  checar("E18 style-src só com 'self', o Google Fonts e hashes (um por seção, sem unsafe-inline)", hEstilo.split(" ").length >= 2, politicaHome);
+  for (const c of ["/", "/passeios/essencial", "/reservar", "/contato", "/pescaria", "/historia", "/nao-existe"]) {
+    const doc = await (await pegar(c)).text();
+    const estilos = [...doc.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/g)];
+    checar(`E18 ${c}: o único <style> inline é o css-critico e o hash dele está na style-src`, estilos.length === 1 && /id="css-critico"/.test(estilos[0][0]) && hEstilo.split(" ").includes(hashTexto(estilos[0][1])), estilos.length);
+  }
+  const esperada = ["default-src 'self'", "script-src 'self' https://challenges.cloudflare.com " + hScript, "style-src 'self' https://fonts.googleapis.com " + hEstilo, "style-src-attr 'none'",
     "font-src 'self' https://fonts.gstatic.com", "img-src 'self' data: https://tile.openstreetmap.org", "connect-src 'self' https://api.open-meteo.com https://marine-api.open-meteo.com",
     "frame-src https://challenges.cloudflare.com", "frame-ancestors 'self'", "base-uri 'self'", "form-action 'self'", "object-src 'none'", "report-uri /api/csp-report", "report-to csp"].join("; ");
   for (const [c, status] of [["/", 200], ["/passeios/boat", 200], ["/nao-existe", 404], ["/reservar", 200], ["/pescaria", 200]]) {
@@ -735,7 +757,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const head = await fetch(BASE + "/passeios/boat", { method: "HEAD", redirect: "manual" });
   checar("E18 HEAD /passeios/boat também leva a CSP Report-Only", head.headers.get("content-security-policy-report-only") === esperada);
   checar("E18 a política tem tile.openstreetmap.org sem curinga e nenhum unsafe-* em lugar nenhum", esperada.includes("https://tile.openstreetmap.org") && !esperada.includes("*.tile") && !/unsafe-/.test(esperada));
-  checar("E18 script-src só com 'self' e o Turnstile (sem inline/eval/hashes)", /script-src 'self' https:\/\/challenges\.cloudflare\.com(;|$)/.test(esperada));
+  checar("E18 script-src só com 'self', o Turnstile e o hash do boot-inline (sem inline/eval)", /script-src 'self' https:\/\/challenges\.cloudflare\.com 'sha256-[A-Za-z0-9+\/=]{44}'(;|$)/.test(esperada));
   for (const c of ["/app.js?v=20261020-s16", "/estilo.css?v=20261020-s16", "/assets/og-v2-800.webp", "/manifest.json", "/sitemap.xml", "/api/disponibilidade?data=2030-01-01", "/admin", "/passeios/"]) {
     const r = await pegar(c); await r.arrayBuffer();
     checar(`E18 ${c} (não é página do site) não leva a CSP do site`, !r.headers.has("content-security-policy-report-only") || r.headers.get("content-security-policy-report-only") === "" , r.headers.get("content-security-policy-report-only"));
@@ -978,6 +1000,35 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   }
   const app = readFileSync(new URL("../site/app.js", import.meta.url), "utf8");
   checar("P0 app.js: navegação sem recarregar prioriza a capa da rota (priorizarCapa em aplicarRota e mostrarRoteiro)", /function priorizarCapa\(/.test(app) && (app.match(/priorizarCapa\(/g) || []).length >= 3);
+}
+
+
+// ---------- AUDITORIA 16/11 — P1.2: CSS crítico inline, resto assíncrono, nada bloqueando o primeiro desenho ----------
+{
+  for (const rota of ["/", "/passeios/essencial", "/reservar", "/contato", "/nao-existe"]) {
+    const doc = await (await pegar(rota)).text();
+    const head = doc.slice(0, doc.indexOf("</head>")).replace(/<noscript>[\s\S]*?<\/noscript>/g, "");
+    const critico = (head.match(/<style id="css-critico">([\s\S]*?)<\/style>/) || [])[1] || "";
+    checar(`P1.2 ${rota}: CSS crítico inline (entre 4 e 40 KB)`, critico.length > 4000 && critico.length < 40000, critico.length);
+    const folhas = head.match(/<link rel="stylesheet"[^>]*>/g) || [];
+    checar(`P1.2 ${rota}: nenhuma folha de estilo bloqueante no <head> (todas media=print + data-async)`, folhas.length === 2 && folhas.every(t => t.includes('media="print"') && t.includes("data-async")), folhas.join(" "));
+    const scripts = (head.match(/<script\b[^>]*\ssrc=[^>]*>/g) || []);
+    checar(`P1.2 ${rota}: nenhum <script src> bloqueante no <head>`, scripts.every(t => /\s(defer|async)[\s>]/.test(t)), scripts.join(" "));
+    const ns = (doc.match(/<noscript>([\s\S]*?)<\/noscript>/g) || []).join("");
+    checar(`P1.2 ${rota}: sem JavaScript, o <noscript> carrega o estilo.css com o mesmo ?v=`, /<link rel="stylesheet" href="\/estilo\.css\?v=([\w.-]+)">/.test(ns) && ns.match(/estilo\.css\?v=([\w.-]+)/)[1] === head.match(/estilo\.css\?v=([\w.-]+)/)[1]);
+  }
+  const css = readFileSync(new URL("../site/estilo.css", import.meta.url), "utf8");
+  const criticos = {};
+  for (const [rota, secao] of [["/", "inicio"], ["/passeios/essencial", "passeios"], ["/reservar", "reservar"], ["/contato", "contato"], ["/pescaria", "pescaria"], ["/city-tour-paraty", "city-tour-paraty"], ["/nao-existe", "nao-encontrada"]]) {
+    const doc = await (await pegar(rota)).text();
+    const critico = criticos[secao] = (doc.match(/<style id="css-critico">([\s\S]*?)<\/style>/) || [])[1] || "";
+    checar(`P1.2 ${rota}: CSS crítico traz as regras que escondem/mostram na primeira tela ([hidden], .js, tokens do :root)`, /\[hidden\]/.test(critico) && /\.js /.test(critico) && /--areia:/.test(critico) && /@font-face/.test(critico));
+    checar(`P1.2 ${rota}: CSS crítico ≤ 45% do estilo.css`, critico.length > 0 && critico.length <= css.length * 0.45, `${critico.length} de ${css.length}`);
+    checar(`P1.2 ${rota}: CSS crítico não tem </style nem <!--`, !critico.includes("</style") && !critico.includes("<!--"));
+  }
+  checar("P1.2 cada seção leva o seu CSS crítico (início ≠ passeios ≠ reservar)", new Set([criticos.inicio, criticos.passeios, criticos.reservar]).size === 3);
+  const html = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
+  checar("P1.2 o css-critico do index.html (servido sem o worker) é o da seção inicio", (html.match(/<style id="css-critico">([\s\S]*?)<\/style>/) || [])[1] === criticos.inicio);
 }
 
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);

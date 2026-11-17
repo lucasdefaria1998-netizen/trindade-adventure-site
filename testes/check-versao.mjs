@@ -31,8 +31,10 @@ const atual = {};
 const problemas = [];
 for (const nome of ARQUIVOS) {
   const refs = [...html.matchAll(new RegExp(`/${nome.replace(".", "\\.")}(\\?v=([A-Za-z0-9._-]+))?(?=["'\\s>])`, "g"))];
-  if (refs.length !== 1) { problemas.push(`${nome}: esperava exatamente 1 referência no index.html, achei ${refs.length}`); continue; }
-  if (!refs[0][2]) { problemas.push(`${nome}: a referência no index.html está sem ?v=`); continue; }
+  // Mais de uma referência só vale com o mesmo ?v= em todas (o estilo.css aparece também no <noscript>, P1.2).
+  if (!refs.length) { problemas.push(`${nome}: nenhuma referência no index.html`); continue; }
+  if (refs.some(r => !r[2])) { problemas.push(`${nome}: referência no index.html sem ?v=`); continue; }
+  if (new Set(refs.map(r => r[2])).size !== 1) { problemas.push(`${nome}: referências com ?v= diferentes no index.html (${refs.map(r => r[2]).join(", ")})`); continue; }
   atual[nome] = { v: refs[0][2], sha256: hash(nome) };
 }
 
