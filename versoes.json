@@ -1,22 +1,22 @@
 {
   "boot.js": {
-    "v": "20261020-s16",
-    "sha256": "4759b0358431d0b5902fc8de4ef12f4101a176cfe18784df1d897c47a54cc821"
+    "v": "20261116-p12",
+    "sha256": "7bc7c8b10387502936ac13b7ed3762e4c16b015058036c60595757a651e678cb"
   },
-  "app.js": {
-    "v": "20261114-fileira1",
-    "sha256": "6c97eaa6b0600c7b458b2462dc4f688e9b81093f5942a8742d55bf5680394ba1"
+  "app.min.js": {
+    "v": "20261116-p26",
+    "sha256": "37ee1e4b43ed108d2b48b2d0460fd99c6feb2278731708a16fe63b18c722c58f"
   },
   "motion.js": {
-    "v": "20261020-s15",
-    "sha256": "b7338862fd377dc04e18e53a234d34924cc59d003990d416db0fa0a73a35c14a"
+    "v": "20261116-p13",
+    "sha256": "862dc5ef0a70868fe06aba00e840dc3e9aafb1230dfec745fab7c51a7386955d"
   },
   "pescaria-galeria.js": {
-    "v": "20261005-rotas",
+    "v": "20261116-p13",
     "sha256": "fd0e859e0fbfd486f8840402c3eb610a3dbf71504af0469ef34c44c4cca9c183"
   },
-  "estilo.css": {
-    "v": "20261114-fileira1",
-    "sha256": "bf2be963c45008cd0d35e9429d2b18f92a3b1641be47a594cd83d9b681c16882"
+  "estilo.min.css": {
+    "v": "20261116-p26",
+    "sha256": "405113f0e7c817267164b74813bab3bb4736b6e38e431264e5d8bd789f54745b"
   }
 }

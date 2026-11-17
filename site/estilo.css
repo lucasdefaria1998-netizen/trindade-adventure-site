@@ -93,7 +93,7 @@
 [hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%;scroll-padding-top:calc(var(--topo) + 16px);scrollbar-color:var(--line-2) transparent}
 body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.6 var(--font);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-h1,h2,h3,h4{margin:0;font-family:var(--serifa);font-weight:500;line-height:1.15;letter-spacing:-.01em;text-wrap:balance}
+h1,h2,h3,h4,:where(div[data-titulo]){margin:0;font-family:var(--serifa);font-weight:500;line-height:1.15;letter-spacing:-.01em;text-wrap:balance}
 p,ul,ol,dl,dd,figure{margin:0}
 p{text-wrap:pretty}
 img{display:block;max-width:100%}
@@ -134,7 +134,6 @@ fieldset{min-width:0;border:0;padding:0;margin:0}
 .link-seta:hover .ico{transform:translateX(3px)}
 
 .pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:var(--r);background:var(--surface-2);color:var(--ink-2);font-size:13px;font-weight:500;line-height:1.5;white-space:nowrap}
-.pill-ouro{background:var(--gold-soft);color:var(--gold)}
 
 .nota{padding:14px 16px;border-radius:var(--r-sm);background:var(--surface-2);color:var(--ink-2);font-size:14.5px}
 .nota-ouro{background:var(--gold-soft);color:var(--ink)}
@@ -238,8 +237,6 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 .cabeca{max-width:720px;margin-bottom:clamp(24px,3vw,36px)}
 .cabeca h2{font-size:clamp(28px,3.4vw,44px);font-weight:500;letter-spacing:-.01em;line-height:1.1}
 .cabeca p{margin-top:12px;font-size:17px;color:var(--ink-2);max-width:62ch}
-.cabeca-linha{display:flex;justify-content:space-between;align-items:flex-end;gap:16px 32px;flex-wrap:wrap;max-width:none}
-.cabeca-linha>div{max-width:720px}
 .pagina-cabeca{padding-top:clamp(20px,4vw,48px);margin-bottom:clamp(28px,4vw,48px);max-width:780px}
 .pagina-cabeca [data-titulo]{font-size:clamp(36px,5.4vw,56px);font-weight:500;letter-spacing:-.01em;line-height:1.05}
 .pagina-cabeca p{margin-top:16px;font-size:clamp(16.5px,1.4vw,18px);color:var(--ink-2);max-width:62ch}
@@ -254,8 +251,6 @@ main{max-width:var(--wrap);margin:0 auto;padding:clamp(12px,2vw,24px) var(--gutt
 .hero-foto img{width:100%;height:100%;object-fit:cover;object-position:center 85%;aspect-ratio:4/5}
 .hero-texto{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;max-width:620px}
 .hero-titulo{font-family:var(--serifa);font-size:clamp(40px,6vw,64px);font-weight:500;letter-spacing:-.01em;line-height:1.05;color:var(--ink)}
-.hero-titulo .hero-linha{display:block}
-.hero-titulo .hero-linha>span{display:block}
 .hero-titulo em{font-style:normal}
 .hero-lede{margin-top:18px;max-width:46ch;font-size:clamp(16px,1.35vw,18px);line-height:1.65;color:var(--ink-2)}
 .hero-acoes{display:flex;flex-wrap:wrap;gap:10px;margin-top:26px}
@@ -344,8 +339,6 @@ html:not(.js) .galeria-seta{display:none}
 @media(prefers-reduced-motion:reduce){.galeria-trilho{scroll-behavior:auto}}
 
 /* Home nova (24/10/2026): links de texto para os passeios sob consulta, logo abaixo da grade. */
-.links-consulta{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;font-size:15px}
-.links-consulta>span{color:var(--muted)}
 
 /* CTA final da home, com o ponto de encontro e os dois botões de sempre. */
 .cta-final{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:20px}
@@ -369,7 +362,6 @@ html:not(.js) .galeria-seta{display:none}
 .parada figure{position:relative;aspect-ratio:4/5;border-radius:var(--r);overflow:hidden;background:var(--surface-2);margin-bottom:16px}
 .parada img{width:100%;height:100%;object-fit:cover}
 .parada figcaption{position:absolute;left:10px;bottom:10px;padding:3px 9px;border-radius:var(--r);background:rgb(6 30 20 / .78);color:#fff;font-size:12px}
-.parada-num{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;border:1px solid var(--accent);color:var(--accent);font-size:13px;font-weight:600;margin-bottom:10px}
 .parada h3{font-size:18px}
 .parada p{margin-top:6px;font-size:14.5px;color:var(--ink-2)}
 @media(max-width:900px){
@@ -449,7 +441,7 @@ html:not(.js) .galeria-seta{display:none}
 .roteiro-titulo .tour-preco,.consulta-topo .tour-preco{margin:0;padding:0;border:0}
 .roteiro-meta{font-size:14px;color:var(--muted)}
 .incluso{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;padding-top:16px;border-top:1px solid var(--line)}
-.incluso h3{font-size:14.5px;margin-bottom:10px}
+.incluso :is(h2,h3){font-size:14.5px;margin-bottom:10px}
 /* Sem ícone de check (direção do Silvio): marcador "–" discreto. "Não incluso"
    mantém o ícone #i-menos, por isso só escondemos o .ico fora de .lista-nao. */
 .lista-check{display:grid;gap:8px;list-style:none;padding:0}
@@ -460,7 +452,7 @@ html:not(.js) .galeria-seta{display:none}
 .lista-nao li::before{content:none}
 .lista-nao .ico{color:var(--muted);margin-top:4px}
 .roteiro-dia{padding:26px 28px;border:1px solid var(--line);border-radius:var(--r-lg)}
-.roteiro-dia>h3{font-size:16px;margin-bottom:22px}
+.roteiro-dia>:is(h2,h3){font-size:16px;margin-bottom:22px}
 .rota{list-style:none;padding:0}
 .rota li{position:relative;display:grid;grid-template-columns:40px minmax(0,1fr);gap:14px;padding-bottom:22px}
 .rota li:not(:last-child)::before{content:"";position:absolute;left:19.5px;top:42px;bottom:2px;width:1px;background:var(--line-2)}
@@ -490,7 +482,7 @@ html:not(.js) .galeria-seta{display:none}
 .consulta .galeria-indicador{padding-inline:0}
 .galeria-32{aspect-ratio:3/2}
 .consulta-topo{display:flex;justify-content:space-between;align-items:flex-start;gap:8px 16px;flex-wrap:wrap}
-.consulta-topo :is(h1,h3){font-size:22px}
+.consulta-topo :is(h1,h2,h3){font-size:22px}
 .consulta-sub{margin-top:4px;font-size:14px;color:var(--muted)}
 .consulta-acoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
 @media(max-width:900px){.consultas{grid-template-columns:minmax(0,1fr)}}
@@ -710,6 +702,18 @@ html[data-motion="running"] .rec{animation:pisca 1.8s infinite}
 .faq summary::after{content:"";width:9px;height:9px;flex:none;margin-right:6px;border-right:1.6px solid var(--ink-2);border-bottom:1.6px solid var(--ink-2);transform:translateY(-3px) rotate(45deg);transition:transform .3s var(--ease)}
 .faq details[open] summary::after{transform:translateY(2px) rotate(-135deg)}
 .faq details p{padding:0 0 18px;color:var(--ink-2);max-width:62ch}
+
+/* ---------- avaliações (o _worker.js monta a partir de site/dados/avaliacoes.json; lista vazia = nada) ---------- */
+.avaliacoes{margin-top:18px}
+.avaliacoes-resumo{font-size:15px;color:var(--ink-2)}
+.avaliacoes-resumo strong{font-size:22px;font-weight:600;color:var(--ink);margin-right:2px}
+.avaliacoes-lista{list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:12px;padding:0}
+.avaliacao{padding:16px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.avaliacao-nota{color:var(--barro);letter-spacing:.08em;font-size:15px}
+.avaliacao blockquote{margin:8px 0 10px}
+.avaliacao blockquote p{color:var(--ink);font-size:15px;max-width:62ch}
+.avaliacao-autor{font-size:13.5px;color:var(--muted)}
+.avaliacao-autor a{color:inherit;text-decoration:underline;text-underline-offset:2px}
 @media(max-width:900px){.contato{grid-template-columns:minmax(0,1fr)}}
 
 /* ---------- pescaria ---------- */
@@ -837,7 +841,6 @@ html[data-motion="running"] .rec{animation:pisca 1.8s infinite}
 /* ---------- avulsos ---------- */
 .torrada{position:fixed;left:50%;bottom:28px;z-index:200;transform:translateX(-50%);max-width:90vw;padding:12px 18px;border-radius:var(--r);background:var(--ink);color:var(--bg);font-size:14.5px;font-weight:500;box-shadow:var(--sombra)}
 @media(max-width:720px){.torrada{bottom:calc(84px + env(safe-area-inset-bottom))}}
-.js .so-sem-js{display:none}
 
 /* ---------- movimento ----------
    Tudo parte do estado visível: sem JavaScript, com movimento reduzido ou com
@@ -867,10 +870,6 @@ html[data-motion="running"] .revelar{opacity:0;transform:translateY(18px)}
 @keyframes assentar{from{transform:scale(1.06)}to{transform:none}}
 @keyframes chegar{from{opacity:.4;transform:translateY(8px)}to{opacity:1;transform:none}}
 @keyframes descer{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
-/* .hero-fatos não existe mais no HTML desta página — regra mantida sem
-   alteração (fora do escopo autorizado desta correção, que é só título/
-   lede/ações) só não some do arquivo por não ter sido pedido remover. */
-html[data-motion="running"] .hero-fatos{animation:surgir .8s var(--ease) .34s both}
 html[data-motion="running"] .hero-foto img{animation:assentar 1.6s var(--ease) both}
 html[data-motion="running"] .secao:not([hidden]){animation:chegar .45s var(--ease)}
 html[data-motion="running"] .topbar-in[data-menu-open] .nav{animation:descer .3s var(--ease)}
@@ -916,7 +915,7 @@ html[data-motion="paused"] *,html[data-motion="paused"] *::before,html[data-moti
    com Paraty à noite. Regras no fim do arquivo de propósito: vencem as de cima.
    =========================================================================== */
 body{overflow-x:clip}
-h1,h2,h3,h4{font-family:var(--serifa);font-weight:600;text-transform:uppercase;letter-spacing:.01em;line-height:1.05}
+h1,h2,h3,h4,:where(div[data-titulo]){font-family:var(--serifa);font-weight:600;text-transform:uppercase;letter-spacing:.01em;line-height:1.05}
 .cabeca h2{font-size:clamp(32px,4.4vw,56px);font-weight:600;letter-spacing:.01em;line-height:1}
 .pagina-cabeca [data-titulo]{font-size:clamp(40px,6vw,72px);font-weight:600;letter-spacing:.01em;line-height:.98}
 .card-passeio h3{font:600 26px/1.05 var(--serifa);letter-spacing:.02em}

@@ -512,12 +512,23 @@ function trocarTag(el, tag) {
 function ajustarH1(rota) {
   const foco = (rota.pagina && rota.pagina.foco) || {};
   const idFoco = foco.plano ? "roteiro-" + foco.plano : foco.passeio ? "consulta-" + foco.passeio : null;
-  const alvo = idFoco
-    ? document.querySelector("#" + idFoco + " [data-titulo-foco]")
-    : document.querySelector('[data-secao="' + rota.nome + '"] [data-titulo]');
-  document.querySelectorAll("[data-titulo]").forEach(h => { if (h !== alvo) trocarTag(h, "h2"); });
-  document.querySelectorAll("[data-titulo-foco]").forEach(h => { if (h !== alvo) trocarTag(h, h.closest(".painel-roteiro") ? "h2" : "h3"); });
-  if (alvo) trocarTag(alvo, "h1");
+  const naConsulta = !foco.plano && !!foco.passeio;
+  // com foco, o título da seção ativa vira <div> (mesmo visual): o h1 do passeio não fica depois de um h2
+  document.querySelectorAll("[data-titulo]").forEach(h =>
+    trocarTag(h, !h.closest('[data-secao="' + rota.nome + '"]') ? "h2" : idFoco ? "div" : "h1"));
+  // roteiro em foco: h3 → h2 e h4 → h3; data-nivel-foco marca o painel para desfazer ao sair (a ordem importa)
+  document.querySelectorAll(".painel-roteiro").forEach(p => {
+    const emFoco = p.id === idFoco;
+    if (emFoco !== p.hasAttribute("data-nivel-foco")) {
+      if (emFoco) { p.querySelectorAll("h3").forEach(h => trocarTag(h, "h2")); p.querySelectorAll("h4").forEach(h => trocarTag(h, "h3")); }
+      else { p.querySelectorAll("h3").forEach(h => trocarTag(h, "h4")); p.querySelectorAll("h2:not([data-titulo-foco])").forEach(h => trocarTag(h, "h3")); }
+      p.toggleAttribute("data-nivel-foco", emFoco);
+    }
+    trocarTag(p.querySelector("[data-titulo-foco]"), emFoco ? "h1" : "h2");
+  });
+  // passeio sob consulta em foco: ele é o h1 e os outros cartões, h2; sem isso, todos h3
+  document.querySelectorAll(".consulta-topo :is(h1,h2,h3)").forEach(h =>
+    trocarTag(h, !naConsulta ? "h3" : h.closest(".consulta").id === idFoco ? "h1" : "h2"));
 }
 
 /* O que só serve a uma página (mapa dos roteiros, formulário de reserva, câmeras) é montado quando
@@ -570,6 +581,7 @@ function aplicarRota(rolarTopo) {
     if (nome === "passeios") mostrarRoteiro(plano);
     if (nome === "reservar") { reserva.plano = plano; desenharReserva(); }
   }
+  priorizarCapa(nome);
 
   // Um evento só por sessão: entrar e sair da aba de reserva várias vezes não
   // deveria inflar o "abriram reserva" do funil no painel.
@@ -617,7 +629,79 @@ function navegar(destino, substituir) {
 function rolarAte(el) {
   if (!el) return;
   if (window.trindadeRolar) window.trindadeRolar(el);
-  else el.scrollIntoView({ block: "start", behavior: "smooth" });
+  else el.scrollIntoView({ block: "start", behavior: document.documentElement.dataset.motion === "paused" ? "instant" : "smooth" });
+}
+
+/* Acabamentos fora do caminho crítico (auditoria 16/11, P1.3). O motion.js (revelação ao rolar, botão
+   de pausa) só chega na primeira interação ou quando o navegador fica ocioso depois da carga, e nem
+   chega com movimento reduzido pelo sistema. A galeria da pescaria só chega quando ela (ou a lista de
+   fontes dos peixes) se aproxima da tela. Os endereços com ?v= ficam no <body> do index.html. O que
+   precisa valer desde o primeiro instante — o topo que muda ao rolar e o rótulo do botão — fica aqui. */
+function carregarScript(src) {
+  if (!src || document.querySelector(`script[src="${src}"]`)) return;
+  const s = document.createElement("script");
+  s.src = src;
+  s.async = true;
+  document.body.appendChild(s);
+}
+
+function ligarAcabamentos() {
+  const root = document.documentElement;
+  const topbar = $(".topbar");
+  let agendado = 0;
+  const topo = () => topbar?.classList.toggle("is-scrolled", scrollY > 8);
+  window.addEventListener("scroll", () => {
+    if (!agendado) agendado = requestAnimationFrame(() => { agendado = 0; topo(); });
+  }, { passive: true });
+  topo();
+
+  // motion.js. Enquanto ele não chega, o botão já mostra e grava a escolha; ao chegar, ele assume
+  // (window.trindadeRolar é o sinal de que já rodou).
+  const reduzido = matchMedia("(prefers-reduced-motion: reduce)");
+  const botao = $("#btnMovimento");
+  const motionPronto = () => !!window.trindadeRolar;
+  const pausado = () => { try { return localStorage.getItem("trindade.motion") === "paused"; } catch (e) { return false; } };
+  const rotular = () => {
+    if (motionPronto()) return;
+    const ativo = !pausado() && !reduzido.matches;
+    root.dataset.motion = ativo ? "running" : "paused";
+    if (!botao) return;
+    botao.textContent = reduzido.matches ? "Movimento reduzido pelo sistema" : ativo ? "Pausar animações" : "Ativar animações";
+    botao.disabled = reduzido.matches;
+    botao.setAttribute("aria-pressed", String(!ativo));
+  };
+  const gatilhos = ["pointerdown", "keydown", "touchstart", "wheel", "scroll"];
+  const pedirMotion = () => {
+    if (reduzido.matches) return;
+    gatilhos.forEach(t => window.removeEventListener(t, pedirMotion));
+    carregarScript(document.body.dataset.jsMotion);
+  };
+  botao?.addEventListener("click", () => {
+    if (motionPronto()) return;
+    try { localStorage.setItem("trindade.motion", pausado() ? "running" : "paused"); } catch (e) {}
+    rotular();
+  });
+  reduzido.addEventListener("change", () => { rotular(); pedirMotion(); });
+  rotular();
+  if (!reduzido.matches) {
+    gatilhos.forEach(t => window.addEventListener(t, pedirMotion, { passive: true }));
+    window.addEventListener("trindade:before-route", pedirMotion, { once: true });
+    const ocioso = () => ("requestIdleCallback" in window ? requestIdleCallback(pedirMotion, { timeout: 4000 }) : setTimeout(pedirMotion, 2000));
+    if (document.readyState === "complete") ocioso();
+    else window.addEventListener("load", ocioso, { once: true });
+  }
+
+  // Galeria da pescaria: só na rota que a tem, quando ela aparece (seção escondida nunca cruza a tela).
+  const srcGaleria = document.body.dataset.jsGaleria;
+  const alvos = [$("#fishingGallery"), $('a[href^="#fonte-"]')].filter(Boolean);
+  if (!srcGaleria || !alvos.length) return;
+  if (!("IntersectionObserver" in window)) { carregarScript(srcGaleria); return; }
+  const io = new IntersectionObserver(entradas => {
+    if (!entradas.some(e => e.isIntersecting)) return;
+    io.disconnect();
+    carregarScript(srcGaleria);
+  }, { rootMargin: "300px 0px" });
+  alvos.forEach(a => io.observe(a));
 }
 
 window.addEventListener("popstate", () => aplicarRota(true));
@@ -689,7 +773,15 @@ function mostrarRoteiro(id) {
     b.tabIndex = ativo ? 0 : -1;
   });
   $$(".painel-roteiro").forEach(p => { p.hidden = p.id !== "roteiro-" + id; });
+  priorizarCapa("passeios");
   window.dispatchEvent(new Event("trindade:panel"));
+}
+
+/* A capa da página aberta (<img data-hero> fora de painel escondido) baixa já, com prioridade alta — o
+   mesmo que o _worker.js faz na primeira carga. As outras capas continuam lazy. */
+function priorizarCapa(nome) {
+  const capa = $$('[data-secao="' + nome + '"] img[data-hero]').find(i => !i.closest("[hidden]"));
+  if (capa) { capa.loading = "eager"; capa.fetchPriority = "high"; }
 }
 
 $$("[data-aba]").forEach(b => {
@@ -2342,6 +2434,7 @@ function iniciar() {
 
   aplicarRota(false);
   montarOsDemais();
+  ligarAcabamentos();
 
   // Tempo e mar e a métrica de visita esperam a página terminar de carregar:
   // no 4G, a foto da abertura chega primeiro. A faixa já reserva o espaço.

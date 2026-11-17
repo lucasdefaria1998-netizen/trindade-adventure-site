@@ -5,7 +5,7 @@
 //
 // Os testes de POST /api/reservas só rodam contra localhost — gravam reservas
 // de teste no banco D1 LOCAL. Contra produção, eles são pulados.
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 const BASE = (process.argv[2] || "http://localhost:8788").replace(/\/$/, "");
 const LOCAL = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(BASE);
@@ -22,6 +22,25 @@ function checar(nome, ok, detalhe) {
 }
 const pegar = (caminho, opts) => fetch(BASE + caminho, { redirect: "manual", ...opts });
 const attr = (doc, re) => (doc.match(re) || [])[1];
+// Auditoria 16/11 (P1.4): o src de cada foto passou para a variação otimizada em /assets/otim/, a de menor
+// largura igual ou maior que a do arquivo antigo (é a regra de scripts/imagens-variantes.mjs). Dado o nome
+// antigo ("lugar-x-480"), devolve o src novo equivalente.
+const OTIM = (() => { try { return readdirSync(new URL("../site/assets/otim/", import.meta.url)); } catch { return []; } })();
+function srcOtim(nome) {
+  const [, fam, w] = nome.match(/^(.*)-(\d{3,4})$/) || [];
+  const larg = OTIM.map(n => n.startsWith(fam + "-") && n.slice(fam.length + 1).match(/^(\d{3,4})\.webp$/)).filter(Boolean).map(m => +m[1]).sort((a, b) => a - b);
+  if (!fam || !larg.length) return null;
+  return `/assets/otim/${fam}-${larg.find(x => x >= +w) || larg[larg.length - 1]}.webp`;
+}
+// Posição (a partir de `desde`) do src="…" da foto, pelo nome antigo ou pela variação otimizada equivalente.
+function posFoto(doc, nome, desde = 0) {
+  const novo = srcOtim(nome);
+  const achados = [doc.indexOf(`src="/assets/${nome}.webp"`, desde), novo ? doc.indexOf(`src="${novo}"`, desde) : -1].filter(i => i >= 0);
+  return achados.length ? Math.min(...achados) : -1;
+}
+// Os sizes medidos (P1.4) deixaram as tags de foto mais longas; para medir "logo depois de" no HTML, conta-se
+// o texto sem os valores de srcset/sizes.
+const semSrcset = doc => doc.replace(/\s(?:srcset|sizes)="[^"]*"/g, "");
 const metaDe = doc => ({
   titulo: attr(doc, /<title>([^<]*)<\/title>/),
   descricao: attr(doc, /<meta name="description" content="([^"]*)"/),
@@ -325,7 +344,33 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const nf = await pegar("/nao-existe"); const dnf = await nf.text();
   checar("E12 /nao-existe → 404 com único h1 \"Página não encontrada\"", nf.status === 404 && (dnf.match(/<h1/g) || []).length === 1 && />Página não encontrada<\/h1>/.test(dnf), nf.status);
   const boat = await (await pegar("/passeios/boat")).text();
-  checar("E12 /passeios/boat: título da seção virou h2 e conserva classes e ids", /<h2 data-titulo>Roteiros e preços<\/h2>/.test(boat) && /<h2 data-titulo id="titulo-pescaria">Pescaria em Alto Mar<\/h2>/.test(boat) && /<h1 data-titulo-foco>Trindade Boat<\/h1>/.test(boat), "");
+  // P2 (auditoria 16/11): com foco, o título da seção ativa sai como <div> (nenhum h2 antes do h1); as outras seções seguem h2
+  checar("E12 /passeios/boat: título da seção virou <div> e as outras seções h2, com classes e ids", /<div data-titulo>Roteiros e preços<\/div>/.test(boat) && /<h2 data-titulo id="titulo-pescaria">Pescaria em Alto Mar<\/h2>/.test(boat) && /<h1 data-titulo-foco>Trindade Boat<\/h1>/.test(boat), "");
+}
+
+
+// ---------- P2 (auditoria 16/11) — hierarquia de títulos sem pular nível em /passeios/* ----------
+{
+  const niveis = trecho => [...trecho.matchAll(/<h([1-6])\b/g)].map(m => +m[1]);
+  const pulo = n => n.some((v, i) => i && v > n[i - 1] + 1);
+  const painel = (doc, id) => { const i = doc.indexOf(`id="${id}"`), f = doc.indexOf('class="painel-roteiro"', i + 1); return i < 0 ? "" : doc.slice(doc.lastIndexOf("<div", i), f < 0 ? doc.indexOf("</section>", i) : f); };
+  const topos = doc => [...doc.matchAll(/<article class="consulta" id="(consulta-[^"]+)"[\s\S]*?<div class="consulta-topo"><div><(h\d)/g)].map(m => [m[1], m[2]]);
+  for (const plano of ["essencial", "adventure", "boat"]) {
+    const doc = await (await pegar("/passeios/" + plano)).text(), p = painel(doc, "roteiro-" + plano), n = niveis(p);
+    checar(`P2.4 /passeios/${plano}: roteiro em foco h1 → h2 → h3 (sem h4, sem pulo) e marcado data-nivel-foco`, n[0] === 1 && n.filter(v => v === 1).length === 1 && !n.includes(4) && n.includes(3) && !pulo(n) && /data-nivel-foco/.test(p.slice(0, 300)), JSON.stringify(n));
+    const outro = painel(doc, "roteiro-" + (plano === "boat" ? "essencial" : "boat")), no = niveis(outro);
+    checar(`P2.4 /passeios/${plano}: os outros roteiros ficam h2 → h3 → h4, sem marca`, no[0] === 2 && no.includes(4) && !/data-nivel-foco/.test(outro), JSON.stringify(no));
+    const antes = doc.slice(doc.indexOf('id="passeios"'), doc.indexOf('class="painel-roteiro"'));
+    checar(`P2.4 /passeios/${plano}: nada de título entre o início da seção e os roteiros`, antes.length > 0 && niveis(antes).length === 0, JSON.stringify(niveis(antes)));
+    checar(`P2.4 /passeios/${plano}: cartões sob consulta seguem h3`, topos(doc).every(([, h]) => h === "h3") && topos(doc).length >= 4, JSON.stringify(topos(doc)));
+  }
+  for (const passeio of ["mamangua", "saco-bravo", "juatinga"]) {
+    const doc = await (await pegar("/passeios/" + passeio)).text(), t = topos(doc);
+    checar(`P2.4 /passeios/${passeio}: o passeio é h1 e os outros cartões h2 (sem h1 → h3)`, t.length >= 4 && t.every(([id, h]) => h === (id === "consulta-" + passeio ? "h1" : "h2")), JSON.stringify(t));
+    checar(`P2.4 /passeios/${passeio}: "Roteiros e preços" sai como <div> e nenhum roteiro marcado`, /<div data-titulo>Roteiros e preços<\/div>/.test(doc) && !/data-nivel-foco/.test(doc), "");
+  }
+  const lista = await (await pegar("/passeios")).text();
+  checar("P2.4 /passeios (sem foco): h1 \"Roteiros e preços\", roteiros h2/h3/h4 e cartões h3, nada marcado", /<h1 data-titulo>Roteiros e preços<\/h1>/.test(lista) && niveis(painel(lista, "roteiro-essencial"))[0] === 2 && topos(lista).every(([, h]) => h === "h3") && !/data-nivel-foco/.test(lista), "");
 }
 
 
@@ -385,16 +430,21 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 {
   const preloads = doc => (doc.match(/rel="preload" as="image"/g) || []).length;
   checar("E15 / mantém o preload da foto da abertura (≥ 1)", preloads(await (await pegar("/")).text()) >= 1);
+  // Auditoria 16/11 (P0): as rotas com capa própria ganham o preload da capa delas; nenhuma outra rota
+  // faz preload da foto da abertura (hero-cachadaco), e as rotas sem capa não fazem preload de imagem.
   for (const c of ["/historia", "/termos-do-passeio", "/passeios", "/passeios/boat", "/reservar", "/contato", "/city-tour-paraty", "/pescaria", "/nao-existe"]) {
     const r = await pegar(c); const doc = await r.text();
-    checar(`E15 ${c} não faz preload da foto da abertura`, preloads(doc) === 0, preloads(doc));
+    const daAbertura = (doc.match(/<link rel="preload" as="image"[^>]*hero-cachadaco[^>]*>/g) || []).length;
+    const temCapa = ["/passeios", "/passeios/boat", "/city-tour-paraty", "/pescaria"].includes(c);
+    checar(`E15 ${c} não faz preload da foto da abertura`, daAbertura === 0 && preloads(doc) === (temCapa ? 1 : 0), preloads(doc));
   }
   const app = readFileSync(new URL("../site/app.js", import.meta.url), "utf8");
   const iniciar = app.slice(app.indexOf("function iniciar()"));
   checar("E15 iniciar(): mapa, reserva e câmeras não rodam mais direto na carga (só via montar/montarOsDemais)",
     !/^\s*(prepararMapa|ligarReserva|desenharCameras|ligarRelogios)\(\);/m.test(iniciar) && /montarOsDemais\(\)/.test(iniciar) && /montar\(nome\)/.test(app));
   const html = await (await pegar("/")).text();
-  checar("E15 index.html aponta app.js e motion.js para o ?v= da etapa", /\/app\.js\?v=[\w.-]+/.test(html) && html.includes("/motion.js?v=20261020-s15"));
+  // Auditoria 16/11 (P1.3): o motion.js deixou de ter <script> próprio; o endereço fica no data-js-motion do <body>.
+  checar("E15 index.html aponta app.js e motion.js para o ?v= da etapa", /\/app\.min\.js\?v=[\w.-]+/.test(html) && /data-js-motion="\/motion\.js\?v=[\w.-]+"/.test(html));
 }
 
 
@@ -435,7 +485,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("CITYTOUR /city-tour-paraty → 200", ct.status === 200, ct.status);
   checar("CITYTOUR página com o nome, a descrição-base e R$ 200", ctDoc.includes("City tour Paraty") && ctDoc.includes("Tour pelos museus e por todo o centro histórico de Paraty.") && ctDoc.includes("R$ 200"));
   checar("CITYTOUR botões de reserva e detalhe apontam para os endereços certos", ctDoc.includes('data-wa="Olá! Quero agendar o City tour Paraty'));
-  const ctImgs = [...ctDoc.matchAll(/\ssrc="(\/assets\/paraty-[A-Za-z0-9_.\-]+\.webp)"/g)].map(m => m[1]);
+  const ctImgs = [...ctDoc.matchAll(/\ssrc="(\/assets\/(?:otim\/)?paraty-[A-Za-z0-9_.\-]+\.webp)"/g)].map(m => m[1]);
   // 09/11/2026: + 3 fotos do centro histórico à noite (Wikimedia, Leandro Neumann Ciuffo, CC BY 2.0), pedido do Lucas.
   checar("CITYTOUR página cita as 5 fotos aprovadas + 3 da noite (09/11)", new Set(ctImgs.map(s => s.replace(/-\d+\.webp$/, ""))).size === 8, ctImgs.join(", "));
   let imgsQuebradas = [];
@@ -489,8 +539,9 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     ["lugar-igreja-centro-paraty-480", "lugar-igreja-centro-paraty-698", 'class="lugares-fotos"', "centro histórico de Paraty"]
   ];
   for (const [src, maior, bloco, lugar] of fotos) {
-    const b = doc.indexOf(bloco), i = b < 0 ? -1 : doc.indexOf(`src="/assets/${src}.webp"`, b);
-    const tag = i < 0 ? "" : doc.slice(doc.lastIndexOf("<img", i), doc.indexOf(">", i) + 1);
+    // 16/11 (P1.4): o src pode ser a variação otimizada da mesma foto (/assets/otim/<foto>-<largura>.webp)
+    const docPos = semSrcset(doc), b = docPos.indexOf(bloco), i = b < 0 ? -1 : posFoto(docPos, src, b);
+    const tag = i < 0 ? "" : docPos.slice(docPos.lastIndexOf("<img", i), docPos.indexOf(">", i) + 1);
     checar(`FOTOS-LUCAS ${src}: no lugar certo (${bloco})`, i > 0 && b > 0 && i - b < 4000, `${i} ${b}`);
     const alt = (tag.match(/alt="([^"]*)"/) || [])[1] || "";
     checar(`FOTOS-LUCAS ${src}: alt cita ${lugar}`, alt.includes(lugar), alt);
@@ -508,7 +559,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   // og:image, twitter:image, JSON-LD e site-config apontam para a capa nova (JPG 1200×630)
   const og = "https://trindadeadventury.com.br/assets/og-capa-mirante.jpg";
   checar("FOTOS-LUCAS og:image e twitter:image = og-capa-mirante.jpg", doc.includes(`<meta property="og:image" content="${og}">`) && doc.includes(`<meta name="twitter:image" content="${og}">`));
-  checar("FOTOS-LUCAS JSON-LD image e site-config imagemPadrao = og-capa-mirante.jpg", doc.includes(`"image": "${og}"`) && SITE.imagemPadrao === "/assets/og-capa-mirante.jpg" && JSON.stringify(SITE.imagensDim["/assets/og-capa-mirante.jpg"]) === "[1200,630]");
+  checar("FOTOS-LUCAS JSON-LD image e site-config imagemPadrao = og-capa-mirante.jpg", /"image":\s*"([^"]*)"/.exec(doc)?.[1] === og && SITE.imagemPadrao === "/assets/og-capa-mirante.jpg" && JSON.stringify(SITE.imagensDim["/assets/og-capa-mirante.jpg"]) === "[1200,630]");
   const jpg = readFileSync(new URL("../site/assets/og-capa-mirante.jpg", import.meta.url));
   let k = 2, dimJpg = null; // procura o marcador SOF do JPEG para ler largura × altura
   while (k < jpg.length) { const mk = jpg[k + 1], len = jpg.readUInt16BE(k + 2); if (mk >= 0xc0 && mk <= 0xc3) { dimJpg = [jpg.readUInt16BE(k + 7), jpg.readUInt16BE(k + 5)]; break; } k += 2 + len; }
@@ -700,16 +751,23 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   for (const c of rotas) {
     const doc = await (await pegar(c)).text();
     const tags = [...doc.matchAll(/<script\b[^>]*>/g)].map(m => m[0]);
-    const inline = tags.filter(t => !/\ssrc=/.test(t) && !/type="application\/(json|ld\+json)"/.test(t));
+    // Auditoria 16/11 (P1.2): o único inline executável é o <script id="boot-inline">, liberado na CSP por hash (bloco P1.2).
+    const inline = tags.filter(t => !/\ssrc=/.test(t) && !/type="application\/(json|ld\+json)"/.test(t) && t !== '<script id="boot-inline">');
     checar(`E16 ${c}: nenhum <script> inline executável`, inline.length === 0, inline.join(" "));
     checar(`E16 ${c}: sem onload=/onclick=/onerror= e sem style="`, !/\son(load|click|error)=/i.test(doc) && !/\sstyle="/i.test(doc), (doc.match(/\s(onload|onclick|onerror|style)="[^"]{0,40}/i) || [""])[0]);
   }
   const home = await (await pegar("/")).text();
-  checar("E16 / carrega /boot.js?v= sem defer/async, antes do CSS", /<script src="\/boot\.js\?v=[^"]+"><\/script>/.test(home) && home.indexOf("/boot.js?v=") < home.indexOf('/estilo.css?v='));
-  checar("E16 / mantém o preload da fonte como <link rel=preload as=style> (ativado pelo boot.js)", /<link rel="preload" as="style" href="https:\/\/fonts\.googleapis\.com\/css2\?family=Archivo[^"]*">/.test(home));
-  const boot = await pegar("/boot.js?v=20261020-s16"); const bootJs = await boot.text();
-  checar("E16 /boot.js responde 200 como JavaScript com tema, movimento e ativação da fonte", boot.status === 200 && /javascript/.test(boot.headers.get("content-type") || "") &&
-    bootJs.includes("trindade.tema") && bootJs.includes("trindade.motion") && bootJs.includes("data-motion") && bootJs.includes("l.rel = 'stylesheet'"), boot.status);
+  // Auditoria 16/11 (P1.2): boot.js virou defer (só ativa as folhas assíncronas); tema, movimento e .js rodam no
+  // <script id="boot-inline">, antes do CSS. A fonte do Google não bloqueia (media="print" + data-async, <noscript>).
+  checar("E16 / carrega /boot.js?v= com defer", /<script src="\/boot\.js\?v=[^"]+" defer><\/script>/.test(home));
+  checar("E16 / boot-inline (tema, movimento, .js) vem antes de qualquer folha de estilo", home.indexOf('<script id="boot-inline">') > 0 && home.indexOf('<script id="boot-inline">') < home.indexOf('<style id="css-critico">') && home.indexOf('<style id="css-critico">') < home.indexOf('rel="stylesheet"'));
+  const bootInline = (home.match(/<script id="boot-inline">([\s\S]*?)<\/script>/) || [])[1] || "";
+  checar("E16 boot-inline tem tema, movimento e a classe js", ["trindade.tema", "trindade.motion", "data-motion", 'classList.add("js")'].every(s => bootInline.includes(s)));
+  checar("E16 / fonte Archivo sem bloquear: media=print + data-async, e <noscript> com a folha normal", /<link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com\/css2\?family=Archivo[^"]*" media="print" data-async>/.test(home) && /<noscript><link rel="stylesheet" href="https:\/\/fonts\.googleapis\.com\/css2\?family=Archivo/.test(home));
+  const vBoot = (home.match(/\/boot\.js\?v=([\w.-]+)/) || [])[1];
+  const boot = await pegar("/boot.js?v=" + vBoot); const bootJs = await boot.text();
+  checar("E16 /boot.js responde 200 como JavaScript e ativa as folhas data-async (media → all)", boot.status === 200 && /javascript/.test(boot.headers.get("content-type") || "") &&
+    bootJs.includes("data-async") && bootJs.includes(".media = 'all'"), boot.status);
   const app = readFileSync(new URL("../site/app.js", import.meta.url), "utf8");
   checar("E16 app.js: nenhum style= em template (valores dinâmicos pelo CSSOM)", !/style="/.test(app) && app.includes('style.setProperty("--capacity-ratio"') && app.includes("el.style.background = el.dataset.cor"));
   const css = readFileSync(new URL("../site/estilo.css", import.meta.url), "utf8");
@@ -718,7 +776,22 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 
 // ---------- ETAPA 18 — CSP em Report-Only (só HTML) ----------
 {
-  const esperada = ["default-src 'self'", "script-src 'self' https://challenges.cloudflare.com", "style-src 'self' https://fonts.googleapis.com", "style-src-attr 'none'",
+  // Auditoria 16/11 (P1.2): os blocos inline entram por hash (sha256 do texto exato servido). O CSS crítico muda
+  // por seção, então a style-src lista um hash por seção; cada página servida tem de bater com um deles.
+  const homeCsp = await (await pegar("/")).text();
+  const { createHash } = await import("node:crypto");
+  const hashTexto = t => "'sha256-" + createHash("sha256").update(t, "utf8").digest("base64") + "'";
+  const hashDe = (doc, re) => hashTexto((doc.match(re) || [, "(ausente)"])[1]);
+  const hScript = hashDe(homeCsp, /<script id="boot-inline">([\s\S]*?)<\/script>/);
+  const politicaHome = (await pegar("/")).headers.get("content-security-policy-report-only") || "";
+  const hEstilo = ((politicaHome.match(/style-src 'self' https:\/\/fonts\.googleapis\.com((?: 'sha256-[A-Za-z0-9+\/=]{44}')+)(;|$)/) || [])[1] || "").trim();
+  checar("E18 style-src só com 'self', o Google Fonts e hashes (um por seção, sem unsafe-inline)", hEstilo.split(" ").length >= 2, politicaHome);
+  for (const c of ["/", "/passeios/essencial", "/reservar", "/contato", "/pescaria", "/historia", "/nao-existe"]) {
+    const doc = await (await pegar(c)).text();
+    const estilos = [...doc.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/g)];
+    checar(`E18 ${c}: o único <style> inline é o css-critico e o hash dele está na style-src`, estilos.length === 1 && /id="css-critico"/.test(estilos[0][0]) && hEstilo.split(" ").includes(hashTexto(estilos[0][1])), estilos.length);
+  }
+  const esperada = ["default-src 'self'", "script-src 'self' https://challenges.cloudflare.com " + hScript, "style-src 'self' https://fonts.googleapis.com " + hEstilo, "style-src-attr 'none'",
     "font-src 'self' https://fonts.gstatic.com", "img-src 'self' data: https://tile.openstreetmap.org", "connect-src 'self' https://api.open-meteo.com https://marine-api.open-meteo.com",
     "frame-src https://challenges.cloudflare.com", "frame-ancestors 'self'", "base-uri 'self'", "form-action 'self'", "object-src 'none'", "report-uri /api/csp-report", "report-to csp"].join("; ");
   for (const [c, status] of [["/", 200], ["/passeios/boat", 200], ["/nao-existe", 404], ["/reservar", 200], ["/pescaria", 200]]) {
@@ -731,7 +804,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const head = await fetch(BASE + "/passeios/boat", { method: "HEAD", redirect: "manual" });
   checar("E18 HEAD /passeios/boat também leva a CSP Report-Only", head.headers.get("content-security-policy-report-only") === esperada);
   checar("E18 a política tem tile.openstreetmap.org sem curinga e nenhum unsafe-* em lugar nenhum", esperada.includes("https://tile.openstreetmap.org") && !esperada.includes("*.tile") && !/unsafe-/.test(esperada));
-  checar("E18 script-src só com 'self' e o Turnstile (sem inline/eval/hashes)", /script-src 'self' https:\/\/challenges\.cloudflare\.com(;|$)/.test(esperada));
+  checar("E18 script-src só com 'self', o Turnstile e o hash do boot-inline (sem inline/eval)", /script-src 'self' https:\/\/challenges\.cloudflare\.com 'sha256-[A-Za-z0-9+\/=]{44}'(;|$)/.test(esperada));
   for (const c of ["/app.js?v=20261020-s16", "/estilo.css?v=20261020-s16", "/assets/og-v2-800.webp", "/manifest.json", "/sitemap.xml", "/api/disponibilidade?data=2030-01-01", "/admin", "/passeios/"]) {
     const r = await pegar(c); await r.arrayBuffer();
     checar(`E18 ${c} (não é página do site) não leva a CSP do site`, !r.headers.has("content-security-policy-report-only") || r.headers.get("content-security-policy-report-only") === "" , r.headers.get("content-security-policy-report-only"));
@@ -751,7 +824,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const { join } = await import("node:path");
   const amanha = new Date(Date.now() + 864e5).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
   const home = await (await pegar("/")).text();
-  const versoes = Object.fromEntries(["boot.js", "app.js", "motion.js", "pescaria-galeria.js", "estilo.css"].map(n => [n, (home.match(new RegExp("/" + n.replace(".", "\\.") + "\\?v=([A-Za-z0-9._-]+)")) || [])[1]]));
+  const versoes = Object.fromEntries(["boot.js", "app.min.js", "motion.js", "pescaria-galeria.js", "estilo.min.css"].map(n => [n, (home.match(new RegExp("/" + n.replaceAll(".", "\\.") + "\\?v=([A-Za-z0-9._-]+)")) || [])[1]]));
   for (const [nome, v] of Object.entries(versoes)) {
     const r = await pegar(`/${nome}?v=${v}`); await r.arrayBuffer();
     checar(`E17 /${nome}?v=${v} → 200 com "public, max-age=31536000, immutable"`, r.status === 200 && r.headers.get("cache-control") === "public, max-age=31536000, immutable", `${r.status} ${r.headers.get("cache-control")}`);
@@ -778,7 +851,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   // (VERSIONADOS), que não é uma referência para carregar o arquivo.
   const fontes = ["index.html", "app.js"].map(f => [f, readFileSync(new URL("../site/" + f, import.meta.url), "utf8")]);
   for (const [f, txt] of fontes) {
-    const semV = [...txt.matchAll(/["'`(=]\/(app|motion|pescaria-galeria|boot)\.js(?!\?v=)|["'`(=]\/estilo\.css(?!\?v=)/g)].map(m => m[0]);
+    const semV = [...txt.matchAll(/["'`(=]\/(app|app\.min|motion|pescaria-galeria|boot)\.js(?!\?v=)|["'`(=]\/estilo(\.min)?\.css(?!\?v=)/g)].map(m => m[0]);
     checar(`E17 ${f}: toda referência a app/motion/pescaria-galeria/boot.js e estilo.css tem ?v=`, semV.length === 0, semV.join(" "));
   }
 
@@ -791,11 +864,16 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   try {
     cpSync(raizRepo + "site", tmp + "/site", { recursive: true, filter: s => !/[\\/]assets[\\/]/.test(s) });
     cpSync(raizRepo + "versoes.json", tmp + "/versoes.json");
+    const fonteApp = readFileSync(tmp + "/site/app.js", "utf8");
     appendFileSync(tmp + "/site/app.js", " ");
+    const fonteMudou = spawnSync(process.execPath, [script, "--raiz", tmp], { encoding: "utf8" });
+    checar("P2.6 check-versao.mjs sai com erro quando o app.js (fonte) muda e o app.min.js não foi gerado de novo", fonteMudou.status === 1 && /app\.min\.js está desatualizado/.test(fonteMudou.stderr), fonteMudou.stdout + fonteMudou.stderr);
+    writeFileSync(tmp + "/site/app.js", fonteApp);
+    appendFileSync(tmp + "/site/app.min.js", " ");
     const mudou = spawnSync(process.execPath, [script, "--raiz", tmp], { encoding: "utf8" });
-    checar("E17 check-versao.mjs sai com erro quando o app.js muda 1 byte sem trocar o ?v=", mudou.status === 1 && /app\.js: o conteúdo mudou mas o \?v= continua/.test(mudou.stderr), mudou.stdout + mudou.stderr);
+    checar("E17 check-versao.mjs sai com erro quando o app.min.js muda 1 byte sem trocar o ?v=", mudou.status === 1 && /app\.min\.js: o conteúdo mudou mas o \?v= continua/.test(mudou.stderr), mudou.stdout + mudou.stderr);
     const idx = readFileSync(tmp + "/site/index.html", "utf8");
-    writeFileSync(tmp + "/site/index.html", idx.replace(/\/app\.js\?v=[A-Za-z0-9._-]+/, "/app.js?v=teste-novo"));
+    writeFileSync(tmp + "/site/index.html", idx.replace(/\/app\.min\.js\?v=[A-Za-z0-9._-]+/, "/app.min.js?v=teste-novo"));
     const trocou = spawnSync(process.execPath, [script, "--raiz", tmp], { encoding: "utf8" });
     checar("E17 com o ?v= trocado mas sem registrar, ainda pede --atualizar", trocou.status === 1 && /falta registrar/.test(trocou.stderr), trocou.stderr);
     const registrou = spawnSync(process.execPath, [script, "--raiz", tmp, "--atualizar"], { encoding: "utf8" });
@@ -863,7 +941,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
 
   // Nenhuma foto repetida entre as seções da home (hero e cartões). Só o src= conta —
   // o srcset do mesmo <img> cita de novo o arquivo do próprio src= (outro tamanho), não é repetição.
-  const todasFotos = [...docHome.matchAll(/\ssrc="(\/assets\/[A-Za-z0-9_.\-]+\.webp)"/g)].map(m => m[1]);
+  const todasFotos = [...docHome.matchAll(/\ssrc="(\/assets\/(?:otim\/)?[A-Za-z0-9_.\-]+\.webp)"/g)].map(m => m[1]);
   const repetidas = todasFotos.filter((s, i) => todasFotos.indexOf(s) !== i);
   checar("E26 nenhuma foto repetida na home", repetidas.length === 0, [...new Set(repetidas)].join(", "));
 
@@ -936,6 +1014,298 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   // City tour Paraty em /passeios (antes era o cartão do parapente, removido): já checado no bloco CITYTOUR acima.
 
   checar("E26 /creditos-das-fotos → 200 com a tabela de créditos", (await pegar("/creditos-das-fotos")).status === 200);
+}
+
+
+// ---------- AUDITORIA 16/11 — P0: capa de cada rota eager + fetchpriority=high + preload; as outras lazy ----------
+{
+  const at = (t, n) => (t.match(new RegExp(` ${n}="([^"]*)"`)) || [])[1];
+  const capas = [
+    ["/", 'id="inicio"', "hero-cachadaco-960"],
+    ["/passeios", 'id="roteiro-essencial"', "hero-piscina-natural-640"],
+    ["/passeios/essencial", 'id="roteiro-essencial"', "hero-piscina-natural-640"],
+    ["/passeios/adventure", 'id="roteiro-adventure"', "lugar-praia-meio-sem-texto-480"],
+    ["/passeios/boat", 'id="roteiro-boat"', "foto-piscina-galhetas-recorte-410"],
+    ["/city-tour-paraty", 'data-secao="city-tour-paraty"', "paraty-centro-historico-praca-960"],
+    ["/pescaria", 'id="fishingGallery"', "foto-pesca-peixe-560"]
+  ];
+  for (const [rota, bloco, foto] of capas) {
+    const doc = await (await pegar(rota)).text();
+    const i = doc.indexOf("<img data-hero", doc.indexOf(bloco));
+    const tag = i < 0 ? "" : doc.slice(i, doc.indexOf(">", i) + 1);
+    checar(`P0 ${rota}: capa ${foto} sem lazy e com fetchpriority=high`, posFoto(tag, foto) >= 0 && !tag.includes('loading="lazy"') && tag.includes('fetchpriority="high"'), tag.slice(0, 120));
+    const altas = (doc.match(/<img [^>]*fetchpriority="high"[^>]*>/g) || []);
+    checar(`P0 ${rota}: só uma <img> com fetchpriority=high`, altas.length === 1, altas.map(t => at(t, "src")).join(" "));
+    const outras = (doc.match(/<img data-hero[^>]*>/g) || []).filter(t => t !== tag);
+    checar(`P0 ${rota}: as outras capas ficam lazy`, outras.length > 0 && outras.every(t => t.includes('loading="lazy"') && !t.includes("fetchpriority")));
+    if (rota !== "/") {
+      const pre = (doc.match(/<link rel="preload" as="image"[^>]*>/g) || []);
+      checar(`P0 ${rota}: um preload, com o src/srcset/sizes da capa`, pre.length === 1 && at(pre[0], "href") === at(tag, "src") && at(pre[0], "imagesrcset") === at(tag, "srcset") && at(pre[0], "imagesizes") === at(tag, "sizes") && pre[0].includes('fetchpriority="high"'), pre.join(" "));
+      const head = doc.slice(0, doc.indexOf("</head>"));
+      checar(`P0 ${rota}: o preload da capa está no <head>`, pre.length === 1 && head.includes(pre[0]));
+    }
+  }
+  for (const rota of ["/reservar", "/contato", "/historia", "/nao-existe"]) {
+    const doc = await (await pegar(rota)).text();
+    const capas = (doc.match(/<img data-hero[^>]*>/g) || []);
+    checar(`P0 ${rota}: sem capa própria, nenhuma capa com prioridade (todas lazy)`, capas.length === 6 && capas.every(t => t.includes('loading="lazy"') && !t.includes("fetchpriority")));
+  }
+  const app = readFileSync(new URL("../site/app.js", import.meta.url), "utf8");
+  checar("P0 app.js: navegação sem recarregar prioriza a capa da rota (priorizarCapa em aplicarRota e mostrarRoteiro)", /function priorizarCapa\(/.test(app) && (app.match(/priorizarCapa\(/g) || []).length >= 3);
+}
+
+
+// ---------- AUDITORIA 16/11 — P1.2: CSS crítico inline, resto assíncrono, nada bloqueando o primeiro desenho ----------
+{
+  for (const rota of ["/", "/passeios/essencial", "/reservar", "/contato", "/nao-existe"]) {
+    const doc = await (await pegar(rota)).text();
+    const head = doc.slice(0, doc.indexOf("</head>")).replace(/<noscript>[\s\S]*?<\/noscript>/g, "");
+    const critico = (head.match(/<style id="css-critico">([\s\S]*?)<\/style>/) || [])[1] || "";
+    checar(`P1.2 ${rota}: CSS crítico inline (entre 4 e 40 KB)`, critico.length > 4000 && critico.length < 40000, critico.length);
+    const folhas = head.match(/<link rel="stylesheet"[^>]*>/g) || [];
+    checar(`P1.2 ${rota}: nenhuma folha de estilo bloqueante no <head> (todas media=print + data-async)`, folhas.length === 2 && folhas.every(t => t.includes('media="print"') && t.includes("data-async")), folhas.join(" "));
+    const scripts = (head.match(/<script\b[^>]*\ssrc=[^>]*>/g) || []);
+    checar(`P1.2 ${rota}: nenhum <script src> bloqueante no <head>`, scripts.every(t => /\s(defer|async)[\s>]/.test(t)), scripts.join(" "));
+    const ns = (doc.match(/<noscript>([\s\S]*?)<\/noscript>/g) || []).join("");
+    checar(`P1.2 ${rota}: sem JavaScript, o <noscript> carrega o estilo.min.css com o mesmo ?v=`, /<link rel="stylesheet" href="\/estilo\.min\.css\?v=([\w.-]+)">/.test(ns) && ns.match(/estilo\.min\.css\?v=([\w.-]+)/)[1] === head.match(/estilo\.min\.css\?v=([\w.-]+)/)[1]);
+  }
+  const css = readFileSync(new URL("../site/estilo.css", import.meta.url), "utf8");
+  const criticos = {};
+  for (const [rota, secao] of [["/", "inicio"], ["/passeios/essencial", "passeios"], ["/reservar", "reservar"], ["/contato", "contato"], ["/pescaria", "pescaria"], ["/city-tour-paraty", "city-tour-paraty"], ["/nao-existe", "nao-encontrada"]]) {
+    const doc = await (await pegar(rota)).text();
+    const critico = criticos[secao] = (doc.match(/<style id="css-critico">([\s\S]*?)<\/style>/) || [])[1] || "";
+    checar(`P1.2 ${rota}: CSS crítico traz as regras que escondem/mostram na primeira tela ([hidden], .js, tokens do :root)`, /\[hidden\]/.test(critico) && /\.js /.test(critico) && /--areia:/.test(critico) && /@font-face/.test(critico));
+    checar(`P1.2 ${rota}: CSS crítico ≤ 45% do estilo.css`, critico.length > 0 && critico.length <= css.length * 0.45, `${critico.length} de ${css.length}`);
+    checar(`P1.2 ${rota}: CSS crítico não tem </style nem <!--`, !critico.includes("</style") && !critico.includes("<!--"));
+  }
+  checar("P1.2 cada seção leva o seu CSS crítico (início ≠ passeios ≠ reservar)", new Set([criticos.inicio, criticos.passeios, criticos.reservar]).size === 3);
+  const html = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
+  checar("P1.2 o css-critico do index.html (servido sem o worker) é o da seção inicio", (html.match(/<style id="css-critico">([\s\S]*?)<\/style>/) || [])[1] === criticos.inicio);
+}
+
+
+// ---------- AUDITORIA 16/11 — P1.3: motion.js e galeria da pescaria fora da carga (o comportamento no navegador está em testar-acabamentos.mjs) ----------
+{
+  const versoes = JSON.parse(readFileSync(new URL("../versoes.json", import.meta.url), "utf8"));
+  for (const rota of ["/", "/pescaria"]) {
+    const doc = await (await pegar(rota)).text();
+    checar(`P1.3 ${rota}: nenhum <script src> de motion.js ou pescaria-galeria.js na página`, !/<script[^>]*src="\/(motion|pescaria-galeria)\.js/.test(doc));
+    const body = (doc.match(/<body[^>]*>/) || [""])[0];
+    checar(`P1.3 ${rota}: <body> leva os endereços com o ?v= registrado`, body.includes(`data-js-motion="/motion.js?v=${versoes["motion.js"].v}"`) && body.includes(`data-js-galeria="/pescaria-galeria.js?v=${versoes["pescaria-galeria.js"].v}"`), body);
+  }
+  for (const n of ["motion.js", "pescaria-galeria.js"]) {
+    const r = await pegar(`/${n}?v=${versoes[n].v}`); await r.arrayBuffer();
+    checar(`P1.3 /${n}?v=… responde 200 com cache imutável`, r.status === 200 && /immutable/.test(r.headers.get("cache-control") || ""), `${r.status} ${r.headers.get("cache-control")}`);
+  }
+  const app = readFileSync(new URL("../site/app.js", import.meta.url), "utf8");
+  const ac = app.slice(app.indexOf("function ligarAcabamentos()"), app.indexOf("function ligarAcabamentos()") + 4000);
+  checar("P1.3 app.js: motion.js só sob pedido, nunca com prefers-reduced-motion", /const pedirMotion = \(\) => \{\s*if \(reduzido\.matches\) return;/.test(ac) && /requestIdleCallback\(pedirMotion/.test(ac) && /dataset\.jsMotion/.test(ac));
+  checar("P1.3 app.js: galeria da pescaria via IntersectionObserver", /new IntersectionObserver\(/.test(ac) && /dataset\.jsGaleria/.test(ac) && /#fishingGallery/.test(ac));
+  checar("P1.3 app.js liga o topo que muda ao rolar (is-scrolled) e é chamado depois da primeira rota", /is-scrolled/.test(ac) && /aplicarRota\(false\);\s*montarOsDemais\(\);\s*ligarAcabamentos\(\);/.test(app));
+  const motion = readFileSync(new URL("../site/motion.js", import.meta.url), "utf8");
+  checar("P1.3 motion.js não mexe mais no is-scrolled (ficou no app.js)", !/classList\.toggle\('is-scrolled'/.test(motion));
+}
+
+// ---------- AUDITORIA 16/11 — P1.6: FAQPage em /contato, igual às perguntas visíveis ----------
+{
+  const textoVisivel = s => s.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+  const faqsDe = doc => [...doc.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m => JSON.parse(m[1])).filter(b => b["@type"] === "FAQPage");
+  const doc = await (await pegar("/contato")).text();
+  const faqs = faqsDe(doc);
+  checar("P1.6 /contato tem exatamente um FAQPage no JSON-LD", faqs.length === 1, faqs.length);
+  // O que a pessoa vê: <details> da <div class="faq"> da seção contato, no HTML já servido (sem <template>).
+  const ini = doc.indexOf('data-secao="contato"');
+  const faqHtml = (doc.slice(ini, doc.indexOf("</section>", ini)).match(/<div class="faq">([\s\S]*?)<\/div>/) || [])[1] || "";
+  const visiveis = [...faqHtml.replace(/<template[\s\S]*?<\/template>/g, "").matchAll(/<details\b[^>]*>\s*<summary>([\s\S]*?)<\/summary>([\s\S]*?)<\/details>/g)].map(([, p, r]) => [textoVisivel(p), textoVisivel(r)]);
+  const doSchema = (faqs[0] && faqs[0].mainEntity || []).map(q => [q.name, q.acceptedAnswer && q.acceptedAnswer.text]);
+  checar("P1.6 schema × página: mesmas perguntas e respostas, na mesma ordem", visiveis.length >= 3 && JSON.stringify(visiveis) === JSON.stringify(doSchema), JSON.stringify({ visiveis: visiveis.length, schema: doSchema.length }));
+  const q = faqs[0] && faqs[0].mainEntity && faqs[0].mainEntity[0];
+  checar("P1.6 FAQPage no formato do Google (Question.name + acceptedAnswer Answer.text, @context schema.org)", !!faqs[0] && faqs[0]["@context"] === "https://schema.org" && faqs[0].mainEntity.every(x => x["@type"] === "Question" && x.acceptedAnswer["@type"] === "Answer" && x.name && x.acceptedAnswer.text));
+  checar("P1.6 com o pagamento desligado, a resposta de \"Como pago?\" é a do WhatsApp (a mesma da página)", !!(faqs[0] && faqs[0].mainEntity.find(x => x.name === "Como pago?" && /WhatsApp/.test(x.acceptedAnswer.text))));
+  for (const c of ["/", "/reservar", "/passeios/essencial", "/nao-existe"]) {
+    checar(`P1.6 ${c} não leva FAQPage`, faqsDe(await (await pegar(c)).text()).length === 0);
+  }
+  // Variante com o pagamento ligado, direto na função (sem ligar nada no servidor).
+  const src = readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
+  const w = await import("data:text/javascript;base64," + Buffer.from(src).toString("base64"));
+  const html = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
+  const ligado = w.faqPageDe(html, true), desligado = w.faqPageDe(html, false);
+  const comoPago = f => f.mainEntity.filter(x => x.name === "Como pago?");
+  checar("P1.6 faqPageDe: uma resposta de \"Como pago?\" em cada variante, a do site só com o pagamento ligado",
+    comoPago(ligado).length === 1 && comoPago(desligado).length === 1 && /Pelo site/.test(comoPago(ligado)[0].acceptedAnswer.text) && !/Pelo site/.test(comoPago(desligado)[0].acceptedAnswer.text) && ligado.mainEntity.length === desligado.mainEntity.length);
+}
+
+// ---------- AUDITORIA 16/11 — P1.5: avaliações só de site/dados/avaliacoes.json; lista vazia = nada na página ----------
+{
+  const arquivo = JSON.parse(readFileSync(new URL("../site/dados/avaliacoes.json", import.meta.url), "utf8"));
+  checar("P1.5 site/dados/avaliacoes.json commitado vazio ([])", Array.isArray(arquivo) && arquivo.length === 0, JSON.stringify(arquivo).slice(0, 80));
+  const marcadores = (html.match(/<div[^>]*data-avaliacoes[^>]*><\/div>/g) || []).length;
+  checar("P1.5 index.html tem os 4 lugares do componente (início + Essencial, Adventure e Boat, perto do Reservar)", marcadores === 4, marcadores);
+  const ld = doc => [...doc.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m => m[1]).join("\n");
+  for (const c of ["/", "/passeios", "/passeios/essencial", "/passeios/adventure", "/passeios/boat", "/reservar", "/contato"]) {
+    const doc = await (await pegar(c)).text();
+    checar(`P1.5 ${c}: com a lista vazia, nenhum componente, marcador, AggregateRating nem Review`,
+      !doc.includes('class="avaliacoes"') && !doc.includes("data-avaliacoes") && !/AggregateRating|"Review"/.test(ld(doc)));
+  }
+  // Com avaliações: 2 exemplos que existem só aqui no teste (nunca no arquivo nem no site).
+  const src = readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
+  const w = await import("data:text/javascript;base64," + Buffer.from(src).toString("base64"));
+  const exemplos = [
+    { autor: "Exemplo do Teste A", origem: "Google", nota: 5, texto: "Texto de teste <b>sem</b> valor real.", data: "2026-10-02", link: "https://example.com/avaliacao-a" },
+    { autor: "Exemplo do Teste B", origem: "Instagram", nota: 4, texto: "Outro texto de teste.", data: "2026-11-01", link: "https://example.com/avaliacao-b" },
+  ];
+  const invalidos = [
+    { autor: "Sem link", origem: "Google", nota: 5, texto: "x", data: "2026-01-01" },
+    { autor: "Nota fora", origem: "Google", nota: 6, texto: "x", data: "2026-01-01", link: "https://example.com/x" },
+    { autor: "Origem inventada", origem: "TripAdvisor", nota: 5, texto: "x", data: "2026-01-01", link: "https://example.com/x" },
+    { autor: "Link http", origem: "Google", nota: 5, texto: "x", data: "2026-01-01", link: "http://example.com/x" },
+    { autor: "", origem: "Google", nota: 5, texto: "x", data: "2026-01-01", link: "https://example.com/x" },
+  ];
+  const validas = w.avaliacoesValidas([...invalidos, ...exemplos]);
+  checar("P1.5 avaliacoesValidas: descarta sem link, nota fora de 1–5, origem que não é Google/Instagram, http e sem autor; mais recente primeiro",
+    validas.length === 2 && validas[0].autor === "Exemplo do Teste B", JSON.stringify(validas.map(a => a.autor)));
+  checar("P1.5 avaliacoesValidas: arquivo que não é lista vira lista vazia", w.avaliacoesValidas({}).length === 0 && w.avaliacoesValidas(null).length === 0);
+  const comp = w.htmlDasAvaliacoes(validas);
+  checar("P1.5 componente: média e contagem calculadas da lista (4,5 de 5 · 2 avaliações)", comp.includes("<strong>4,5</strong> de 5 · 2 avaliações no Instagram e no Google"), comp.slice(0, 160));
+  checar("P1.5 componente: cada avaliação com nota acessível, texto escapado, link de origem e data", (comp.match(/<li class="avaliacao">/g) || []).length === 2 &&
+    comp.includes('aria-label="Nota 5 de 5"') && comp.includes("&lt;b&gt;sem&lt;/b&gt;") && comp.includes('href="https://example.com/avaliacao-a"') && comp.includes('<time datetime="2026-11-01">nov/2026</time>'));
+  checar("P1.5 componente: lista vazia não gera nada", w.htmlDasAvaliacoes([]) === "");
+  const j = w.jsonLdAvaliacoes(SITE.origem, validas);
+  checar("P1.5 JSON-LD: AggregateRating com média e total da lista e Review de cada uma",
+    j["@type"] === "TravelAgency" && j["@id"] === SITE.origem + "/#empresa" && j.aggregateRating["@type"] === "AggregateRating" && j.aggregateRating.ratingValue === "4.5" &&
+    j.aggregateRating.reviewCount === "2" && j.aggregateRating.bestRating === "5" && j.review.length === 2 &&
+    j.review.every(r => r["@type"] === "Review" && r.author.name && r.reviewRating.ratingValue && r.datePublished && r.reviewBody), JSON.stringify(j.aggregateRating));
+}
+
+// ---------- AUDITORIA 16/11 — P1.4: fotos em tamanho de exibição (variações em /assets/otim/, originais intactos) ----------
+{
+  const { readdirSync, statSync, existsSync } = await import("node:fs");
+  const dirAssets = new URL("../site/assets/", import.meta.url), dirOtim = new URL("otim/", dirAssets);
+  const larguraWebp = b => { // cabeçalho RIFF/WEBP: VP8 (com perdas), VP8L (sem perdas) ou VP8X (estendido)
+    const tipo = b.toString("ascii", 12, 16);
+    if (tipo === "VP8 ") return (b[26] | (b[27] << 8)) & 0x3fff;
+    if (tipo === "VP8L") return 1 + (b[21] | ((b[22] & 0x3f) << 8));
+    if (tipo === "VP8X") return 1 + (b[24] | (b[25] << 8) | (b[26] << 16));
+    return NaN;
+  };
+  const html = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
+  const tags = html.match(/<(?:img|source|link)\b[^>]*\b(?:srcset|imagesrcset)="[^"]*\/assets\/[^"]*\.webp[^"]*"[^>]*>/g) || [];
+  const at = (t, n) => (t.match(new RegExp(`\\s${n}="([^"]*)"`)) || [])[1] || "";
+  const forasOtim = [], larguraErrada = [], semArquivo = [], srcFora = [], semSizes = [];
+  for (const t of tags) {
+    const lista = at(t, "srcset") || at(t, "imagesrcset");
+    const cands = lista.split(",").map(c => c.trim().split(/\s+/));
+    for (const [url, desc] of cands) {
+      if (!url.startsWith("/assets/otim/")) { forasOtim.push(url); continue; }
+      const arq = new URL(url.slice("/assets/otim/".length), dirOtim);
+      if (!existsSync(arq)) { semArquivo.push(url); continue; }
+      if (larguraWebp(readFileSync(arq)) + "w" !== desc) larguraErrada.push(`${url} ${desc} (${larguraWebp(readFileSync(arq))})`);
+    }
+    const src = at(t, "src") || at(t, "href");
+    if (src && !cands.some(([u]) => u === src)) srcFora.push(src);
+    if (t.startsWith("<img") && !at(t, "sizes")) semSizes.push(at(t, "src"));
+  }
+  checar("P1.4 index.html tem fotos com srcset", tags.length > 50, tags.length);
+  checar("P1.4 todo srcset/imagesrcset de foto aponta para /assets/otim/", forasOtim.length === 0, [...new Set(forasOtim)].slice(0, 5).join(", "));
+  checar("P1.4 cada variação do srcset existe em site/assets/otim/", semArquivo.length === 0, semArquivo.slice(0, 5).join(", "));
+  checar("P1.4 o descritor de largura (NNNw) bate com a largura real do arquivo", larguraErrada.length === 0, larguraErrada.slice(0, 5).join(", "));
+  checar("P1.4 src/href de cada foto é uma das variações do próprio srcset", srcFora.length === 0, srcFora.slice(0, 5).join(", "));
+  checar("P1.4 toda <img> com srcset tem sizes", semSizes.length === 0, semSizes.slice(0, 5).join(", "));
+  // originais intactos: cada família otimizada ainda tem os arquivos de origem em site/assets/, e nenhuma
+  // variação nova é maior que o maior original da família
+  const variacoes = readdirSync(dirOtim).filter(n => n.endsWith(".webp"));
+  const originais = readdirSync(dirAssets).filter(n => n.endsWith(".webp"));
+  const familias = [...new Set(variacoes.map(n => n.replace(/-\d{3,4}\.webp$/, "")))];
+  const semOriginal = familias.filter(f => !originais.some(n => new RegExp(`^${f}-\\d{3,4}\\.webp$`).test(n)));
+  checar("P1.4 os originais continuam em site/assets/ ao lado das variações", familias.length > 30 && semOriginal.length === 0, semOriginal.join(", "));
+  const maiores = familias.flatMap(f => {
+    const tam = n => statSync(new URL(n, dirAssets)).size;
+    const maiorOriginal = Math.max(...originais.filter(n => new RegExp(`^${f}-\\d{3,4}\\.webp$`).test(n)).map(tam));
+    return variacoes.filter(n => n.startsWith(f + "-") && /^\d{3,4}\.webp$/.test(n.slice(f.length + 1)) && statSync(new URL(n, dirOtim)).size > maiorOriginal);
+  });
+  checar("P1.4 nenhuma variação é maior (em bytes) que o maior original da família", maiores.length === 0, maiores.join(", "));
+  // variações usadas no celular (até 640 px de largura) leves: nenhuma acima de 100 KiB
+  const pesadas = variacoes.filter(n => +n.match(/-(\d{3,4})\.webp$/)[1] <= 640 && statSync(new URL(n, dirOtim)).size > 100 * 1024);
+  checar("P1.4 variações de até 640 px com no máximo 100 KiB", pesadas.length === 0, pesadas.join(", "));
+  // servidas como as outras fotos: image/webp com cache imutável
+  const r = await pegar("/assets/otim/" + variacoes[0]);
+  checar("P1.4 /assets/otim/* sai como image/webp com cache imutável", r.status === 200 && r.headers.get("content-type") === "image/webp" && (r.headers.get("cache-control") || "").includes("immutable"), `${r.status} ${r.headers.get("content-type")} ${r.headers.get("cache-control")}`);
+}
+
+// ---------- AUDITORIA 16/11 — P2: Cadastur só quando existe; logo e sameAs da empresa a partir do site-config ----------
+{
+  const n = SITE.negocio;
+  checar("P2.2 site-config: cadastur commitado vazio (nenhum número inventado)", n.cadastur === "", JSON.stringify(n.cadastur));
+  checar("P2.3 site-config: logo, instagram e googleMeuNegocio (vazio até existir o link)", n.logo === "/apple-touch-icon.png" && n.instagram === "https://www.instagram.com/trindadeadventure/" && n.googleMeuNegocio === "", JSON.stringify([n.logo, n.instagram, n.googleMeuNegocio]));
+  checar("P2.3 index.html: sameAs não está mais fixo no bloco da empresa", !/"sameAs"/.test(html.slice(html.indexOf('id="ld-empresa"'), html.indexOf("</script>", html.indexOf('id="ld-empresa"')))));
+  const png = readFileSync(new URL("../site" + n.logo, import.meta.url));
+  const [lw, lh] = [png.readUInt32BE(16), png.readUInt32BE(20)];
+  checar(`P2.3 o logo é PNG de pelo menos 112 px (${lw}×${lh})`, png.toString("ascii", 1, 4) === "PNG" && lw >= 112 && lh >= 112, `${lw}x${lh}`);
+  const rl = await pegar(n.logo); await rl.arrayBuffer();
+  checar("P2.3 o logo é servido (200, image/png)", rl.status === 200 && (rl.headers.get("content-type") || "").startsWith("image/png"), rl.status + " " + rl.headers.get("content-type"));
+  for (const c of ["/", "/passeios/essencial", "/reservar", "/contato", "/nao-existe"]) {
+    const doc = await (await pegar(c)).text();
+    const emp = [...doc.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m => JSON.parse(m[1])).filter(j => j["@type"] === "TravelAgency" && j.makesOffer);
+    const j = emp[0] || {};
+    checar(`P2.3 ${c}: um TravelAgency com logo em URL absoluta e sameAs só com o Instagram`, emp.length === 1 && j.logo === SITE.origem + "/apple-touch-icon.png" && JSON.stringify(j.sameAs) === JSON.stringify([n.instagram]), JSON.stringify([j.logo, j.sameAs]));
+    // (a chave "cadastur" do site-config vai na página; o rótulo "Cadastur" não)
+    checar(`P2.2 ${c}: Cadastur vazio = sem identifier no JSON-LD e sem o rótulo na página`, !("identifier" in j) && !/Cadastur/.test(doc), "");
+    checar(`P2.3 ${c}: o id interno do bloco não vai para o visitante`, !doc.includes('id="ld-empresa"'));
+  }
+  // Com dados: valores que existem só aqui no teste (nunca no site-config).
+  const src = readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
+  const w = await import("data:text/javascript;base64," + Buffer.from(src).toString("base64"));
+  const com = (extra) => JSON.parse(w.jsonLdDaEmpresa(html, { ...SITE, negocio: { ...n, ...extra } }));
+  const cheio = com({ cadastur: " 00.000000.00-0 ", googleMeuNegocio: "https://example.com/perfil-de-teste" });
+  checar("P2.2 com número: identifier PropertyValue Cadastur (sem espaços nas pontas)", cheio.identifier && cheio.identifier["@type"] === "PropertyValue" && cheio.identifier.propertyID === "Cadastur" && cheio.identifier.value === "00.000000.00-0", JSON.stringify(cheio.identifier));
+  checar("P2.2 com número: aparece no rodapé (mesma função do servidor)", w.textoDaEmpresa({ ...n, cadastur: "00.000000.00-0" }).endsWith(" · Cadastur 00.000000.00-0") && !/Cadastur/.test(w.textoDaEmpresa(n)));
+  checar("P2.3 com o link do Google: sameAs = Instagram + Google", JSON.stringify(cheio.sameAs) === JSON.stringify([n.instagram, "https://example.com/perfil-de-teste"]), JSON.stringify(cheio.sameAs));
+  const ruim = com({ googleMeuNegocio: "http://example.com/x", instagram: "javascript:alert(1)", logo: "//example.com/x.png", cadastur: "   " });
+  checar("P2.2/P2.3 link que não é https (ou //, javascript:) fica de fora; Cadastur só com espaços = nada", !("sameAs" in ruim) && !("logo" in ruim) && !("identifier" in ruim), JSON.stringify([ruim.sameAs, ruim.logo, ruim.identifier]));
+  const esc = com({ googleMeuNegocio: "https://example.com/</script><b>" });
+  checar("P2.2/P2.3 JSON do bloco escapa \"<\" do Cadastur e não aceita link com \"<\" (nada fecha o <script> por dentro)", !w.jsonLdDaEmpresa(html, { ...SITE, negocio: { ...n, cadastur: "</script>" } }).includes("</script>") && !("sameAs" in esc && esc.sameAs.some(s => s.includes("<"))), "");
+  checar("P2.3 o resto do bloco segue o do index.html (makesOffer, geo, taxID)", cheio.makesOffer.length >= 3 && cheio.geo && cheio.taxID === n.cnpj && cheio["@id"] === SITE.origem + "/#empresa");
+}
+
+// ---------- AUDITORIA 16/11 — P2.1: endereço oficial sem www (o 301 do www é no Cloudflare, docs/dns-www.md) ----------
+{
+  const WWW = /www\.trindadeadventury\.com\.br/i;
+  checar("P2.1 site-config: origem sem www", SITE.origem === "https://trindadeadventury.com.br", SITE.origem);
+  const sitemap = await (await pegar("/sitemap.xml")).text(), robots = await (await pegar("/robots.txt")).text();
+  checar("P2.1 sitemap.xml e robots.txt sem www", !WWW.test(sitemap) && !WWW.test(robots) && /<loc>https:\/\/trindadeadventury\.com\.br\//.test(sitemap));
+  const rotas = ["/", ...[...sitemap.matchAll(/<loc>([^<]*)<\/loc>/g)].map(m => new URL(m[1]).pathname)].filter((u, i, a) => a.indexOf(u) === i);
+  const comWww = [];
+  for (const c of rotas) {
+    const doc = await (await pegar(c)).text();
+    const canon = (doc.match(/<link rel="canonical" href="([^"]*)"/) || [])[1];
+    if (canon !== "https://trindadeadventury.com.br" + c || WWW.test(doc)) comWww.push(c + " " + canon);
+  }
+  checar(`P2.1 as ${rotas.length} rotas do sitemap: canonical = endereço sem www e nenhum www no HTML`, rotas.length >= 16 && !comWww.length, comWww.join(" | "));
+  const doc = readFileSync(new URL("../docs/dns-www.md", import.meta.url), "utf8");
+  checar("P2.1 docs/dns-www.md: CNAME www → apex com proxy e 301 www/* → https://trindadeadventury.com.br/${1}",
+    /CNAME/.test(doc) && /Proxied/.test(doc) && doc.includes("https://www.trindadeadventury.com.br/*") && doc.includes("https://trindadeadventury.com.br/${1}") && /\*\*301\*\*/.test(doc));
+}
+
+// ---------- AUDITORIA 16/11 — P2.6: a página carrega o app.js e o estilo.css minificados, gerados da fonte atual ----------
+{
+  const { createHash } = await import("node:crypto");
+  const home = await (await pegar("/")).text();
+  checar("P2.6 index.html carrega /app.min.js e /estilo.min.css (com ?v=) e não as fontes", /<script src="\/app\.min\.js\?v=[\w.-]+" defer><\/script>/.test(home)
+    && /href="\/estilo\.min\.css\?v=[\w.-]+" media="print" data-async/.test(home) && !/["(=]\/app\.js\b/.test(home) && !/["(=]\/estilo\.css\b/.test(home));
+  for (const [fonte, gerado, tipo] of [["app.js", "app.min.js", "javascript"], ["estilo.css", "estilo.min.css", "text/css"]]) {
+    const v = (home.match(new RegExp("/" + gerado.replaceAll(".", "\\.") + "\\?v=([\\w.-]+)")) || [])[1];
+    const r = await pegar(`/${gerado}?v=${v}`); const txt = await r.text();
+    const src = readFileSync(new URL("../site/" + fonte, import.meta.url), "utf8");
+    const sha = createHash("sha256").update(src.replace(/\r\n/g, "\n")).digest("hex");
+    checar(`P2.6 /${gerado}?v=${v}: 200, ${tipo}, immutable e gerado do ${fonte} atual (sha256 no cabeçalho)`, r.status === 200 && (r.headers.get("content-type") || "").includes(tipo)
+      && r.headers.get("cache-control") === "public, max-age=31536000, immutable" && txt.startsWith(`/* gerado de ${fonte} por scripts/minificar.mjs`) && txt.includes(`(fonte sha256:${sha})`), `${r.status} ${r.headers.get("content-type")}`);
+    checar(`P2.6 ${gerado} ≤ 85% do ${fonte} e sem os comentários da fonte`, txt.length <= src.length * 0.85 && (txt.match(/\/\*/g) || []).length === 1, `${txt.length} de ${src.length}`);
+  }
+  const app = await (await pegar("/app.min.js")).text();
+  checar("P2.6 app.min.js mantém os nomes globais que o HTML e os testes de navegador usam (navegar, ajustarH1)", /function navegar\(/.test(app) && /function ajustarH1\(/.test(app));
+  const css = readFileSync(new URL("../site/estilo.css", import.meta.url), "utf8");
+  checar("P2.6 estilo.css sem as regras órfãs (nenhum HTML/JS usa mais)", !/\.(pill-ouro|cabeca-linha|hero-linha|links-consulta|parada-num|so-sem-js|hero-fatos)\b/.test(css.replace(/\/\*[\s\S]*?\*\//g, "")));
 }
 
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);

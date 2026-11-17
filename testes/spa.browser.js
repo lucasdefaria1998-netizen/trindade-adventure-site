@@ -7,7 +7,9 @@ window.__spa = {
     window.requestAnimationFrame = f => setTimeout(() => f(performance.now()), 16);
     const esp = ms => new Promise(r => setTimeout(r, ms));
     const $ = s => document.querySelector(s);
-    const estado = () => ({ caminho: location.pathname, secoes: [...document.querySelectorAll("[data-secao]:not([hidden])")].map(s => s.dataset.secao).join(), aba: [...document.querySelectorAll("[data-aba]")].filter(b => b.getAttribute("aria-selected") === "true").map(b => b.dataset.aba).join(), painel: [...document.querySelectorAll(".painel-roteiro:not([hidden])")].map(p => p.id).join(), h1s: [...document.querySelectorAll("h1")].map(h => h.textContent.trim()) });
+    // níveis dos títulos visíveis, na ordem do documento: nenhum desce mais de um nível (h1 → h3 é pulo)
+    const pulos = () => { const n = [...document.querySelectorAll("h1,h2,h3,h4,h5,h6")].filter(h => h.checkVisibility()).map(h => +h.tagName[1]); return n.flatMap((v, i) => i && v > n[i - 1] + 1 ? ["h" + n[i - 1] + "→h" + v] : []); };
+    const estado = () => ({ caminho: location.pathname, secoes: [...document.querySelectorAll("[data-secao]:not([hidden])")].map(s => s.dataset.secao).join(), aba: [...document.querySelectorAll("[data-aba]")].filter(b => b.getAttribute("aria-selected") === "true").map(b => b.dataset.aba).join(), painel: [...document.querySelectorAll(".painel-roteiro:not([hidden])")].map(p => p.id).join(), h1s: [...document.querySelectorAll("h1")].map(h => h.textContent.trim()), pulos: pulos() });
     const topo = id => Math.round(document.getElementById(id).getBoundingClientRect().top);
     const passos = [];
     const reg = (nome, extra) => passos.push({ nome, ...estado(), ...(extra || {}) });
@@ -21,6 +23,6 @@ window.__spa = {
     history.forward(); await esp(600); reg("avançar");
     navegar("/contato"); await esp(500); reg("contato");
     navegar("/reservar?plano=boat"); await esp(700); reg("reservar?plano=boat", { plano: ($('#escolhaPlano [aria-pressed="true"] .plano-nome') || {}).textContent });
-    return { todosComUmH1: passos.every(p => p.h1s.length === 1), passos };
+    return { todosComUmH1: passos.every(p => p.h1s.length === 1), semPularNivel: passos.every(p => !p.pulos.length), passos };
   }
 };

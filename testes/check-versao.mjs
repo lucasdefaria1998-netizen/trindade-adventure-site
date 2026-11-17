@@ -15,7 +15,10 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 
-const ARQUIVOS = ["boot.js", "app.js", "motion.js", "pescaria-galeria.js", "estilo.css"];
+const ARQUIVOS = ["boot.js", "app.min.js", "motion.js", "pescaria-galeria.js", "estilo.min.css"];
+// O index.html carrega as cópias minificadas (P2.6); o código se escreve na fonte ao lado. A primeira linha da cópia
+// traz o sha256 da fonte de onde saiu: se a fonte mudou e ninguém rodou scripts/minificar.mjs, falha aqui.
+const GERADOS = { "app.min.js": "app.js", "estilo.min.css": "estilo.css" };
 
 const args = process.argv.slice(2);
 const i = args.indexOf("--raiz");
@@ -30,10 +33,20 @@ const gravado = existsSync(arquivoDeVersoes) ? JSON.parse(readFileSync(arquivoDe
 const atual = {};
 const problemas = [];
 for (const nome of ARQUIVOS) {
-  const refs = [...html.matchAll(new RegExp(`/${nome.replace(".", "\\.")}(\\?v=([A-Za-z0-9._-]+))?(?=["'\\s>])`, "g"))];
-  if (refs.length !== 1) { problemas.push(`${nome}: esperava exatamente 1 referência no index.html, achei ${refs.length}`); continue; }
-  if (!refs[0][2]) { problemas.push(`${nome}: a referência no index.html está sem ?v=`); continue; }
+  const refs = [...html.matchAll(new RegExp(`/${nome.replaceAll(".", "\\.")}(\\?v=([A-Za-z0-9._-]+))?(?=["'\\s>])`, "g"))];
+  // Mais de uma referência só vale com o mesmo ?v= em todas (o estilo.css aparece também no <noscript>, P1.2).
+  if (!refs.length) { problemas.push(`${nome}: nenhuma referência no index.html`); continue; }
+  if (refs.some(r => !r[2])) { problemas.push(`${nome}: referência no index.html sem ?v=`); continue; }
+  if (new Set(refs.map(r => r[2])).size !== 1) { problemas.push(`${nome}: referências com ?v= diferentes no index.html (${refs.map(r => r[2]).join(", ")})`); continue; }
   atual[nome] = { v: refs[0][2], sha256: hash(nome) };
+}
+
+for (const [gerado, fonte] of Object.entries(GERADOS)) {
+  const caminho = resolve(raiz, "site", gerado);
+  if (!existsSync(caminho)) { problemas.push(`${gerado}: não existe — rode scripts/minificar.mjs`); continue; }
+  const m = /^\/\* gerado de ([\w.-]+) por scripts\/minificar\.mjs[^*]*\(fonte sha256:([0-9a-f]{64})\) \*\//.exec(readFileSync(caminho, "utf8"));
+  if (!m || m[1] !== fonte) problemas.push(`${gerado}: sem o cabeçalho do scripts/minificar.mjs — gere de novo a partir do ${fonte}`);
+  else if (m[2] !== hash(fonte)) problemas.push(`${gerado} está desatualizado: o ${fonte} mudou depois da última minificação — rode scripts/minificar.mjs, troque o ?v= e rode --atualizar`);
 }
 
 if (!problemas.length && !atualizar) {
