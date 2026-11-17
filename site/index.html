@@ -47,6 +47,7 @@
        Vazio = não aparece no rodapé nem no JSON-LD. Não usar o CNPJ (eram o mesmo
        número por engano; o Cadastur publicado na busca pública é de outra empresa
        homônima, por isso o campo ficou vazio em 24/10/2026 até chegar o número certo).
+       Com número, entra também no JSON-LD da empresa (identifier "Cadastur").
      logo, instagram, googleMeuNegocio: o servidor põe no JSON-LD da empresa (logo em URL
        absoluta; sameAs só com os perfis preenchidos). googleMeuNegocio fica vazio até
        existir o link do perfil no Google — vazio = fora do sameAs. -->
@@ -242,7 +243,7 @@
      que o próprio site já informa — sem nota, avaliação ou selo inventado.
      Se o preço mudar, mude também aqui (ver LEIA-ME, "Preço de um passeio").
      "geo" é o ponto de encontro (Praia do Meio), o mesmo do mapa do app.js.
-     logo e sameAs não ficam aqui: o servidor os põe
+     logo, sameAs e o identificador do Cadastur não ficam aqui: o servidor os põe
      a partir de "negocio" no site-config (ver jsonLdDaEmpresa no _worker.js). -->
 <script type="application/ld+json" id="ld-empresa">
 {

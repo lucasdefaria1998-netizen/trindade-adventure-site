@@ -650,9 +650,9 @@ function jsonLdDaPagina(site, caminho, pagina, meta) {
 }
 
 /* TravelAgency do index.html (auditoria 16/11, P2). O bloco <script id="ld-empresa"> traz o que não muda;
-   logo e sameAs saem de "negocio" no site-config, o mesmo lugar do rodapé. Logo em URL absoluta
+   logo, sameAs e Cadastur saem de "negocio" no site-config, o mesmo lugar do rodapé. Logo em URL absoluta
    (apple-touch-icon.png, PNG 180×180, acima dos 112 px que o Google pede). sameAs só com perfis preenchidos
-   e https: o Instagram e, quando existir o link, o Google Meu Negócio.
+   e https: o Instagram e, quando existir o link, o Google Meu Negócio. Cadastur vazio = nenhuma propriedade.
    Devolve o JSON pronto para o <script> ("<" escapado) ou null se o bloco não existir ou não for JSON. */
 function jsonLdDaEmpresa(html, site) {
   const m = String(html || "").match(/<script type="application\/ld\+json" id="ld-empresa">([\s\S]*?)<\/script>/);
@@ -665,10 +665,12 @@ function jsonLdDaEmpresa(html, site) {
     const abs = s.startsWith("/") && !s.startsWith("//") ? site.origem + s : s;
     return /^https:\/\/[^\s"<>]+$/.test(abs) ? abs : "";
   };
-  delete j.sameAs; delete j.logo;
+  delete j.sameAs; delete j.logo; delete j.identifier;
   if (url(n.logo)) j.logo = url(n.logo);
   const perfis = [n.instagram, n.googleMeuNegocio].map(url).filter(Boolean);
   if (perfis.length) j.sameAs = perfis;
+  const cadastur = typeof n.cadastur === "string" ? n.cadastur.trim() : "";
+  if (cadastur) j.identifier = { "@type": "PropertyValue", propertyID: "Cadastur", value: cadastur };
   return JSON.stringify(j).replace(/</g, "\\u003c");
 }
 
@@ -760,7 +762,7 @@ function aplicarMetadados(resposta, m, naoEncontrada, env, rota) {
   // Comentários HTML (notas de arquitetura: banco, rotas de API, worker…) ficam só no código-fonte, não vão para o visitante.
   rw = rw.onDocument({ comments(c) { c.remove(); } });
 
-  // TravelAgency com logo e sameAs do site-config (jsonLdDaEmpresa); o id só serve para achar o bloco.
+  // TravelAgency com logo, sameAs e Cadastur do site-config (jsonLdDaEmpresa); o id só serve para achar o bloco.
   rw = rw.on("#ld-empresa", { element(el) {
     el.removeAttribute("id");
     if (rota.ldEmpresa) el.setInnerContent(rota.ldEmpresa, { html: true });

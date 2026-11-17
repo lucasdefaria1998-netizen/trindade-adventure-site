@@ -1228,9 +1228,10 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("P1.4 /assets/otim/* sai como image/webp com cache imutável", r.status === 200 && r.headers.get("content-type") === "image/webp" && (r.headers.get("cache-control") || "").includes("immutable"), `${r.status} ${r.headers.get("content-type")} ${r.headers.get("cache-control")}`);
 }
 
-// ---------- AUDITORIA 16/11 — P2: logo e sameAs da empresa a partir do site-config ----------
+// ---------- AUDITORIA 16/11 — P2: Cadastur só quando existe; logo e sameAs da empresa a partir do site-config ----------
 {
   const n = SITE.negocio;
+  checar("P2.2 site-config: cadastur commitado vazio (nenhum número inventado)", n.cadastur === "", JSON.stringify(n.cadastur));
   checar("P2.3 site-config: logo, instagram e googleMeuNegocio (vazio até existir o link)", n.logo === "/apple-touch-icon.png" && n.instagram === "https://www.instagram.com/trindadeadventure/" && n.googleMeuNegocio === "", JSON.stringify([n.logo, n.instagram, n.googleMeuNegocio]));
   checar("P2.3 index.html: sameAs não está mais fixo no bloco da empresa", !/"sameAs"/.test(html.slice(html.indexOf('id="ld-empresa"'), html.indexOf("</script>", html.indexOf('id="ld-empresa"')))));
   const png = readFileSync(new URL("../site" + n.logo, import.meta.url));
@@ -1243,18 +1244,22 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     const emp = [...doc.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m => JSON.parse(m[1])).filter(j => j["@type"] === "TravelAgency" && j.makesOffer);
     const j = emp[0] || {};
     checar(`P2.3 ${c}: um TravelAgency com logo em URL absoluta e sameAs só com o Instagram`, emp.length === 1 && j.logo === SITE.origem + "/apple-touch-icon.png" && JSON.stringify(j.sameAs) === JSON.stringify([n.instagram]), JSON.stringify([j.logo, j.sameAs]));
+    // (a chave "cadastur" do site-config vai na página; o rótulo "Cadastur" não)
+    checar(`P2.2 ${c}: Cadastur vazio = sem identifier no JSON-LD e sem o rótulo na página`, !("identifier" in j) && !/Cadastur/.test(doc), "");
     checar(`P2.3 ${c}: o id interno do bloco não vai para o visitante`, !doc.includes('id="ld-empresa"'));
   }
   // Com dados: valores que existem só aqui no teste (nunca no site-config).
   const src = readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
   const w = await import("data:text/javascript;base64," + Buffer.from(src).toString("base64"));
   const com = (extra) => JSON.parse(w.jsonLdDaEmpresa(html, { ...SITE, negocio: { ...n, ...extra } }));
-  const cheio = com({ googleMeuNegocio: "https://example.com/perfil-de-teste" });
+  const cheio = com({ cadastur: " 00.000000.00-0 ", googleMeuNegocio: "https://example.com/perfil-de-teste" });
+  checar("P2.2 com número: identifier PropertyValue Cadastur (sem espaços nas pontas)", cheio.identifier && cheio.identifier["@type"] === "PropertyValue" && cheio.identifier.propertyID === "Cadastur" && cheio.identifier.value === "00.000000.00-0", JSON.stringify(cheio.identifier));
+  checar("P2.2 com número: aparece no rodapé (mesma função do servidor)", w.textoDaEmpresa({ ...n, cadastur: "00.000000.00-0" }).endsWith(" · Cadastur 00.000000.00-0") && !/Cadastur/.test(w.textoDaEmpresa(n)));
   checar("P2.3 com o link do Google: sameAs = Instagram + Google", JSON.stringify(cheio.sameAs) === JSON.stringify([n.instagram, "https://example.com/perfil-de-teste"]), JSON.stringify(cheio.sameAs));
-  const ruim = com({ googleMeuNegocio: "http://example.com/x", instagram: "javascript:alert(1)", logo: "//example.com/x.png" });
-  checar("P2.3 link que não é https (ou //, javascript:) fica de fora", !("sameAs" in ruim) && !("logo" in ruim), JSON.stringify([ruim.sameAs, ruim.logo]));
+  const ruim = com({ googleMeuNegocio: "http://example.com/x", instagram: "javascript:alert(1)", logo: "//example.com/x.png", cadastur: "   " });
+  checar("P2.2/P2.3 link que não é https (ou //, javascript:) fica de fora; Cadastur só com espaços = nada", !("sameAs" in ruim) && !("logo" in ruim) && !("identifier" in ruim), JSON.stringify([ruim.sameAs, ruim.logo, ruim.identifier]));
   const esc = com({ googleMeuNegocio: "https://example.com/</script><b>" });
-  checar("P2.3 link com \"<\" fica de fora (nada fecha o <script> por dentro)", !("sameAs" in esc && esc.sameAs.some(s => s.includes("<"))) && !w.jsonLdDaEmpresa(html, SITE).includes("<"), "");
+  checar("P2.2/P2.3 JSON do bloco escapa \"<\" do Cadastur e não aceita link com \"<\" (nada fecha o <script> por dentro)", !w.jsonLdDaEmpresa(html, { ...SITE, negocio: { ...n, cadastur: "</script>" } }).includes("</script>") && !("sameAs" in esc && esc.sameAs.some(s => s.includes("<"))), "");
   checar("P2.3 o resto do bloco segue o do index.html (makesOffer, geo, taxID)", cheio.makesOffer.length >= 3 && cheio.geo && cheio.taxID === n.cnpj && cheio["@id"] === SITE.origem + "/#empresa");
 }
 
