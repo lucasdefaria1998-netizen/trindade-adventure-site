@@ -512,12 +512,23 @@ function trocarTag(el, tag) {
 function ajustarH1(rota) {
   const foco = (rota.pagina && rota.pagina.foco) || {};
   const idFoco = foco.plano ? "roteiro-" + foco.plano : foco.passeio ? "consulta-" + foco.passeio : null;
-  const alvo = idFoco
-    ? document.querySelector("#" + idFoco + " [data-titulo-foco]")
-    : document.querySelector('[data-secao="' + rota.nome + '"] [data-titulo]');
-  document.querySelectorAll("[data-titulo]").forEach(h => { if (h !== alvo) trocarTag(h, "h2"); });
-  document.querySelectorAll("[data-titulo-foco]").forEach(h => { if (h !== alvo) trocarTag(h, h.closest(".painel-roteiro") ? "h2" : "h3"); });
-  if (alvo) trocarTag(alvo, "h1");
+  const naConsulta = !foco.plano && !!foco.passeio;
+  // com foco, o título da seção ativa vira <div> (mesmo visual): o h1 do passeio não fica depois de um h2
+  document.querySelectorAll("[data-titulo]").forEach(h =>
+    trocarTag(h, !h.closest('[data-secao="' + rota.nome + '"]') ? "h2" : idFoco ? "div" : "h1"));
+  // roteiro em foco: h3 → h2 e h4 → h3; data-nivel-foco marca o painel para desfazer ao sair (a ordem importa)
+  document.querySelectorAll(".painel-roteiro").forEach(p => {
+    const emFoco = p.id === idFoco;
+    if (emFoco !== p.hasAttribute("data-nivel-foco")) {
+      if (emFoco) { p.querySelectorAll("h3").forEach(h => trocarTag(h, "h2")); p.querySelectorAll("h4").forEach(h => trocarTag(h, "h3")); }
+      else { p.querySelectorAll("h3").forEach(h => trocarTag(h, "h4")); p.querySelectorAll("h2:not([data-titulo-foco])").forEach(h => trocarTag(h, "h3")); }
+      p.toggleAttribute("data-nivel-foco", emFoco);
+    }
+    trocarTag(p.querySelector("[data-titulo-foco]"), emFoco ? "h1" : "h2");
+  });
+  // passeio sob consulta em foco: ele é o h1 e os outros cartões, h2; sem isso, todos h3
+  document.querySelectorAll(".consulta-topo :is(h1,h2,h3)").forEach(h =>
+    trocarTag(h, !naConsulta ? "h3" : h.closest(".consulta").id === idFoco ? "h1" : "h2"));
 }
 
 /* O que só serve a uma página (mapa dos roteiros, formulário de reserva, câmeras) é montado quando

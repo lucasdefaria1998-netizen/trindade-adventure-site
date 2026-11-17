@@ -344,7 +344,33 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const nf = await pegar("/nao-existe"); const dnf = await nf.text();
   checar("E12 /nao-existe → 404 com único h1 \"Página não encontrada\"", nf.status === 404 && (dnf.match(/<h1/g) || []).length === 1 && />Página não encontrada<\/h1>/.test(dnf), nf.status);
   const boat = await (await pegar("/passeios/boat")).text();
-  checar("E12 /passeios/boat: título da seção virou h2 e conserva classes e ids", /<h2 data-titulo>Roteiros e preços<\/h2>/.test(boat) && /<h2 data-titulo id="titulo-pescaria">Pescaria em Alto Mar<\/h2>/.test(boat) && /<h1 data-titulo-foco>Trindade Boat<\/h1>/.test(boat), "");
+  // P2 (auditoria 16/11): com foco, o título da seção ativa sai como <div> (nenhum h2 antes do h1); as outras seções seguem h2
+  checar("E12 /passeios/boat: título da seção virou <div> e as outras seções h2, com classes e ids", /<div data-titulo>Roteiros e preços<\/div>/.test(boat) && /<h2 data-titulo id="titulo-pescaria">Pescaria em Alto Mar<\/h2>/.test(boat) && /<h1 data-titulo-foco>Trindade Boat<\/h1>/.test(boat), "");
+}
+
+
+// ---------- P2 (auditoria 16/11) — hierarquia de títulos sem pular nível em /passeios/* ----------
+{
+  const niveis = trecho => [...trecho.matchAll(/<h([1-6])\b/g)].map(m => +m[1]);
+  const pulo = n => n.some((v, i) => i && v > n[i - 1] + 1);
+  const painel = (doc, id) => { const i = doc.indexOf(`id="${id}"`), f = doc.indexOf('class="painel-roteiro"', i + 1); return i < 0 ? "" : doc.slice(doc.lastIndexOf("<div", i), f < 0 ? doc.indexOf("</section>", i) : f); };
+  const topos = doc => [...doc.matchAll(/<article class="consulta" id="(consulta-[^"]+)"[\s\S]*?<div class="consulta-topo"><div><(h\d)/g)].map(m => [m[1], m[2]]);
+  for (const plano of ["essencial", "adventure", "boat"]) {
+    const doc = await (await pegar("/passeios/" + plano)).text(), p = painel(doc, "roteiro-" + plano), n = niveis(p);
+    checar(`P2.4 /passeios/${plano}: roteiro em foco h1 → h2 → h3 (sem h4, sem pulo) e marcado data-nivel-foco`, n[0] === 1 && n.filter(v => v === 1).length === 1 && !n.includes(4) && n.includes(3) && !pulo(n) && /data-nivel-foco/.test(p.slice(0, 300)), JSON.stringify(n));
+    const outro = painel(doc, "roteiro-" + (plano === "boat" ? "essencial" : "boat")), no = niveis(outro);
+    checar(`P2.4 /passeios/${plano}: os outros roteiros ficam h2 → h3 → h4, sem marca`, no[0] === 2 && no.includes(4) && !/data-nivel-foco/.test(outro), JSON.stringify(no));
+    const antes = doc.slice(doc.indexOf('id="passeios"'), doc.indexOf('class="painel-roteiro"'));
+    checar(`P2.4 /passeios/${plano}: nada de título entre o início da seção e os roteiros`, antes.length > 0 && niveis(antes).length === 0, JSON.stringify(niveis(antes)));
+    checar(`P2.4 /passeios/${plano}: cartões sob consulta seguem h3`, topos(doc).every(([, h]) => h === "h3") && topos(doc).length >= 4, JSON.stringify(topos(doc)));
+  }
+  for (const passeio of ["mamangua", "saco-bravo", "juatinga"]) {
+    const doc = await (await pegar("/passeios/" + passeio)).text(), t = topos(doc);
+    checar(`P2.4 /passeios/${passeio}: o passeio é h1 e os outros cartões h2 (sem h1 → h3)`, t.length >= 4 && t.every(([id, h]) => h === (id === "consulta-" + passeio ? "h1" : "h2")), JSON.stringify(t));
+    checar(`P2.4 /passeios/${passeio}: "Roteiros e preços" sai como <div> e nenhum roteiro marcado`, /<div data-titulo>Roteiros e preços<\/div>/.test(doc) && !/data-nivel-foco/.test(doc), "");
+  }
+  const lista = await (await pegar("/passeios")).text();
+  checar("P2.4 /passeios (sem foco): h1 \"Roteiros e preços\", roteiros h2/h3/h4 e cartões h3, nada marcado", /<h1 data-titulo>Roteiros e preços<\/h1>/.test(lista) && niveis(painel(lista, "roteiro-essencial"))[0] === 2 && topos(lista).every(([, h]) => h === "h3") && !/data-nivel-foco/.test(lista), "");
 }
 
 

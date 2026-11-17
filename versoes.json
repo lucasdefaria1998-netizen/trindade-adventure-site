@@ -4,8 +4,8 @@
     "sha256": "7bc7c8b10387502936ac13b7ed3762e4c16b015058036c60595757a651e678cb"
   },
   "app.js": {
-    "v": "20261116-p13",
-    "sha256": "acb1f6f2e3a76833309c940b9bef3d30973d61d986972a4ce05a6e538c4a3b82"
+    "v": "20261116-p24",
+    "sha256": "0d8a5754920bede17419690a3f212a43e13a85bf7743786b7341d47ca1fff755"
   },
   "motion.js": {
     "v": "20261116-p13",
@@ -16,7 +16,7 @@
     "sha256": "fd0e859e0fbfd486f8840402c3eb610a3dbf71504af0469ef34c44c4cca9c183"
   },
   "estilo.css": {
-    "v": "20261116-p15",
-    "sha256": "b21e9e8c895289dfe8dab76c06ece73bef81dde05123127edc23118b03bfd742"
+    "v": "20261116-p24",
+    "sha256": "11cfdfa46af6da22e968a9d7a0321aadaae12b9750e5a6a5b2e03b7113aa5f37"
   }
 }

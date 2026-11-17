@@ -93,7 +93,7 @@
 [hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%;scroll-padding-top:calc(var(--topo) + 16px);scrollbar-color:var(--line-2) transparent}
 body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.6 var(--font);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-h1,h2,h3,h4{margin:0;font-family:var(--serifa);font-weight:500;line-height:1.15;letter-spacing:-.01em;text-wrap:balance}
+h1,h2,h3,h4,:where(div[data-titulo]){margin:0;font-family:var(--serifa);font-weight:500;line-height:1.15;letter-spacing:-.01em;text-wrap:balance}
 p,ul,ol,dl,dd,figure{margin:0}
 p{text-wrap:pretty}
 img{display:block;max-width:100%}
@@ -449,7 +449,7 @@ html:not(.js) .galeria-seta{display:none}
 .roteiro-titulo .tour-preco,.consulta-topo .tour-preco{margin:0;padding:0;border:0}
 .roteiro-meta{font-size:14px;color:var(--muted)}
 .incluso{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:20px;padding-top:16px;border-top:1px solid var(--line)}
-.incluso h3{font-size:14.5px;margin-bottom:10px}
+.incluso :is(h2,h3){font-size:14.5px;margin-bottom:10px}
 /* Sem ícone de check (direção do Silvio): marcador "–" discreto. "Não incluso"
    mantém o ícone #i-menos, por isso só escondemos o .ico fora de .lista-nao. */
 .lista-check{display:grid;gap:8px;list-style:none;padding:0}
@@ -460,7 +460,7 @@ html:not(.js) .galeria-seta{display:none}
 .lista-nao li::before{content:none}
 .lista-nao .ico{color:var(--muted);margin-top:4px}
 .roteiro-dia{padding:26px 28px;border:1px solid var(--line);border-radius:var(--r-lg)}
-.roteiro-dia>h3{font-size:16px;margin-bottom:22px}
+.roteiro-dia>:is(h2,h3){font-size:16px;margin-bottom:22px}
 .rota{list-style:none;padding:0}
 .rota li{position:relative;display:grid;grid-template-columns:40px minmax(0,1fr);gap:14px;padding-bottom:22px}
 .rota li:not(:last-child)::before{content:"";position:absolute;left:19.5px;top:42px;bottom:2px;width:1px;background:var(--line-2)}
@@ -490,7 +490,7 @@ html:not(.js) .galeria-seta{display:none}
 .consulta .galeria-indicador{padding-inline:0}
 .galeria-32{aspect-ratio:3/2}
 .consulta-topo{display:flex;justify-content:space-between;align-items:flex-start;gap:8px 16px;flex-wrap:wrap}
-.consulta-topo :is(h1,h3){font-size:22px}
+.consulta-topo :is(h1,h2,h3){font-size:22px}
 .consulta-sub{margin-top:4px;font-size:14px;color:var(--muted)}
 .consulta-acoes{display:flex;flex-wrap:wrap;gap:8px;margin-top:auto}
 @media(max-width:900px){.consultas{grid-template-columns:minmax(0,1fr)}}
@@ -928,7 +928,7 @@ html[data-motion="paused"] *,html[data-motion="paused"] *::before,html[data-moti
    com Paraty à noite. Regras no fim do arquivo de propósito: vencem as de cima.
    =========================================================================== */
 body{overflow-x:clip}
-h1,h2,h3,h4{font-family:var(--serifa);font-weight:600;text-transform:uppercase;letter-spacing:.01em;line-height:1.05}
+h1,h2,h3,h4,:where(div[data-titulo]){font-family:var(--serifa);font-weight:600;text-transform:uppercase;letter-spacing:.01em;line-height:1.05}
 .cabeca h2{font-size:clamp(32px,4.4vw,56px);font-weight:600;letter-spacing:.01em;line-height:1}
 .pagina-cabeca [data-titulo]{font-size:clamp(40px,6vw,72px);font-weight:600;letter-spacing:.01em;line-height:.98}
 .card-passeio h3{font:600 26px/1.05 var(--serifa);letter-spacing:.02em}
