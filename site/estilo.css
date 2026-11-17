@@ -710,6 +710,18 @@ html[data-motion="running"] .rec{animation:pisca 1.8s infinite}
 .faq summary::after{content:"";width:9px;height:9px;flex:none;margin-right:6px;border-right:1.6px solid var(--ink-2);border-bottom:1.6px solid var(--ink-2);transform:translateY(-3px) rotate(45deg);transition:transform .3s var(--ease)}
 .faq details[open] summary::after{transform:translateY(2px) rotate(-135deg)}
 .faq details p{padding:0 0 18px;color:var(--ink-2);max-width:62ch}
+
+/* ---------- avaliações (o _worker.js monta a partir de site/dados/avaliacoes.json; lista vazia = nada) ---------- */
+.avaliacoes{margin-top:18px}
+.avaliacoes-resumo{font-size:15px;color:var(--ink-2)}
+.avaliacoes-resumo strong{font-size:22px;font-weight:600;color:var(--ink);margin-right:2px}
+.avaliacoes-lista{list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-top:12px;padding:0}
+.avaliacao{padding:16px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.avaliacao-nota{color:var(--barro);letter-spacing:.08em;font-size:15px}
+.avaliacao blockquote{margin:8px 0 10px}
+.avaliacao blockquote p{color:var(--ink);font-size:15px;max-width:62ch}
+.avaliacao-autor{font-size:13.5px;color:var(--muted)}
+.avaliacao-autor a{color:inherit;text-decoration:underline;text-underline-offset:2px}
 @media(max-width:900px){.contato{grid-template-columns:minmax(0,1fr)}}
 
 /* ---------- pescaria ---------- */

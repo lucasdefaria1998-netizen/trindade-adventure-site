@@ -498,7 +498,70 @@ async function servirPagina(request, env, url) {
     const faq = faqPageDe(html, pagamentoOnlineAtivo(env));
     if (faq) jsonld.push(faq);
   }
-  return aplicarMetadados(resposta, meta, !pagina, env, { secao, foco, hero: heroDaRota(html, secao, foco), empresa: textoDaEmpresa(site.negocio), jsonld });
+  const avaliacoes = await lerAvaliacoes(env, url);
+  if (pagina && avaliacoes.length && (secao === "inicio" || secao === "passeios")) jsonld.push(jsonLdAvaliacoes(site.origem, avaliacoes));
+  return aplicarMetadados(resposta, meta, !pagina, env, { secao, foco, hero: heroDaRota(html, secao, foco), empresa: textoDaEmpresa(site.negocio), jsonld, avaliacoes: htmlDasAvaliacoes(avaliacoes) });
+}
+
+/* Avaliações de clientes (auditoria 16/11, P1.5). Fonte única: site/dados/avaliacoes.json, uma lista de
+   { autor, origem: "Google" | "Instagram", nota: 1–5, texto, data: "AAAA-MM-DD", link: "https://…" } copiada de
+   avaliações reais. Lista vazia (o estado commitado) = nenhum componente na página e nenhum AggregateRating:
+   nada de exemplo nem de placeholder. O componente entra no lugar de cada <div data-avaliacoes></div> do
+   index.html (início e roteiros, perto do "Reservar"); a média e a contagem saem da própria lista. */
+async function lerAvaliacoes(env, url) {
+  try {
+    const r = await env.ASSETS.fetch(new Request(url.origin + "/dados/avaliacoes.json", { method: "GET" }));
+    if (r.status !== 200) return [];
+    return avaliacoesValidas(await r.json());
+  } catch (e) {
+    return [];
+  }
+}
+
+function avaliacoesValidas(lista) {
+  if (!Array.isArray(lista)) return [];
+  return lista.filter(a => a && typeof a === "object"
+    && typeof a.autor === "string" && a.autor.trim()
+    && (a.origem === "Google" || a.origem === "Instagram")
+    && Number.isInteger(a.nota) && a.nota >= 1 && a.nota <= 5
+    && typeof a.texto === "string" && a.texto.trim()
+    && typeof a.data === "string" && /^\d{4}-\d{2}-\d{2}$/.test(a.data)
+    && typeof a.link === "string" && /^https:\/\/[^\s"<>]+$/.test(a.link))
+    .sort((x, y) => (x.data < y.data ? 1 : x.data > y.data ? -1 : 0));
+}
+
+function resumoDasAvaliacoes(lista) {
+  const media = lista.reduce((s, a) => s + a.nota, 0) / lista.length;
+  return { media: Math.round(media * 10) / 10, total: lista.length };
+}
+
+function htmlDasAvaliacoes(lista) {
+  if (!lista || !lista.length) return "";
+  const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const { media, total } = resumoDasAvaliacoes(lista);
+  const meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  const origens = [...new Set(lista.map(a => a.origem))].join(" e no ");
+  const itens = lista.slice(0, 3).map(a => {
+    const [ano, mes] = a.data.split("-");
+    return '<li class="avaliacao"><p class="avaliacao-nota" aria-label="Nota ' + a.nota + ' de 5"><span aria-hidden="true">' +
+      "★".repeat(a.nota) + "☆".repeat(5 - a.nota) + '</span></p><blockquote><p>' + esc(a.texto.trim()) + '</p></blockquote>' +
+      '<p class="avaliacao-autor">' + esc(a.autor.trim()) + ' · <a href="' + esc(a.link) + '" target="_blank" rel="noopener">' + esc(a.origem) +
+      '</a> · <time datetime="' + esc(a.data) + '">' + meses[Number(mes) - 1] + "/" + ano + "</time></p></li>";
+  }).join("");
+  return '<div class="avaliacoes"><p class="avaliacoes-resumo"><strong>' + String(media).replace(".", ",") + "</strong> de 5 · " +
+    total + (total === 1 ? " avaliação" : " avaliações") + " no " + esc(origens) + '</p><ul class="avaliacoes-lista">' + itens + "</ul></div>";
+}
+
+function jsonLdAvaliacoes(origem, lista) {
+  const { media, total } = resumoDasAvaliacoes(lista);
+  return {
+    "@context": "https://schema.org", "@type": "TravelAgency", "@id": origem + "/#empresa", name: "Trindade Adventure",
+    aggregateRating: { "@type": "AggregateRating", ratingValue: String(media), reviewCount: String(total), bestRating: "5", worstRating: "1" },
+    review: lista.slice(0, 3).map(a => ({
+      "@type": "Review", author: { "@type": "Person", name: a.autor.trim() }, datePublished: a.data, reviewBody: a.texto.trim(),
+      reviewRating: { "@type": "Rating", ratingValue: String(a.nota), bestRating: "5", worstRating: "1" }
+    }))
+  };
 }
 
 /* FAQPage de /contato (auditoria 16/11, P1.6): sai das mesmas perguntas e respostas que a página mostra
@@ -680,6 +743,12 @@ function aplicarMetadados(resposta, m, naoEncontrada, env, rota) {
       for (const b of rota.jsonld) el.append('<script type="application/ld+json">' + JSON.stringify(b).replace(/</g, "\\u003c") + "</script>", { html: true });
     } });
   }
+
+  // Avaliações (P1.5): com a lista vazia o marcador sai e não fica nada; com avaliações, o componente entra
+  // dentro dele (o marcador da home guarda a classe "bloco" do espaçamento).
+  rw = rw.on("[data-avaliacoes]", { element(el) {
+    if (rota.avaliacoes) el.setInnerContent(rota.avaliacoes, { html: true }); else el.remove();
+  } });
 
   // Dados da empresa no rodapé já no HTML (sem depender de JavaScript); sem dados, o parágrafo fica escondido.
   if (rota.empresa) {
@@ -2798,5 +2867,6 @@ export {
   expiraEm, normalizarTelefone, conferirData, validarReserva, verificarTurnstile, resumirRelatorioCsp, destinoRedirect,
   calcularCobranca, dentroDoPrazoDeEstorno, minutosDoLink, planoPagaOnline, pagamentoOnlineAtivo, PAGAMENTO,
   saldoAntecedenciaH, executarTarefasPagamento, comporGrupo,
-  textoTermosDe, hashTexto, validarAceiteTermos, faqPageDe
+  textoTermosDe, hashTexto, validarAceiteTermos, faqPageDe,
+  avaliacoesValidas, htmlDasAvaliacoes, jsonLdAvaliacoes
 };

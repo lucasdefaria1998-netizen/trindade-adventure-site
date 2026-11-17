@@ -1085,5 +1085,47 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     comoPago(ligado).length === 1 && comoPago(desligado).length === 1 && /Pelo site/.test(comoPago(ligado)[0].acceptedAnswer.text) && !/Pelo site/.test(comoPago(desligado)[0].acceptedAnswer.text) && ligado.mainEntity.length === desligado.mainEntity.length);
 }
 
+// ---------- AUDITORIA 16/11 — P1.5: avaliações só de site/dados/avaliacoes.json; lista vazia = nada na página ----------
+{
+  const arquivo = JSON.parse(readFileSync(new URL("../site/dados/avaliacoes.json", import.meta.url), "utf8"));
+  checar("P1.5 site/dados/avaliacoes.json commitado vazio ([])", Array.isArray(arquivo) && arquivo.length === 0, JSON.stringify(arquivo).slice(0, 80));
+  const marcadores = (html.match(/<div[^>]*data-avaliacoes[^>]*><\/div>/g) || []).length;
+  checar("P1.5 index.html tem os 4 lugares do componente (início + Essencial, Adventure e Boat, perto do Reservar)", marcadores === 4, marcadores);
+  const ld = doc => [...doc.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m => m[1]).join("\n");
+  for (const c of ["/", "/passeios", "/passeios/essencial", "/passeios/adventure", "/passeios/boat", "/reservar", "/contato"]) {
+    const doc = await (await pegar(c)).text();
+    checar(`P1.5 ${c}: com a lista vazia, nenhum componente, marcador, AggregateRating nem Review`,
+      !doc.includes('class="avaliacoes"') && !doc.includes("data-avaliacoes") && !/AggregateRating|"Review"/.test(ld(doc)));
+  }
+  // Com avaliações: 2 exemplos que existem só aqui no teste (nunca no arquivo nem no site).
+  const src = readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
+  const w = await import("data:text/javascript;base64," + Buffer.from(src).toString("base64"));
+  const exemplos = [
+    { autor: "Exemplo do Teste A", origem: "Google", nota: 5, texto: "Texto de teste <b>sem</b> valor real.", data: "2026-10-02", link: "https://example.com/avaliacao-a" },
+    { autor: "Exemplo do Teste B", origem: "Instagram", nota: 4, texto: "Outro texto de teste.", data: "2026-11-01", link: "https://example.com/avaliacao-b" },
+  ];
+  const invalidos = [
+    { autor: "Sem link", origem: "Google", nota: 5, texto: "x", data: "2026-01-01" },
+    { autor: "Nota fora", origem: "Google", nota: 6, texto: "x", data: "2026-01-01", link: "https://example.com/x" },
+    { autor: "Origem inventada", origem: "TripAdvisor", nota: 5, texto: "x", data: "2026-01-01", link: "https://example.com/x" },
+    { autor: "Link http", origem: "Google", nota: 5, texto: "x", data: "2026-01-01", link: "http://example.com/x" },
+    { autor: "", origem: "Google", nota: 5, texto: "x", data: "2026-01-01", link: "https://example.com/x" },
+  ];
+  const validas = w.avaliacoesValidas([...invalidos, ...exemplos]);
+  checar("P1.5 avaliacoesValidas: descarta sem link, nota fora de 1–5, origem que não é Google/Instagram, http e sem autor; mais recente primeiro",
+    validas.length === 2 && validas[0].autor === "Exemplo do Teste B", JSON.stringify(validas.map(a => a.autor)));
+  checar("P1.5 avaliacoesValidas: arquivo que não é lista vira lista vazia", w.avaliacoesValidas({}).length === 0 && w.avaliacoesValidas(null).length === 0);
+  const comp = w.htmlDasAvaliacoes(validas);
+  checar("P1.5 componente: média e contagem calculadas da lista (4,5 de 5 · 2 avaliações)", comp.includes("<strong>4,5</strong> de 5 · 2 avaliações no Instagram e no Google"), comp.slice(0, 160));
+  checar("P1.5 componente: cada avaliação com nota acessível, texto escapado, link de origem e data", (comp.match(/<li class="avaliacao">/g) || []).length === 2 &&
+    comp.includes('aria-label="Nota 5 de 5"') && comp.includes("&lt;b&gt;sem&lt;/b&gt;") && comp.includes('href="https://example.com/avaliacao-a"') && comp.includes('<time datetime="2026-11-01">nov/2026</time>'));
+  checar("P1.5 componente: lista vazia não gera nada", w.htmlDasAvaliacoes([]) === "");
+  const j = w.jsonLdAvaliacoes(SITE.origem, validas);
+  checar("P1.5 JSON-LD: AggregateRating com média e total da lista e Review de cada uma",
+    j["@type"] === "TravelAgency" && j["@id"] === SITE.origem + "/#empresa" && j.aggregateRating["@type"] === "AggregateRating" && j.aggregateRating.ratingValue === "4.5" &&
+    j.aggregateRating.reviewCount === "2" && j.aggregateRating.bestRating === "5" && j.review.length === 2 &&
+    j.review.every(r => r["@type"] === "Review" && r.author.name && r.reviewRating.ratingValue && r.datePublished && r.reviewBody), JSON.stringify(j.aggregateRating));
+}
+
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);
 process.exit(falhas ? 1 : 0);
