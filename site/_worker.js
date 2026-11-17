@@ -493,7 +493,37 @@ async function servirPagina(request, env, url) {
 
   const resposta = new Response(html, { status: pagina ? 200 : 404, headers: h });
   const secao = (pagina || site.naoEncontrada).secao, foco = (pagina && pagina.foco) || null;
-  return aplicarMetadados(resposta, meta, !pagina, env, { secao, foco, hero: heroDaRota(html, secao, foco), empresa: textoDaEmpresa(site.negocio), jsonld: jsonLdDaPagina(site, url.pathname, pagina, meta) });
+  const jsonld = jsonLdDaPagina(site, url.pathname, pagina, meta);
+  if (pagina && secao === "contato") {
+    const faq = faqPageDe(html, pagamentoOnlineAtivo(env));
+    if (faq) jsonld.push(faq);
+  }
+  return aplicarMetadados(resposta, meta, !pagina, env, { secao, foco, hero: heroDaRota(html, secao, foco), empresa: textoDaEmpresa(site.negocio), jsonld });
+}
+
+/* FAQPage de /contato (auditoria 16/11, P1.6): sai das mesmas perguntas e respostas que a página mostra
+   (<div class="faq"> da seção contato), na mesma variante de pagamento que textosDoPagamento deixa
+   visível — uma fonte só, o schema não tem frase que a página não tenha. Sem perguntas, nada. */
+function faqPageDe(html, online) {
+  const ini = String(html || "").indexOf('data-secao="contato"');
+  if (ini < 0) return null;
+  const fim = html.indexOf("</section>", ini);
+  const m = html.slice(ini, fim < 0 ? undefined : fim).match(/<div class="faq">([\s\S]*?)<\/div>/);
+  if (!m) return null;
+  let bloco = m[1];
+  if (online) {
+    bloco = bloco.replace(/<([a-z0-9]+)\b[^>]*\bdata-pagamento="whatsapp"[^>]*>[\s\S]*?<\/\1>/gi, "");
+    bloco = bloco.replace(/<template\b[^>]*data-pagamento="online"[^>]*>([\s\S]*?)<\/template>/gi, "$1");
+  } else {
+    bloco = bloco.replace(/<template\b[^>]*data-pagamento="online"[^>]*>[\s\S]*?<\/template>/gi, "");
+  }
+  const texto = s => s.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+  const itens = [...bloco.matchAll(/<details\b[^>]*>\s*<summary>([\s\S]*?)<\/summary>([\s\S]*?)<\/details>/g)]
+    .map(([, p, r]) => ({ "@type": "Question", name: texto(p), acceptedAnswer: { "@type": "Answer", text: texto(r) } }))
+    .filter(q => q.name && q.acceptedAnswer.text);
+  if (!itens.length) return null;
+  return { "@context": "https://schema.org", "@type": "FAQPage", mainEntity: itens };
 }
 
 /* Foto de capa da rota (auditoria 16/11, P0). No index.html a capa de cada página leva <img data-hero> (início,
@@ -2768,5 +2798,5 @@ export {
   expiraEm, normalizarTelefone, conferirData, validarReserva, verificarTurnstile, resumirRelatorioCsp, destinoRedirect,
   calcularCobranca, dentroDoPrazoDeEstorno, minutosDoLink, planoPagaOnline, pagamentoOnlineAtivo, PAGAMENTO,
   saldoAntecedenciaH, executarTarefasPagamento, comporGrupo,
-  textoTermosDe, hashTexto, validarAceiteTermos
+  textoTermosDe, hashTexto, validarAceiteTermos, faqPageDe
 };

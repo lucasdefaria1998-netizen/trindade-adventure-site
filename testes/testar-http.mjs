@@ -1055,5 +1055,35 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   checar("P1.3 motion.js não mexe mais no is-scrolled (ficou no app.js)", !/classList\.toggle\('is-scrolled'/.test(motion));
 }
 
+// ---------- AUDITORIA 16/11 — P1.6: FAQPage em /contato, igual às perguntas visíveis ----------
+{
+  const textoVisivel = s => s.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
+  const faqsDe = doc => [...doc.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)].map(m => JSON.parse(m[1])).filter(b => b["@type"] === "FAQPage");
+  const doc = await (await pegar("/contato")).text();
+  const faqs = faqsDe(doc);
+  checar("P1.6 /contato tem exatamente um FAQPage no JSON-LD", faqs.length === 1, faqs.length);
+  // O que a pessoa vê: <details> da <div class="faq"> da seção contato, no HTML já servido (sem <template>).
+  const ini = doc.indexOf('data-secao="contato"');
+  const faqHtml = (doc.slice(ini, doc.indexOf("</section>", ini)).match(/<div class="faq">([\s\S]*?)<\/div>/) || [])[1] || "";
+  const visiveis = [...faqHtml.replace(/<template[\s\S]*?<\/template>/g, "").matchAll(/<details\b[^>]*>\s*<summary>([\s\S]*?)<\/summary>([\s\S]*?)<\/details>/g)].map(([, p, r]) => [textoVisivel(p), textoVisivel(r)]);
+  const doSchema = (faqs[0] && faqs[0].mainEntity || []).map(q => [q.name, q.acceptedAnswer && q.acceptedAnswer.text]);
+  checar("P1.6 schema × página: mesmas perguntas e respostas, na mesma ordem", visiveis.length >= 3 && JSON.stringify(visiveis) === JSON.stringify(doSchema), JSON.stringify({ visiveis: visiveis.length, schema: doSchema.length }));
+  const q = faqs[0] && faqs[0].mainEntity && faqs[0].mainEntity[0];
+  checar("P1.6 FAQPage no formato do Google (Question.name + acceptedAnswer Answer.text, @context schema.org)", !!faqs[0] && faqs[0]["@context"] === "https://schema.org" && faqs[0].mainEntity.every(x => x["@type"] === "Question" && x.acceptedAnswer["@type"] === "Answer" && x.name && x.acceptedAnswer.text));
+  checar("P1.6 com o pagamento desligado, a resposta de \"Como pago?\" é a do WhatsApp (a mesma da página)", !!(faqs[0] && faqs[0].mainEntity.find(x => x.name === "Como pago?" && /WhatsApp/.test(x.acceptedAnswer.text))));
+  for (const c of ["/", "/reservar", "/passeios/essencial", "/nao-existe"]) {
+    checar(`P1.6 ${c} não leva FAQPage`, faqsDe(await (await pegar(c)).text()).length === 0);
+  }
+  // Variante com o pagamento ligado, direto na função (sem ligar nada no servidor).
+  const src = readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
+  const w = await import("data:text/javascript;base64," + Buffer.from(src).toString("base64"));
+  const html = readFileSync(new URL("../site/index.html", import.meta.url), "utf8");
+  const ligado = w.faqPageDe(html, true), desligado = w.faqPageDe(html, false);
+  const comoPago = f => f.mainEntity.filter(x => x.name === "Como pago?");
+  checar("P1.6 faqPageDe: uma resposta de \"Como pago?\" em cada variante, a do site só com o pagamento ligado",
+    comoPago(ligado).length === 1 && comoPago(desligado).length === 1 && /Pelo site/.test(comoPago(ligado)[0].acceptedAnswer.text) && !/Pelo site/.test(comoPago(desligado)[0].acceptedAnswer.text) && ligado.mainEntity.length === desligado.mainEntity.length);
+}
+
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);
 process.exit(falhas ? 1 : 0);
