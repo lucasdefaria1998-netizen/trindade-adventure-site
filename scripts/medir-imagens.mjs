@@ -23,7 +23,7 @@ for (const rota of rotas) {
     await pg.setViewport({ width: w, height: 900, isMobile: w < 760, hasTouch: w < 760, deviceScaleFactor: 1 });
     // espera o estilo.css (carrega sem bloquear): antes dele só vale o CSS crítico e o layout ainda não é o final
     await pg.goto(BASE + rota, { waitUntil: "load" });
-    await pg.waitForFunction(() => [...document.styleSheets].some(s => (s.href || "").includes("/estilo.css")), { timeout: 15000 });
+    await pg.waitForFunction(() => [...document.styleSheets].some(s => /\/estilo(\.min)?\.css/.test(s.href || "")), { timeout: 15000 });
     await pg.evaluate(() => new Promise(r => setTimeout(r, 300)));
     const lista = await pg.evaluate(() => {
       const vistos = {};

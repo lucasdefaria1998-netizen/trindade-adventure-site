@@ -444,7 +444,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     !/^\s*(prepararMapa|ligarReserva|desenharCameras|ligarRelogios)\(\);/m.test(iniciar) && /montarOsDemais\(\)/.test(iniciar) && /montar\(nome\)/.test(app));
   const html = await (await pegar("/")).text();
   // Auditoria 16/11 (P1.3): o motion.js deixou de ter <script> próprio; o endereço fica no data-js-motion do <body>.
-  checar("E15 index.html aponta app.js e motion.js para o ?v= da etapa", /\/app\.js\?v=[\w.-]+/.test(html) && /data-js-motion="\/motion\.js\?v=[\w.-]+"/.test(html));
+  checar("E15 index.html aponta app.js e motion.js para o ?v= da etapa", /\/app\.min\.js\?v=[\w.-]+/.test(html) && /data-js-motion="\/motion\.js\?v=[\w.-]+"/.test(html));
 }
 
 
@@ -824,7 +824,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const { join } = await import("node:path");
   const amanha = new Date(Date.now() + 864e5).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
   const home = await (await pegar("/")).text();
-  const versoes = Object.fromEntries(["boot.js", "app.js", "motion.js", "pescaria-galeria.js", "estilo.css"].map(n => [n, (home.match(new RegExp("/" + n.replace(".", "\\.") + "\\?v=([A-Za-z0-9._-]+)")) || [])[1]]));
+  const versoes = Object.fromEntries(["boot.js", "app.min.js", "motion.js", "pescaria-galeria.js", "estilo.min.css"].map(n => [n, (home.match(new RegExp("/" + n.replaceAll(".", "\\.") + "\\?v=([A-Za-z0-9._-]+)")) || [])[1]]));
   for (const [nome, v] of Object.entries(versoes)) {
     const r = await pegar(`/${nome}?v=${v}`); await r.arrayBuffer();
     checar(`E17 /${nome}?v=${v} → 200 com "public, max-age=31536000, immutable"`, r.status === 200 && r.headers.get("cache-control") === "public, max-age=31536000, immutable", `${r.status} ${r.headers.get("cache-control")}`);
@@ -851,7 +851,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   // (VERSIONADOS), que não é uma referência para carregar o arquivo.
   const fontes = ["index.html", "app.js"].map(f => [f, readFileSync(new URL("../site/" + f, import.meta.url), "utf8")]);
   for (const [f, txt] of fontes) {
-    const semV = [...txt.matchAll(/["'`(=]\/(app|motion|pescaria-galeria|boot)\.js(?!\?v=)|["'`(=]\/estilo\.css(?!\?v=)/g)].map(m => m[0]);
+    const semV = [...txt.matchAll(/["'`(=]\/(app|app\.min|motion|pescaria-galeria|boot)\.js(?!\?v=)|["'`(=]\/estilo(\.min)?\.css(?!\?v=)/g)].map(m => m[0]);
     checar(`E17 ${f}: toda referência a app/motion/pescaria-galeria/boot.js e estilo.css tem ?v=`, semV.length === 0, semV.join(" "));
   }
 
@@ -864,11 +864,16 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   try {
     cpSync(raizRepo + "site", tmp + "/site", { recursive: true, filter: s => !/[\\/]assets[\\/]/.test(s) });
     cpSync(raizRepo + "versoes.json", tmp + "/versoes.json");
+    const fonteApp = readFileSync(tmp + "/site/app.js", "utf8");
     appendFileSync(tmp + "/site/app.js", " ");
+    const fonteMudou = spawnSync(process.execPath, [script, "--raiz", tmp], { encoding: "utf8" });
+    checar("P2.6 check-versao.mjs sai com erro quando o app.js (fonte) muda e o app.min.js não foi gerado de novo", fonteMudou.status === 1 && /app\.min\.js está desatualizado/.test(fonteMudou.stderr), fonteMudou.stdout + fonteMudou.stderr);
+    writeFileSync(tmp + "/site/app.js", fonteApp);
+    appendFileSync(tmp + "/site/app.min.js", " ");
     const mudou = spawnSync(process.execPath, [script, "--raiz", tmp], { encoding: "utf8" });
-    checar("E17 check-versao.mjs sai com erro quando o app.js muda 1 byte sem trocar o ?v=", mudou.status === 1 && /app\.js: o conteúdo mudou mas o \?v= continua/.test(mudou.stderr), mudou.stdout + mudou.stderr);
+    checar("E17 check-versao.mjs sai com erro quando o app.min.js muda 1 byte sem trocar o ?v=", mudou.status === 1 && /app\.min\.js: o conteúdo mudou mas o \?v= continua/.test(mudou.stderr), mudou.stdout + mudou.stderr);
     const idx = readFileSync(tmp + "/site/index.html", "utf8");
-    writeFileSync(tmp + "/site/index.html", idx.replace(/\/app\.js\?v=[A-Za-z0-9._-]+/, "/app.js?v=teste-novo"));
+    writeFileSync(tmp + "/site/index.html", idx.replace(/\/app\.min\.js\?v=[A-Za-z0-9._-]+/, "/app.min.js?v=teste-novo"));
     const trocou = spawnSync(process.execPath, [script, "--raiz", tmp], { encoding: "utf8" });
     checar("E17 com o ?v= trocado mas sem registrar, ainda pede --atualizar", trocou.status === 1 && /falta registrar/.test(trocou.stderr), trocou.stderr);
     const registrou = spawnSync(process.execPath, [script, "--raiz", tmp, "--atualizar"], { encoding: "utf8" });
@@ -1062,7 +1067,7 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
     const scripts = (head.match(/<script\b[^>]*\ssrc=[^>]*>/g) || []);
     checar(`P1.2 ${rota}: nenhum <script src> bloqueante no <head>`, scripts.every(t => /\s(defer|async)[\s>]/.test(t)), scripts.join(" "));
     const ns = (doc.match(/<noscript>([\s\S]*?)<\/noscript>/g) || []).join("");
-    checar(`P1.2 ${rota}: sem JavaScript, o <noscript> carrega o estilo.css com o mesmo ?v=`, /<link rel="stylesheet" href="\/estilo\.css\?v=([\w.-]+)">/.test(ns) && ns.match(/estilo\.css\?v=([\w.-]+)/)[1] === head.match(/estilo\.css\?v=([\w.-]+)/)[1]);
+    checar(`P1.2 ${rota}: sem JavaScript, o <noscript> carrega o estilo.min.css com o mesmo ?v=`, /<link rel="stylesheet" href="\/estilo\.min\.css\?v=([\w.-]+)">/.test(ns) && ns.match(/estilo\.min\.css\?v=([\w.-]+)/)[1] === head.match(/estilo\.min\.css\?v=([\w.-]+)/)[1]);
   }
   const css = readFileSync(new URL("../site/estilo.css", import.meta.url), "utf8");
   const criticos = {};
@@ -1280,6 +1285,27 @@ checar("T6  todas as páginas têm title diferente", titulos.size === Object.key
   const doc = readFileSync(new URL("../docs/dns-www.md", import.meta.url), "utf8");
   checar("P2.1 docs/dns-www.md: CNAME www → apex com proxy e 301 www/* → https://trindadeadventury.com.br/${1}",
     /CNAME/.test(doc) && /Proxied/.test(doc) && doc.includes("https://www.trindadeadventury.com.br/*") && doc.includes("https://trindadeadventury.com.br/${1}") && /\*\*301\*\*/.test(doc));
+}
+
+// ---------- AUDITORIA 16/11 — P2.6: a página carrega o app.js e o estilo.css minificados, gerados da fonte atual ----------
+{
+  const { createHash } = await import("node:crypto");
+  const home = await (await pegar("/")).text();
+  checar("P2.6 index.html carrega /app.min.js e /estilo.min.css (com ?v=) e não as fontes", /<script src="\/app\.min\.js\?v=[\w.-]+" defer><\/script>/.test(home)
+    && /href="\/estilo\.min\.css\?v=[\w.-]+" media="print" data-async/.test(home) && !/["(=]\/app\.js\b/.test(home) && !/["(=]\/estilo\.css\b/.test(home));
+  for (const [fonte, gerado, tipo] of [["app.js", "app.min.js", "javascript"], ["estilo.css", "estilo.min.css", "text/css"]]) {
+    const v = (home.match(new RegExp("/" + gerado.replaceAll(".", "\\.") + "\\?v=([\\w.-]+)")) || [])[1];
+    const r = await pegar(`/${gerado}?v=${v}`); const txt = await r.text();
+    const src = readFileSync(new URL("../site/" + fonte, import.meta.url), "utf8");
+    const sha = createHash("sha256").update(src.replace(/\r\n/g, "\n")).digest("hex");
+    checar(`P2.6 /${gerado}?v=${v}: 200, ${tipo}, immutable e gerado do ${fonte} atual (sha256 no cabeçalho)`, r.status === 200 && (r.headers.get("content-type") || "").includes(tipo)
+      && r.headers.get("cache-control") === "public, max-age=31536000, immutable" && txt.startsWith(`/* gerado de ${fonte} por scripts/minificar.mjs`) && txt.includes(`(fonte sha256:${sha})`), `${r.status} ${r.headers.get("content-type")}`);
+    checar(`P2.6 ${gerado} ≤ 85% do ${fonte} e sem os comentários da fonte`, txt.length <= src.length * 0.85 && (txt.match(/\/\*/g) || []).length === 1, `${txt.length} de ${src.length}`);
+  }
+  const app = await (await pegar("/app.min.js")).text();
+  checar("P2.6 app.min.js mantém os nomes globais que o HTML e os testes de navegador usam (navegar, ajustarH1)", /function navegar\(/.test(app) && /function ajustarH1\(/.test(app));
+  const css = readFileSync(new URL("../site/estilo.css", import.meta.url), "utf8");
+  checar("P2.6 estilo.css sem as regras órfãs (nenhum HTML/JS usa mais)", !/\.(pill-ouro|cabeca-linha|hero-linha|links-consulta|parada-num|so-sem-js|hero-fatos)\b/.test(css.replace(/\/\*[\s\S]*?\*\//g, "")));
 }
 
 console.log(`\n${total - falhas}/${total} verificações passaram${falhas ? ` — ${falhas} FALHA(S)` : ""}.\n`);
