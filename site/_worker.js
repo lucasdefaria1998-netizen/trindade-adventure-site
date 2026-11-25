@@ -1584,9 +1584,48 @@ async function adminRemoverBloqueio(env, id) {
   return ok({ ok: true });
 }
 
+function montarSerieDiaria(linhas, hoje, dias) {
+  const mapa = new Map();
+  let inicio = somaDiasISO(hoje, -(dias - 1));
+  let fim = hoje;
+  for (const r of linhas || []) {
+    if (!r || !ehISO(r.dia)) continue;
+    mapa.set(r.dia, {
+      sessoes: Number(r.sessoes || 0),
+      eventos: Number(r.eventos || 0)
+    });
+    if (r.dia < inicio) inicio = r.dia;
+    if (r.dia > fim) fim = r.dia;
+  }
+  const serie = [];
+  let cursor = inicio;
+  for (let i = 0; i < 400 && cursor <= fim; i++) {
+    const v = mapa.get(cursor);
+    serie.push({ dia: cursor, sessoes: v ? v.sessoes : 0, eventos: v ? v.eventos : 0 });
+    cursor = somaDiasISO(cursor, 1);
+  }
+  return serie;
+}
+
+function montarSerieHoraria(linhas) {
+  const serie = Array.from({ length: 24 }, (_, hora) => ({ hora, sessoes: 0, eventos: 0 }));
+  for (const r of linhas || []) {
+    const h = Number(r && r.hora);
+    if (!Number.isInteger(h) || h < 0 || h > 23) continue;
+    serie[h] = {
+      hora: h,
+      sessoes: Number(r.sessoes || 0),
+      eventos: Number(r.eventos || 0)
+    };
+  }
+  return serie;
+}
+
 async function adminOrigem(env, url) {
-  const dias = Math.min(365, Number(url.searchParams.get("dias") || 30));
+  const diasBruto = Number(url.searchParams.get("dias"));
+  const dias = Number.isFinite(diasBruto) && diasBruto >= 1 ? Math.min(365, Math.floor(diasBruto)) : 30;
   const desde = new Date(Date.now() - dias * 86400000).toISOString();
+  const hoje = hojeSP();
 
   const porOrigem = await env.DB
     .prepare(
@@ -1600,6 +1639,50 @@ async function adminOrigem(env, url) {
     .prepare(
       "SELECT tipo, COUNT(DISTINCT sessao) AS sessoes, COUNT(*) AS eventos " +
       "FROM eventos WHERE ts > ? GROUP BY tipo"
+    )
+    .bind(desde)
+    .all();
+
+  const visitasPorOrigem = await env.DB
+    .prepare(
+      "SELECT COALESCE(NULLIF(origem, ''), 'desconhecida') AS origem, " +
+      "COUNT(DISTINCT sessao) AS sessoes, COUNT(*) AS eventos " +
+      "FROM eventos WHERE tipo = 'visita' AND ts > ? " +
+      "GROUP BY COALESCE(NULLIF(origem, ''), 'desconhecida') " +
+      "ORDER BY sessoes DESC, eventos DESC"
+    )
+    .bind(desde)
+    .all();
+
+  const visitasPorOrigemDetalhe = await env.DB
+    .prepare(
+      "SELECT COALESCE(NULLIF(origem, ''), 'desconhecida') AS origem, " +
+      "COALESCE(origem_detalhe, '') AS origem_detalhe, " +
+      "COUNT(DISTINCT sessao) AS sessoes, COUNT(*) AS eventos " +
+      "FROM eventos WHERE tipo = 'visita' AND ts > ? " +
+      "GROUP BY COALESCE(NULLIF(origem, ''), 'desconhecida'), COALESCE(origem_detalhe, '') " +
+      "ORDER BY sessoes DESC, eventos DESC LIMIT 50"
+    )
+    .bind(desde)
+    .all();
+
+  // Fuso de Trindade (America/Sao_Paulo = UTC−3, sem horário de verão).
+  const visitasPorDiaBruto = await env.DB
+    .prepare(
+      "SELECT strftime('%Y-%m-%d', ts, '-3 hours') AS dia, " +
+      "COUNT(DISTINCT sessao) AS sessoes, COUNT(*) AS eventos " +
+      "FROM eventos WHERE tipo = 'visita' AND ts > ? " +
+      "GROUP BY dia ORDER BY dia ASC"
+    )
+    .bind(desde)
+    .all();
+
+  const visitasPorHoraBruto = await env.DB
+    .prepare(
+      "SELECT CAST(strftime('%H', ts, '-3 hours') AS INTEGER) AS hora, " +
+      "COUNT(DISTINCT sessao) AS sessoes, COUNT(*) AS eventos " +
+      "FROM eventos WHERE tipo = 'visita' AND ts > ? " +
+      "GROUP BY hora ORDER BY hora ASC"
     )
     .bind(desde)
     .all();
@@ -1620,10 +1703,24 @@ async function adminOrigem(env, url) {
   return ok({
     ok: true,
     dias,
+    fuso: "America/Sao_Paulo",
     porOrigem: porOrigem.results,
     funil: funil.results,
     confirmadas: Number(confirmadas.n),
-    instagram: instagram.results
+    instagram: instagram.results,
+    visitasPorOrigem: visitasPorOrigem.results.map(r => ({
+      origem: r.origem,
+      sessoes: Number(r.sessoes || 0),
+      eventos: Number(r.eventos || 0)
+    })),
+    visitasPorOrigemDetalhe: visitasPorOrigemDetalhe.results.map(r => ({
+      origem: r.origem,
+      origem_detalhe: r.origem_detalhe || "",
+      sessoes: Number(r.sessoes || 0),
+      eventos: Number(r.eventos || 0)
+    })),
+    visitasPorDia: montarSerieDiaria(visitasPorDiaBruto.results, hoje, dias),
+    visitasPorHora: montarSerieHoraria(visitasPorHoraBruto.results)
   });
 }
 
@@ -1658,4 +1755,4 @@ async function adminGravarConfig(request, env) {
 }
 
 // Exportadas só para os testes de testes/ (o Pages usa apenas o export default).
-export { expiraEm, normalizarTelefone, conferirData, validarReserva, verificarTurnstile, resumirRelatorioCsp, destinoRedirect };
+export { expiraEm, normalizarTelefone, conferirData, validarReserva, verificarTurnstile, resumirRelatorioCsp, destinoRedirect, montarSerieDiaria, montarSerieHoraria, adminOrigem };

@@ -82,6 +82,7 @@ tr:last-child td{border-bottom:none}
 .filtros select,.filtros input{background:var(--surface);border:1px solid var(--line-2);border-radius:4px;padding:6px 9px;font-size:12.5px}
 .barras{display:flex;flex-direction:column;gap:8px}
 .barras .lin{display:grid;grid-template-columns:120px 1fr 90px;gap:10px;align-items:center;font-size:12px}
+.barras.visitas .lin{grid-template-columns:130px 1fr 165px}
 .barras .trilho{height:14px;background:var(--surface-2);border-radius:3px;overflow:hidden}
 .barras .fill{height:100%;background:var(--accent)}
 .funil{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
@@ -89,6 +90,24 @@ tr:last-child td{border-bottom:none}
 .funil .et .n{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
 .funil .et .l{font-size:11px;color:var(--muted)}
 .funil .et .pct{font-size:11px;color:var(--accent);font-weight:600}
+.funil .et .sub{font-size:10.5px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums}
+.resumo-linha{font-size:12px;color:var(--muted);margin:-4px 0 12px;font-variant-numeric:tabular-nums}
+.graf-wrap{overflow-x:auto;padding-bottom:4px}
+.graf-colunas{display:flex;align-items:flex-end;gap:3px;height:138px;padding-top:18px;border-bottom:1px solid var(--line)}
+.graf-col{flex:1 0 18px;display:flex;flex-direction:column;align-items:center;height:100%;justify-content:flex-end}
+.graf-col.compacta{flex:1 0 10px}
+.graf-col .barra-v{width:100%;max-width:26px;background:var(--accent);border-radius:2px 2px 0 0;opacity:.82}
+.graf-col:hover .barra-v{opacity:1}
+.graf-col.pico .barra-v{background:var(--gold);opacity:1}
+.graf-col .val{font-family:var(--mono);font-size:9px;color:var(--muted);line-height:1.1;margin-bottom:2px;font-variant-numeric:tabular-nums}
+.graf-col .rot{font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:4px;white-space:nowrap}
+.detalhes-toggle{margin-top:12px}
+.detalhes-toggle summary{cursor:pointer;font-size:12px;color:var(--accent);font-weight:500;padding:4px 0}
+.mono{font-family:var(--mono);font-size:11.5px}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+@media (max-width:600px){
+  .barras.visitas .lin{grid-template-columns:100px 1fr 125px;gap:6px;font-size:11px}
+}
 .msg{padding:14px;border-radius:6px;background:var(--surface);border:1px solid var(--line);font-size:13px;margin-bottom:16px}
 .msg.erro{border-color:var(--bad);color:var(--bad)}
 .vazio{padding:30px;text-align:center;color:var(--muted);font-size:13px}
@@ -154,10 +173,34 @@ dialog::backdrop{background:rgba(6,26,15,.5)}
         <option value="30" selected>Últimos 30 dias</option>
         <option value="90">Últimos 90 dias</option>
       </select>
+      <span style="font-size:12px;color:var(--muted)">Horário de Brasília (UTC−3) · histórico retroativo de eventos no D1</span>
     </div>
     <div class="card">
       <h3>Funil — visita até reserva</h3>
       <div class="funil" id="funil"></div>
+    </div>
+    <div class="card">
+      <h3>Visitas por origem</h3>
+      <div class="resumo-linha" id="resumoVisitasOrigem"></div>
+      <div class="barras visitas" id="barrasVisitasOrigem"></div>
+      <details class="detalhes-toggle" id="wrapVisitasDetalhe" hidden>
+        <summary>Detalhamento por origem e referência (origem_detalhe)</summary>
+        <div class="scroll-x" style="margin-top:8px"><table id="tabelaVisitasDetalhe"></table></div>
+      </details>
+    </div>
+    <div class="card">
+      <h3>Visitas por dia (série diária)</h3>
+      <div class="resumo-linha" id="resumoVisitasDia"></div>
+      <div class="graf-wrap" id="grafVisitasDia"></div>
+      <details class="detalhes-toggle" id="wrapVisitasDiaTabela" hidden>
+        <summary>Ver tabela diária completa</summary>
+        <div class="scroll-x" style="margin-top:8px"><table id="tabelaVisitasDia"></table></div>
+      </details>
+    </div>
+    <div class="card">
+      <h3>Horários de pico (00h–23h)</h3>
+      <div class="resumo-linha" id="resumoVisitasHora"></div>
+      <div class="graf-wrap" id="grafVisitasHora"></div>
     </div>
     <div class="card">
       <h3>De onde vieram as reservas</h3>
@@ -362,20 +405,120 @@ async function carregarOrigem() {
   try { d = await api("/origem?dias=" + $("#oDias").value); } catch (e) { return aviso("Erro: " + e.message, true); }
 
   const ev = {};
-  d.funil.forEach(f => { ev[f.tipo] = f.sessoes; });
+  const evTot = {};
+  d.funil.forEach(f => { ev[f.tipo] = Number(f.sessoes || 0); evTot[f.tipo] = Number(f.eventos || 0); });
   const visitas = ev.visita || 0;
   const inicio = ev.inicio_reserva || 0;
   const envio = ev.envio_whatsapp || 0;
   const etapas = [
-    ["Visitas", visitas, ""],
-    ["Abriram reserva", inicio, visitas ? Math.round(inicio / visitas * 100) + "%" : ""],
-    ["Enviaram pedido", envio, inicio ? Math.round(envio / inicio * 100) + "%" : ""],
-    ["Confirmadas", d.confirmadas, envio ? Math.round(d.confirmadas / envio * 100) + "%" : ""]
+    ["Visitas (únicos)", visitas, "", (evTot.visita || 0) + " carregamentos"],
+    ["Abriram reserva", inicio, visitas ? Math.round(inicio / visitas * 100) + "%" : "", (evTot.inicio_reserva || 0) + " eventos"],
+    ["Enviaram pedido", envio, inicio ? Math.round(envio / inicio * 100) + "%" : "", (evTot.envio_whatsapp || 0) + " eventos"],
+    ["Confirmadas", d.confirmadas, envio ? Math.round(d.confirmadas / envio * 100) + "%" : "", ""]
   ];
-  $("#funil").innerHTML = etapas.map(([l, n, pct]) =>
+  $("#funil").innerHTML = etapas.map(([l, n, pct, sub]) =>
     '<div class="et"><div class="n">' + n + '</div><div class="l">' + l + '</div>' +
-    (pct ? '<div class="pct">' + pct + " do passo anterior</div>" : "") + "</div>"
+    (pct ? '<div class="pct">' + pct + " do passo anterior</div>" : "") +
+    (sub ? '<div class="sub">' + sub + "</div>" : "") + "</div>"
   ).join("");
+
+  // Visitas por origem (sessões únicas + carregamentos)
+  const vOrig = Array.isArray(d.visitasPorOrigem) ? d.visitasPorOrigem : [];
+  const totVEv = vOrig.reduce((s, o) => s + Number(o.eventos || 0), 0);
+  const totVSess = vOrig.reduce((s, o) => s + Number(o.sessoes || 0), 0);
+  $("#resumoVisitasOrigem").textContent = vOrig.length
+    ? totVEv + " carregamentos · " + visitas + " navegadores únicos · " + vOrig.length + (vOrig.length === 1 ? " origem" : " origens")
+    : "";
+  $("#barrasVisitasOrigem").innerHTML = vOrig.length ? vOrig.map(o => {
+    const pct = totVSess > 0
+      ? Math.round(Number(o.sessoes || 0) / totVSess * 100)
+      : Math.round(Number(o.eventos || 0) / (totVEv || 1) * 100);
+    return '<div class="lin"><span class="mono">' + esc(o.origem || "—") + '</span><span class="trilho"><span class="fill" style="width:' + pct + '%"></span></span>' +
+      '<span class="num">' + o.sessoes + " ún · " + o.eventos + " carr (" + pct + "%)</span></div>";
+  }).join("") : '<div class="vazio">Sem visitas registradas no período.</div>';
+
+  // Detalhamento por origem + origem_detalhe
+  const vDet = Array.isArray(d.visitasPorOrigemDetalhe) ? d.visitasPorOrigemDetalhe : [];
+  const wrapDet = $("#wrapVisitasDetalhe");
+  if (vDet.length) {
+    wrapDet.hidden = false;
+    const baseEv = totVEv || 1;
+    $("#tabelaVisitasDetalhe").innerHTML =
+      "<thead><tr><th>Origem</th><th>Detalhe (origem_detalhe)</th><th class=\"num\">Únicos</th><th class=\"num\">Carregamentos</th><th class=\"num\">% carr.</th></tr></thead><tbody>" +
+      vDet.map(o => {
+        const pct = Math.round(Number(o.eventos || 0) / baseEv * 100);
+        return '<tr><td class="mono">' + esc(o.origem || "—") + '</td><td class="mono">' + esc(o.origem_detalhe || "—") +
+          '</td><td class="num">' + o.sessoes + '</td><td class="num">' + o.eventos + '</td><td class="num">' + pct + "%</td></tr>";
+      }).join("") + "</tbody>";
+  } else {
+    wrapDet.hidden = true;
+    $("#tabelaVisitasDetalhe").innerHTML = "";
+  }
+
+  // Série diária (por dia calendário em America/Sao_Paulo)
+  const vDia = Array.isArray(d.visitasPorDia) ? d.visitasPorDia : [];
+  const totDiaEv = vDia.reduce((s, r) => s + Number(r.eventos || 0), 0);
+  const wrapDiaTab = $("#wrapVisitasDiaTabela");
+  if (vDia.length && totDiaEv > 0) {
+    const maxDia = Math.max(...vDia.map(r => Number(r.eventos || 0)), 1);
+    const picoDia = vDia.reduce((melhor, r) => Number(r.eventos || 0) > Number(melhor.eventos || 0) ? r : melhor, vDia[0]);
+    const mediaDia = (totDiaEv / vDia.length).toFixed(1).replace(".", ",");
+    $("#resumoVisitasDia").textContent =
+      totDiaEv + " carregamentos em " + vDia.length + " dias (média " + mediaDia + "/dia) · pico em " +
+      dataBR(picoDia.dia) + " (" + diaSemana(picoDia.dia) + "): " + picoDia.eventos + " carr · " + picoDia.sessoes + " ún";
+    const compacta = vDia.length > 35;
+    const passoRot = vDia.length > 60 ? 7 : vDia.length > 20 ? 3 : 1;
+    $("#grafVisitasDia").innerHTML = '<div class="graf-colunas">' + vDia.map((r, idx) => {
+      const evN = Number(r.eventos || 0);
+      const pct = evN ? Math.max(4, Math.round(evN / maxDia * 100)) : 0;
+      const ehPico = evN === maxDia && evN > 0;
+      const mostrarRot = idx === 0 || idx === vDia.length - 1 || idx % passoRot === 0;
+      const ddmm = r.dia ? r.dia.slice(8, 10) + "/" + r.dia.slice(5, 7) : "";
+      const tip = dataBR(r.dia) + " (" + diaSemana(r.dia) + "): " + evN + " carregamentos · " + r.sessoes + " navegadores únicos";
+      return '<div class="graf-col' + (compacta ? " compacta" : "") + (ehPico ? " pico" : "") + '" title="' + esc(tip) + '">' +
+        '<span class="val">' + (!compacta && evN > 0 ? evN : (ehPico ? evN : "")) + '</span>' +
+        '<span class="barra-v" style="height:' + pct + '%"></span>' +
+        '<span class="rot">' + (mostrarRot ? ddmm : "") + "</span></div>";
+    }).join("") + "</div>";
+
+    wrapDiaTab.hidden = false;
+    $("#tabelaVisitasDia").innerHTML =
+      "<thead><tr><th>Data</th><th>Dia</th><th class=\"num\">Navegadores únicos</th><th class=\"num\">Carregamentos</th></tr></thead><tbody>" +
+      vDia.slice().reverse().map(r =>
+        "<tr><td>" + dataBR(r.dia) + "</td><td>" + diaSemana(r.dia) + '</td><td class="num">' + r.sessoes + '</td><td class="num">' + r.eventos + "</td></tr>"
+      ).join("") + "</tbody>";
+  } else {
+    $("#resumoVisitasDia").textContent = "";
+    $("#grafVisitasDia").innerHTML = '<div class="vazio">Sem visitas registradas no período.</div>';
+    wrapDiaTab.hidden = true;
+    $("#tabelaVisitasDia").innerHTML = "";
+  }
+
+  // Horários de pico (00h–23h em America/Sao_Paulo)
+  const vHora = Array.isArray(d.visitasPorHora) ? d.visitasPorHora : [];
+  const totHoraEv = vHora.reduce((s, r) => s + Number(r.eventos || 0), 0);
+  if (vHora.length && totHoraEv > 0) {
+    const maxHora = Math.max(...vHora.map(r => Number(r.eventos || 0)), 1);
+    const picos = vHora.filter(r => Number(r.eventos || 0) === maxHora);
+    const textoPicos = picos.map(p => d2(p.hora) + "h–" + d2((p.hora + 1) % 24) + "h").join(", ");
+    const detalhePico = picos.length === 1 ? maxHora + " carr · " + picos[0].sessoes + " ún" : maxHora + " carr cada";
+    $("#resumoVisitasHora").textContent =
+      "Pico: " + textoPicos + " (" + detalhePico + ") · distribuição das " + totHoraEv + " visitas no período";
+    $("#grafVisitasHora").innerHTML = '<div class="graf-colunas">' + vHora.map(r => {
+      const evN = Number(r.eventos || 0);
+      const pct = evN ? Math.max(4, Math.round(evN / maxHora * 100)) : 0;
+      const ehPico = evN === maxHora && evN > 0;
+      const faixa = d2(r.hora) + "h–" + d2((r.hora + 1) % 24) + "h";
+      const tip = faixa + ": " + evN + " carregamentos · " + r.sessoes + " navegadores únicos";
+      return '<div class="graf-col' + (ehPico ? " pico" : "") + '" title="' + esc(tip) + '">' +
+        '<span class="val">' + (evN > 0 ? evN : "") + '</span>' +
+        '<span class="barra-v" style="height:' + pct + '%"></span>' +
+        '<span class="rot">' + d2(r.hora) + "h</span></div>";
+    }).join("") + "</div>";
+  } else {
+    $("#resumoVisitasHora").textContent = "";
+    $("#grafVisitasHora").innerHTML = '<div class="vazio">Sem visitas registradas no período.</div>';
+  }
 
   const total = d.porOrigem.reduce((s, o) => s + Number(o.n), 0) || 1;
   $("#barrasOrigem").innerHTML = d.porOrigem.length ? d.porOrigem.map(o => {
