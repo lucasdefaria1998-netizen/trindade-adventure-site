@@ -530,4 +530,62 @@ const restamEm = async (dia, hora) => (await (await fetch(`${BASE}/api/disponibi
   checar("E18 resumo aceita lixo sem lançar erro e limita a 5 itens", w.resumirRelatorioCsp([1, null, "x", [], {}, {}, {}, {}, {}]).length <= 5 && Array.isArray(w.resumirRelatorioCsp(42)) && w.resumirRelatorioCsp({}).length === 1);
 }
 
+// ---------- /api/admin/origem — detalhamento de visitas (origem, origem_detalhe, série diária, horários de pico) ----------
+{
+  const adm = { "Cf-Access-Jwt-Assertion": criarJwtAccess(), origin: BASE };
+  exec("DELETE FROM eventos");
+  const agora = Date.now();
+  const isoMenosDias = (d, hUtc = 17, min = 0) => {
+    const dt = new Date(agora - d * 86400000);
+    dt.setUTCHours(hUtc, min, 0, 0);
+    return dt.toISOString();
+  };
+  // Eventos dentro de 90 dias (incluindo um evento de 80 dias atrás para validar recuperação retroativa) e um fora (> 95 dias)
+  const tsHoje14BRT = new Date(agora - 3600000).toISOString(); // 1h atrás
+  const tsMadrugadaUTC = isoMenosDias(2, 1, 30); // 01:30 UTC = 22:30 BRT do dia anterior
+  const ts80d = isoMenosDias(80, 17, 15);        // 17:15 UTC = 14:15 BRT, dentro dos 90 dias
+  const ts100d = isoMenosDias(100, 15, 0);       // fora da janela de 90 dias
+  exec(
+    `INSERT INTO eventos (ts, tipo, origem, origem_detalhe, sessao) VALUES ` +
+    `('${tsHoje14BRT}', 'visita', 'google', 'https://www.google.com/', 'sess-a1111111'),` +
+    `('${tsHoje14BRT}', 'visita', 'google', 'https://www.google.com/', 'sess-a1111111'),` +
+    `('${tsHoje14BRT}', 'visita', 'instagram', 'bio-link', 'sess-b2222222'),` +
+    `('${tsHoje14BRT}', 'inicio_reserva', 'instagram', 'bio-link', 'sess-b2222222'),` +
+    `('${tsMadrugadaUTC}', 'visita', 'direto', NULL, 'sess-c3333333'),` +
+    `('${ts80d}', 'visita', 'link:pousada-sol', 'qr-recepcao', 'sess-d4444444'),` +
+    `('${ts100d}', 'visita', 'outro', 'antigo', 'sess-e5555555')`
+  );
+
+  const r90 = await fetch(`${BASE}/api/admin/origem?dias=90`, { headers: adm });
+  const j90 = await jsonDe(r90);
+  checar("ORIGEM /api/admin/origem?dias=90 → 200 com novos campos de visitas", r90.status === 200 && j90.ok && Array.isArray(j90.visitasPorOrigem) && Array.isArray(j90.visitasPorOrigemDetalhe) && Array.isArray(j90.visitasPorDia) && Array.isArray(j90.visitasPorHora), `${r90.status} ${JSON.stringify(Object.keys(j90 || {}))}`);
+
+  const totOrigEv = j90.visitasPorOrigem.reduce((s, o) => s + o.eventos, 0);
+  const gOrig = j90.visitasPorOrigem.find(o => o.origem === "google");
+  const pOrig = j90.visitasPorOrigem.find(o => o.origem === "link:pousada-sol");
+  checar("ORIGEM visitasPorOrigem conta apenas tipo=visita dentro de 90d (5 eventos, exclui inicio_reserva e >90d)", totOrigEv === 5 && gOrig?.sessoes === 1 && gOrig?.eventos === 2 && pOrig?.sessoes === 1 && !j90.visitasPorOrigem.some(o => o.origem === "outro"), JSON.stringify(j90.visitasPorOrigem));
+
+  const pDet = j90.visitasPorOrigemDetalhe.find(o => o.origem === "link:pousada-sol" && o.origem_detalhe === "qr-recepcao");
+  const dDet = j90.visitasPorOrigemDetalhe.find(o => o.origem === "direto" && o.origem_detalhe === "");
+  checar("ORIGEM visitasPorOrigemDetalhe preserva origem + origem_detalhe retroativos", pDet?.eventos === 1 && dDet?.eventos === 1, JSON.stringify(j90.visitasPorOrigemDetalhe));
+
+  const totDiaEv = j90.visitasPorDia.reduce((s, r) => s + r.eventos, 0);
+  checar("ORIGEM visitasPorDia cobre >=90 dias calendário contínuos e soma 5 eventos", j90.visitasPorDia.length >= 90 && totDiaEv === 5, `len=${j90.visitasPorDia.length} sum=${totDiaEv}`);
+
+  const totHoraEv = j90.visitasPorHora.reduce((s, r) => s + r.eventos, 0);
+  checar("ORIGEM visitasPorHora devolve 24 faixas (0..23), soma 5 e converte 01:30Z → 22h BRT e 17:15Z → 14h BRT", j90.visitasPorHora.length === 24 && totHoraEv === 5 && j90.visitasPorHora[22].eventos >= 1 && j90.visitasPorHora[14].eventos >= 1, JSON.stringify({ len: j90.visitasPorHora.length, totHoraEv, h22: j90.visitasPorHora[22], h14: j90.visitasPorHora[14] }));
+
+  // Janela de 7 dias não inclui o evento de 80 dias atrás
+  const j7 = await jsonDe(await fetch(`${BASE}/api/admin/origem?dias=7`, { headers: adm }));
+  checar("ORIGEM ?dias=7 exclui evento de 80 dias atrás (soma 4 eventos)", j7.visitasPorOrigem.reduce((s, o) => s + o.eventos, 0) === 4 && !j7.visitasPorOrigem.some(o => o.origem === "link:pousada-sol"), JSON.stringify(j7.visitasPorOrigem));
+
+  // Funções puras de série diária e horária
+  const src = (await import("node:fs")).readFileSync(new URL("../site/_worker.js", import.meta.url), "utf8");
+  const w = await import("data:text/javascript;base64," + Buffer.from(src).toString("base64"));
+  const sd = w.montarSerieDiaria([{ dia: "2026-11-23", sessoes: 2, eventos: 5 }], "2026-11-25", 7);
+  checar("ORIGEM montarSerieDiaria preenche 7 dias com zeros e mantém o dia com visitas", sd.length === 7 && sd[0].dia === "2026-11-19" && sd[6].dia === "2026-11-25" && sd[4].eventos === 5 && sd[5].eventos === 0, JSON.stringify(sd));
+  const sh = w.montarSerieHoraria([{ hora: 14, sessoes: 3, eventos: 7 }, { hora: 99, sessoes: 1, eventos: 1 }]);
+  checar("ORIGEM montarSerieHoraria devolve 24 horas e ignora hora inválida", sh.length === 24 && sh[14].eventos === 7 && sh[0].eventos === 0, JSON.stringify(sh[14]));
+}
+
 resumo();
